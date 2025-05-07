@@ -12,7 +12,7 @@ import re
 st.set_page_config(page_title="COPD Treatment-Cause Explorer", layout="wide")
 
 # Directory with data
-DATA_DIR = "data"
+DATA_DIR = "/mount/src/researchnetworks/COPD_Author_Widget/data"
 
 # Load treatment mapping
 treatment_mapping = {}
