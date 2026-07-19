@@ -14,7 +14,7 @@
   // NOTE: this is a temporary public tunnel to the backend. Swap it for the stable
   // api.pubverse.ai once that is set up. Override without redeploy via window.PV_API_BASE.
   var API_BASE = (typeof window.PV_API_BASE === 'string') ? window.PV_API_BASE
-    : 'https://tattoo-instruction-reading-surrey.trycloudflare.com';
+    : 'https://hpcf.tail8ba9b3.ts.net';
 
   window.PV = {
     API_BASE: API_BASE,
