@@ -1,6 +1,6 @@
 {
   "topic": "virology",
-  "status": "building",
-  "message": "The virology knowledge landscape is being assembled. Needle results will appear here once it is ready.",
+  "status": "unavailable",
+  "message": "Virology coverage is not available yet. Check back soon.",
   "needles": []
 }

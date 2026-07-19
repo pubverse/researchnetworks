@@ -86,17 +86,17 @@
     return { ok: false, status: res.status, message: statusMessage(res.status) };
   }
 
-  // Build a download URL for a compass export. Used as an <a href>, so the
-  // session cookie rides along automatically. runId, scope, and cols are
-  // encoded; cols may be an array or a comma string.
-  function compassExportUrl(runId, scope, cols) {
+  // Build a download URL for a compass export, used as an <a href download>. A
+  // download link cannot carry an Authorization header, so the token travels in the
+  // query. It is NOT the session token: the caller passes a short-lived token
+  // scoped to this one run (minted server-side and returned with the run's poll
+  // result), so a leaked export URL cannot be replayed as the account. runId,
+  // scope, and cols are encoded; cols may be an array or a comma string.
+  function compassExportUrl(runId, scope, cols, exportToken) {
     var params = new URLSearchParams();
     if (scope) params.set('scope', scope);
     if (cols) params.set('cols', Array.isArray(cols) ? cols.join(',') : cols);
-    // A download link cannot carry an Authorization header, so pass the token in the query
-    // (the export endpoint accepts pv_token). Cookies are blocked cross-site.
-    var tok = getToken();
-    if (tok) params.set('pv_token', tok);
+    if (exportToken) params.set('pv_token', exportToken);
     var qs = params.toString();
     return window.PV.API_BASE + '/api/compass/export/' +
       encodeURIComponent(runId) + '.tsv' + (qs ? '?' + qs : '');
@@ -135,6 +135,20 @@
     // compass
     compassValidate: function (topic) {
       return request('/api/compass/validate', { method: 'POST', body: { topic: topic } });
+    },
+    // Covered subjects for the searchable topic picker. Optional q narrows the
+    // list server-side as the user types (e.g. ?q=vir). Returns the backend JSON.
+    compassCovered: function (q) {
+      var path = '/api/compass/covered';
+      if (q) path += '?q=' + encodeURIComponent(q);
+      return request(path);
+    },
+    // Ask PubVerse to cover a subject it does not cover yet. The optional email is
+    // recorded so the person can be told when that coverage lands.
+    compassRequestTopic: function (topic, email) {
+      var body = { topic: topic };
+      if (email) body.email = email;
+      return request('/api/compass/request-topic', { method: 'POST', body: body });
     },
     compassRun: function (topic, monthsBack, email) {
       var body = { topic: topic, months_back: monthsBack };

@@ -54,6 +54,8 @@
     <nav class="nav">
       <div class="wrap">
         <a class="brand" href="/"><img src="/assets/pubverse_wordmark.png" alt="PubVerse"></a>
+        <a class="affil" href="https://fortytwodegrees.org" target="_blank" rel="noopener"
+           title="Affiliated with fortytwodegrees.org"><img src="/assets/compass42.png" alt="fortytwodegrees.org" style="height:30px"></a>
         <div class="spacer"></div>
         <a class="link active" href="/compass">Compass</a>
         <a class="link" href="/docs.html">Docs</a>
@@ -70,13 +72,29 @@
     <section class="wrap">
       <div class="card">
         <label for="topic">Topic</label>
-        <input id="topic" maxlength="120" autocomplete="off" placeholder="e.g. population dynamics in mathematical biology">
-        <div class="counter" id="topicCounter"></div>
+        <input id="topic" list="coveredTopics" maxlength="120" autocomplete="off"
+               aria-describedby="topicHint"
+               placeholder="e.g. population dynamics in mathematical biology">
+        <datalist id="coveredTopics"></datalist>
+        <div class="mini" id="topicHint" style="margin-top:6px">Pick a subject PubVerse already covers, or type your own and check it.</div>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="checkBtn">Check topic</button>
         </div>
         <div class="err" id="topicErr"></div>
         <div class="verdict" id="validOk" hidden></div>
+
+        <!-- when a typed topic is not covered, offer to request it instead of dead-ending -->
+        <div class="panel" id="requestPanel" hidden style="margin-top:14px">
+          <div id="requestAsk">
+            <p style="margin:0 0 12px">PubVerse does not cover that subject yet. You can ask us to add it. Leave an email if you would like a note when it lands.</p>
+            <div class="row">
+              <input id="reqEmail" type="email" autocomplete="email" placeholder="you@example.org (optional)" style="flex:1;min-width:220px">
+              <button class="btn ghost" id="requestBtn">Request this topic</button>
+            </div>
+            <div class="err" id="requestErr"></div>
+          </div>
+          <div class="verdict" id="requestDone" hidden></div>
+        </div>
 
         <!-- revealed only once a topic checks out as covered -->
         <div id="runControls" hidden>
@@ -190,12 +208,15 @@
     /* ---------- page wiring (runs once, after auth) ---------- */
     var checkedTopic = null;
     var polling = false;
+    var validating = false;
+    var lastAutoChecked = null;
+    var suggestTimer = null;
+    var coveredMap = Object.create(null);   // lowercased covered label -> true
 
     function initPage() {
       if (started) return;
       started = true;
 
-      ui.bindCharCounter('#topic', '#topicCounter');
 
       var sel = $('#months');
       PV.TIMEFRAMES.forEach(function (m) {
@@ -208,34 +229,185 @@
       sel.value = String(PV.TIMEFRAME_DEFAULT);
 
       on($('#topic'), 'input', resetValidation);
+      on($('#topic'), 'input', onTopicInput);
+      on($('#topic'), 'change', onTopicCommit);
       on($('#checkBtn'), 'click', onCheck);
       on($('#findBtn'), 'click', onFind);
+      on($('#requestBtn'), 'click', onRequestTopic);
 
+      loadCovered();
+      prefillTopicFromQuery();
       loadExample();
+    }
+
+    // Preselect the offered window closest to a field's default, so a covered
+    // topic starts on a sensible look-back rather than a fixed constant.
+    function selectTimeframe(months) {
+      var sel = $('#months');
+      if (!sel || months == null) return;
+      var want = parseInt(months, 10);
+      if (isNaN(want)) return;
+      var best = null, bestDiff = Infinity;
+      PV.TIMEFRAMES.forEach(function (m) {
+        var d = Math.abs(m - want);
+        if (d < bestDiff) { bestDiff = d; best = m; }
+      });
+      if (best != null) sel.value = String(best);
+    }
+
+    // A saved-topic chip links here with ?topic=...; prefill it for one-click reuse.
+    function prefillTopicFromQuery() {
+      try {
+        var t = new URLSearchParams(window.location.search).get('topic');
+        if (t) {
+          var input = $('#topic');
+          if (input) { input.value = t; input.dispatchEvent(new Event('input')); }
+        }
+      } catch (e) { /* query parsing is a convenience, never block the page */ }
     }
 
     function resetValidation() {
       checkedTopic = null;
+      lastAutoChecked = null;
       $('#runControls').hidden = true;
       $('#validOk').hidden = true;
+      hideRequest();
       ui.clearError('#topicErr');
+    }
+
+    /* ---------- covered-topic picker (searchable dropdown over the free-text box) ---------- */
+    // Fill the topic datalist with the subjects PubVerse covers. The list is
+    // append-only so options never vanish mid-type; the browser filters what it
+    // shows by what the user has typed. Best-effort: never blocks the page.
+    function loadCovered(q) {
+      api.compassCovered(q).then(function (r) {
+        addCovered(parseCovered(r));
+      }).catch(function () { /* the picker is a convenience, never block on it */ });
+    }
+    function parseCovered(r) {
+      if (!r || r.ok === false) return [];
+      var arr = Array.isArray(r) ? r
+        : (r.topics || r.covered || r.subjects || r.items || r.fields || []);
+      if (!Array.isArray(arr)) return [];
+      var out = [];
+      arr.forEach(function (it) {
+        var label = '';
+        if (typeof it === 'string') label = it;
+        else if (it && typeof it === 'object')
+          label = it.label || it.topic || it.name || it.title || it.subject || it.slug || '';
+        label = String(label == null ? '' : label).trim();
+        if (label) out.push(label);
+      });
+      return out;
+    }
+    function addCovered(labels) {
+      var dl = $('#coveredTopics');
+      if (!dl || !labels.length) return;
+      labels.forEach(function (label) {
+        var key = label.toLowerCase();
+        if (coveredMap[key]) return;
+        coveredMap[key] = true;
+        var o = document.createElement('option');
+        o.value = label;
+        dl.appendChild(o);
+      });
+    }
+    function isCovered(topic) {
+      return !!coveredMap[(topic || '').trim().toLowerCase()];
+    }
+
+    // As the user types, ask the server for matching covered subjects (it searches
+    // by ?q=). Debounced, and merged in, so a large coverage list works without
+    // shipping every subject up front.
+    function onTopicInput() {
+      var v = ($('#topic').value || '').trim();
+      if (suggestTimer) clearTimeout(suggestTimer);
+      if (v.length < 2) return;
+      suggestTimer = setTimeout(function () { loadCovered(v); }, 250);
+    }
+
+    // Fired when the field is committed (an option chosen from the dropdown, or
+    // focus leaving after an edit). If it matches a covered subject exactly, check
+    // it for the user so the run controls appear without a second click.
+    function onTopicCommit() {
+      var v = ($('#topic').value || '').trim();
+      var key = v.toLowerCase();
+      if (v && isCovered(v) && lastAutoChecked !== key) {
+        lastAutoChecked = key;
+        onCheck();
+      }
+    }
+
+    /* ---------- request an uncovered topic ---------- */
+    function showRequest(topic) {
+      var panel = $('#requestPanel');
+      if (!panel) return;
+      panel.setAttribute('data-topic', topic || '');
+      $('#requestAsk').hidden = false;
+      $('#requestDone').hidden = true;
+      ui.clearError('#requestErr');
+      var btn = $('#requestBtn');
+      if (btn) { btn.disabled = false; btn.textContent = 'Request this topic'; }
+      panel.hidden = false;
+    }
+    function hideRequest() {
+      var panel = $('#requestPanel');
+      if (panel) panel.hidden = true;
+    }
+    function looksLikeEmail(s) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+    }
+    function onRequestTopic() {
+      var panel = $('#requestPanel');
+      var topic = (panel && panel.getAttribute('data-topic')) || ($('#topic').value || '').trim();
+      if (!topic) return;
+      var email = ($('#reqEmail').value || '').trim();
+      ui.clearError('#requestErr');
+      if (email && !looksLikeEmail(email)) {
+        ui.showError('#requestErr', 'That email does not look right. Correct it, or leave it blank.');
+        return;
+      }
+      var btn = $('#requestBtn');
+      btn.disabled = true;
+      var label = btn.textContent;
+      btn.textContent = 'Sending...';
+      api.compassRequestTopic(topic, email || undefined).then(function (r) {
+        if (r && r.ok) {
+          $('#requestAsk').hidden = true;
+          var done = $('#requestDone');
+          done.textContent = email
+            ? 'Thanks. We noted your interest in "' + topic + '" and will email ' + email + ' when PubVerse covers it.'
+            : 'Thanks. We noted your interest in "' + topic + '". Check back as coverage grows.';
+          done.hidden = false;
+        } else {
+          btn.disabled = false;
+          btn.textContent = label;
+          ui.showError('#requestErr', (r && r.message) || 'Could not send the request just now. Please try again.');
+        }
+      });
     }
 
     /* ---------- check topic ---------- */
     function onCheck() {
       var topic = ($('#topic').value || '').trim();
+      if (validating) return;
+      // Already validated this exact topic as covered and the run controls are up.
+      if (topic && checkedTopic === topic && !$('#runControls').hidden) return;
       ui.clearError('#topicErr');
       $('#validOk').hidden = true;
+      hideRequest();
       if (!topic) { ui.showError('#topicErr', 'Enter a topic first.'); return; }
       if (topic.length > PV.TOPIC_CHAR_LIMIT) {
         ui.showError('#topicErr', 'That topic is too long. Keep it under ' + PV.TOPIC_CHAR_LIMIT + ' characters.');
         return;
       }
       var btn = $('#checkBtn');
+      validating = true;
       btn.disabled = true;
       var label = btn.textContent;
       btn.textContent = 'Checking...';
       api.compassValidate(topic).then(function (r) {
+        validating = false;
         btn.disabled = false;
         btn.textContent = label;
         if (r && r.ok) {
@@ -243,8 +415,11 @@
           $('#validOk').textContent = r.message || 'This topic is covered. Choose how far back to look and find the needles.';
           $('#validOk').hidden = false;
           $('#runControls').hidden = false;
+          hideRequest();
+          if (r.default_months != null) selectTimeframe(r.default_months);
         } else {
           ui.showError('#topicErr', (r && r.message) || 'That topic is not covered yet. Try a broader or nearby subject.');
+          showRequest(topic);
         }
       });
     }
@@ -288,7 +463,7 @@
             clearInterval(iv); polling = false;
             ui.hideCompass('#spinner');
             $('#findBtn').disabled = false;
-            renderDashboard(r.dashboard, { live: true, runId: runId });
+            renderDashboard(r.dashboard, { live: true, runId: runId, exportToken: r.export_token });
             $('#dash').scrollIntoView({ behavior: 'smooth' });
           } else if (r && (r.status === 'error' || r.ok === false)) {
             clearInterval(iv); polling = false;
@@ -323,6 +498,18 @@
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
       });
     }
+    // Cosmetic tidy for the plain-language reasoning shown to the reader. The
+    // backend composes the wording only from the measures and strips any sensitive
+    // term server-side before sending, so the page only needs to clear a stray
+    // bracketed reference handle like [3] and tidy the spacing it leaves behind.
+    function scrub(s) {
+      var t = String(s == null ? '' : s);
+      t = t.replace(/\[[A-Za-z]?\d+[^\]]*\]/g, '');
+      t = t.replace(/\(\s*\)/g, '');
+      t = t.replace(/\s{2,}/g, ' ');
+      t = t.replace(/\s+([.,;:])/g, '$1');
+      return t.trim();
+    }
     function fmt(n) {
       if (n == null || n === '') return '-';
       var x = Number(n);
@@ -346,6 +533,17 @@
       opts = opts || {};
       var dash = $('#dash');
       var needles = Array.isArray(data.needles) ? data.needles : [];
+
+      // Honest availability placeholder: { message, needles: [] } with no counts.
+      // Render the message plainly rather than a misleading "0 gathered / 0 found".
+      if (data.message && !needles.length && data.haystack_count == null) {
+        dash.innerHTML = '<div class="card"><h2 style="margin:0 0 .4em">' +
+          esc(data.topic || 'Coverage') + '</h2><p class="muted">' +
+          esc(scrub(data.message)) + '</p></div>';
+        dash.hidden = false;
+        return;
+      }
+
       var html = '<div class="card">';
 
       html += '<div class="row">';
@@ -356,25 +554,44 @@
 
       html += '<div class="scorebar" style="margin-top:16px">';
       html += tile(fmt(data.haystack_count), 'papers gathered');
-      html += tile(fmt(data.screened), 'read in full');
       html += tile(String(needles.length), needles.length === 1 ? 'needle found' : 'needles found');
       html += '</div>';
 
-      if (data.notes) html += '<div class="verdict">' + esc(data.notes) + '</div>';
+      if (data.notes) html += '<div class="verdict">' + esc(scrub(data.notes)) + '</div>';
 
+      // Resolve a needle to its paper URL. Only http(s) links and bare DOIs pass;
+      // any other scheme (javascript:, data:) yields no link, so a title or source
+      // can never become a live handle. arxiv ids arrive as full https URLs; a bare
+      // DOI resolves through doi.org.
+      function paperUrl(n) {
+        var u = String((n && (n.url || n.doi || n.id)) || '').trim();
+        if (/^https?:\/\//i.test(u)) return u;
+        if (/^10\./.test(u)) return 'https://doi.org/' + u;
+        return '';
+      }
+      function titleCell(n) {
+        var u = paperUrl(n), t = esc(n.title || '');
+        return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + t + '</a>' : t;
+      }
+      // The source label also links to the paper (doi.org for a DOI, the arxiv page
+      // for an arxiv id) so the identifier is a visible, clickable element too.
+      function sourceCell(n) {
+        var u = paperUrl(n), s = esc(n.source || '');
+        return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + s + '</a>' : s;
+      }
       if (needles.length) {
         html += '<div style="overflow-x:auto"><table><thead><tr>' +
           '<th>Title</th><th>Source</th><th>Date</th><th>Novelty</th><th>Methods</th><th>Impact</th><th>Why it stood out</th>' +
           '</tr></thead><tbody>';
         needles.forEach(function (n) {
           html += '<tr class="needle-row">' +
-            '<td>' + esc(n.title) + '</td>' +
-            '<td class="nowrap">' + esc(n.source) + '</td>' +
+            '<td>' + titleCell(n) + '</td>' +
+            '<td class="nowrap">' + sourceCell(n) + '</td>' +
             '<td class="nowrap">' + esc(n.date) + '</td>' +
             '<td>' + scoreCell(n.novelty) + '</td>' +
             '<td>' + scoreCell(n.methods) + '</td>' +
             '<td>' + scoreCell(n.impact) + '</td>' +
-            '<td>' + esc(n.verdict) + '</td>' +
+            '<td>' + esc(scrub(n.verdict)) + '</td>' +
             '</tr>';
         });
         html += '</tbody></table></div>';
@@ -398,27 +615,27 @@
 
       if (opts.live && opts.runId) {
         var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');
-        if (en) { en.href = api.compassExportUrl(opts.runId, 'needles', 'novelty,methods,impact'); en.setAttribute('download', ''); }
-        if (eh) { eh.href = api.compassExportUrl(opts.runId, 'haystack'); eh.setAttribute('download', ''); }
+        if (en) { en.href = api.compassExportUrl(opts.runId, 'needles', 'id,source,date,title,novelty,methods,impact', opts.exportToken); en.setAttribute('download', ''); }
+        if (eh) { eh.href = api.compassExportUrl(opts.runId, 'haystack', 'id,source,date,title', opts.exportToken); eh.setAttribute('download', ''); }
         if (sb) on(sb, 'click', function () { saveTopic(data.topic, sb); });
       }
     }
 
-    /* Save a topic to the signed-in user's profile. The contract has no server
-       endpoint for this, so the topic is stashed per user in the browser for the
-       Profile view to read back. Keyed by username so accounts do not mix. */
+    /* Save a topic to the signed-in user's profile, server-side, so it persists
+       across browsers and devices and appears in Profile. Success is reported
+       only on an ok response from the backend. */
     function saveTopic(topic, btn) {
       if (!topic) return;
-      try {
-        var key = 'pv_saved_topics_' + ((me && me.username) || 'me');
-        var arr = JSON.parse(localStorage.getItem(key) || '[]');
-        if (arr.indexOf(topic) === -1) arr.push(topic);
-        localStorage.setItem(key, JSON.stringify(arr));
-        btn.textContent = 'Saved to your profile';
-        btn.disabled = true;
-      } catch (e) {
-        btn.textContent = 'Could not save';
-      }
+      btn.disabled = true;
+      var months = parseInt($('#months').value, 10);
+      api.compassSaveTopic(topic, isNaN(months) ? undefined : months).then(function (r) {
+        if (r && r.ok) {
+          btn.textContent = 'Saved to your profile';
+        } else {
+          btn.disabled = false;
+          ui.showError('#topicErr', (r && r.message) || 'Could not save the topic. Please try again.');
+        }
+      });
     }
 
     boot();

@@ -2,11 +2,12 @@
   "topic": "biomathematics (population dynamics)",
   "window": "preprints, recent",
   "haystack_count": 36185,
-  "screened": 120,
   "needles": [
     {
       "title": "Nonlocal Proliferation and Explosive Tumour Dynamics: Mechanistic Modelling and Bayesian Inference",
       "source": "bioRxiv",
+      "url": "https://doi.org/10.64898/2026.03.23.713731",
+      "doi": "10.64898/2026.03.23.713731",
       "date": "2026-03-25",
       "novelty": 8,
       "methods": 9,
@@ -16,6 +17,8 @@
     {
       "title": "Optimal spatial release strategies for confined gene drives and Wolbachia",
       "source": "bioRxiv",
+      "url": "https://doi.org/10.64898/2026.03.04.709515",
+      "doi": "10.64898/2026.03.04.709515",
       "date": "2026-03-25",
       "novelty": 9,
       "methods": 9,
@@ -25,6 +28,7 @@
     {
       "title": "Local equations for the generalized Lotka-Volterra model on sparse asymmetric graphs",
       "source": "arXiv",
+      "url": "http://arxiv.org/abs/2511.17499v2",
       "date": "2025-11-21",
       "novelty": 8,
       "methods": 8,
@@ -34,6 +38,8 @@
     {
       "title": "General predictions for the effects of warming on competition",
       "source": "bioRxiv",
+      "url": "https://doi.org/10.1101/2025.10.02.680125",
+      "doi": "10.1101/2025.10.02.680125",
       "date": "2026-02-25",
       "novelty": 9,
       "methods": 8,
@@ -43,6 +49,7 @@
     {
       "title": "Decoding species coexistence: A reinforcement learning perspective",
       "source": "arXiv",
+      "url": "http://arxiv.org/abs/2508.17599v2",
       "date": "2025-08-25",
       "novelty": 9,
       "methods": 7,
@@ -52,6 +59,7 @@
     {
       "title": "Modeling Epidemic Dynamics of Mutant Strains with Evolutionary Game-based Vaccination Behavior",
       "source": "arXiv",
+      "url": "http://arxiv.org/abs/2601.00757v1",
       "date": "2026-01-02",
       "novelty": 8,
       "methods": 7,
@@ -61,6 +69,7 @@
     {
       "title": "Mechanistic-statistical inference of mosquito dynamics from mark-release-recapture data",
       "source": "arXiv",
+      "url": "http://arxiv.org/abs/2510.06080v2",
       "date": "2025-10-07",
       "novelty": 8,
       "methods": 8,
@@ -70,6 +79,7 @@
     {
       "title": "Equilibrium and Competition in Evolutionary Dynamics",
       "source": "arXiv",
+      "url": "http://arxiv.org/abs/2605.02956v1",
       "date": "2026-05-02",
       "novelty": 8,
       "methods": 9,
@@ -79,6 +89,7 @@
     {
       "title": "Inhomogeneous Branching Random Walks: Incorporating Genealogy and Density Effects",
       "source": "arXiv",
+      "url": "http://arxiv.org/abs/2512.09145v1",
       "date": "2025-12-09",
       "novelty": 8,
       "methods": 4,

@@ -106,14 +106,6 @@
     return bindCounter(input, counter, merged);
   }
 
-  // The topic character counter used by the Compass page.
-  function bindCharCounter(input, counter, opts) {
-    var merged = {};
-    if (opts) { for (var k in opts) { if (Object.prototype.hasOwnProperty.call(opts, k)) merged[k] = opts[k]; } }
-    merged.mode = 'chars';
-    return bindCounter(input, counter, merged);
-  }
-
   /* ------- inline error box (.err -> .err.show) ------- */
 
   function showError(target, message) {
@@ -168,7 +160,6 @@
     wordCount: wordCount,
     bindCounter: bindCounter,
     bindWordCounter: bindWordCounter,
-    bindCharCounter: bindCharCounter,
     showError: showError,
     clearError: clearError,
     initTabs: initTabs

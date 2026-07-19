@@ -6,15 +6,12 @@
   'use strict';
 
   // Backend base URL.
-  // No internal host or port is baked into this public file. In production this is
-  // the backend's public tunnel URL, set on the line below at deploy time. For
-  // local development, override it without editing this file by setting
-  // window.PV_API_BASE before this script loads, pointing at your own local
-  // backend. The static site never stores any secret, password, or hash.
-  // NOTE: this is a temporary public tunnel to the backend. Swap it for the stable
-  // api.pubverse.ai once that is set up. Override without redeploy via window.PV_API_BASE.
+  // No internal host or port is baked into this public file: this is the stable
+  // public API domain. For local development, override it without editing this file
+  // by setting window.PV_API_BASE before this script loads, pointing at your own
+  // local backend. The static site never stores any secret, password, or hash.
   var API_BASE = (typeof window.PV_API_BASE === 'string') ? window.PV_API_BASE
-    : 'https://hpcf.tail8ba9b3.ts.net';
+    : 'https://api.pubverse.ai';
 
   window.PV = {
     API_BASE: API_BASE,

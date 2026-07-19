@@ -77,7 +77,7 @@
     <header class="hero">
       <div class="wrap">
         <h1>Substance over signal</h1>
-        <p class="lede">PubVerse, alongside fortytwodegrees, points the waymark of emerging knowledge and enlightenment. We quantify hidden relationships within knowledge spaces so ideas are evaluated on substance, not signal, and the ones that matter are recognized sooner.</p>
+        <p class="lede">PubVerse, alongside fortytwodegrees.org, points the waymark of emerging knowledge and enlightenment. We quantify hidden relationships within knowledge spaces so ideas are evaluated on substance, not signal, and the ones that matter are recognized sooner.</p>
         <div class="affil">
           <img src="assets/compass42.png" alt="">
           <span>Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
@@ -228,13 +228,13 @@
     function $(s) { return document.querySelector(s); }
     function on(node, ev, fn) { if (node) node.addEventListener(ev, fn); }
 
-    // Defense in depth for any plain-language reasoning shown to the reader. The
-    // backend already builds verdicts only from the measures, but this guarantees
-    // that no bracketed reference handle or internal term can ever reach the page.
+    // Cosmetic tidy for any plain-language reasoning shown to the reader. The
+    // backend composes the wording only from the measures and strips any sensitive
+    // term server-side before sending, so the page only needs to clear a stray
+    // bracketed reference handle like [3] and tidy the spacing it leaves behind.
     function scrub(s) {
       var t = String(s == null ? '' : s);
       t = t.replace(/\[[A-Za-z]?\d+[^\]]*\]/g, '');
-      t = t.replace(/\b(qwen|gte|setfit|embeddings?|retrieval|grounded|critique|neighbou?rs?|clusters?|clustering|thresholds?|pgvector)\b/gi, '');
       t = t.replace(/\(\s*\)/g, '');
       t = t.replace(/\s{2,}/g, ' ');
       t = t.replace(/\s+([.,;:])/g, '$1');
@@ -475,6 +475,34 @@
       historyEmpty.hidden = true;
       items.forEach(function (it) { historyList.appendChild(historyRow(it)); });
     }
+
+    // Link a paper's title to the paper itself when the item carries an
+    // identifier: an explicit url, an arxiv page (already a full URL), or a DOI
+    // (starts "10.") resolved through doi.org. The item's own id is the private
+    // history record id, not a paper handle, so it is never used for the link.
+    function paperUrl(it) {
+      if (!it) return '';
+      // Only http(s) links and bare DOIs pass; any other scheme (javascript:,
+      // data:) yields no link, so the title's href can never become a live handle.
+      var u = String(it.url || it.doi || it.arxiv || it.arxiv_id || '').trim();
+      if (/^https?:\/\//i.test(u)) return u;
+      if (/^10\./.test(u)) return 'https://doi.org/' + u;
+      return '';
+    }
+    function titleCell(it, text) {
+      var label = (text != null) ? text : rowTitle(it);
+      var u = paperUrl(it), node;
+      if (u) {
+        node = document.createElement('a');
+        node.href = u;
+        node.target = '_blank';
+        node.rel = 'noopener';
+      } else {
+        node = document.createElement('span');
+      }
+      node.textContent = label;
+      return node;
+    }
     function historyRow(it) {
       var id = (it.id != null) ? it.id : it._id;
 
@@ -485,7 +513,7 @@
       head.className = 'row between';
       var title = document.createElement('div');
       title.className = 'strong';
-      title.textContent = rowTitle(it);
+      title.appendChild(titleCell(it, rowTitle(it)));
       var date = document.createElement('div');
       date.className = 'mini nowrap';
       date.textContent = fmtDate(it.created_at || it.created || it.date || it.timestamp);
@@ -523,6 +551,21 @@
 
       panel.appendChild(head);
       panel.appendChild(scores);
+      // When the item carries a DOI (or arxiv id), show it as its own clickable
+      // link too, resolved through doi.org / the arxiv page by paperUrl.
+      var link = paperUrl(it);
+      if (link) {
+        var doiLine = document.createElement('div');
+        doiLine.className = 'mini';
+        doiLine.style.marginTop = '6px';
+        var a = document.createElement('a');
+        a.href = link;
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = it.doi ? ('DOI: ' + it.doi) : 'View paper';
+        doiLine.appendChild(a);
+        panel.appendChild(doiLine);
+      }
       panel.appendChild(actions);
       return panel;
     }
@@ -593,7 +636,7 @@
         panel.className = 'panel';
         var t = document.createElement('div');
         t.className = 'strong';
-        t.textContent = it.title || 'Promoted result';
+        t.appendChild(titleCell(it, it.title || 'Promoted result'));
         panel.appendChild(t);
         var url = it.share_url || it.url;
         if (url) {
