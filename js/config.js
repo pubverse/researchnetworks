@@ -10,8 +10,10 @@
   // public API domain. For local development, override it without editing this file
   // by setting window.PV_API_BASE before this script loads, pointing at your own
   // local backend. The static site never stores any secret, password, or hash.
+  // NOTE: the stable public backend is the Tailscale Funnel host. Swap to api.pubverse.ai
+  // only once that DNS actually exists. Override without redeploy via window.PV_API_BASE.
   var API_BASE = (typeof window.PV_API_BASE === 'string') ? window.PV_API_BASE
-    : 'https://api.pubverse.ai';
+    : 'https://hpcf.tail8ba9b3.ts.net';
 
   window.PV = {
     API_BASE: API_BASE,
