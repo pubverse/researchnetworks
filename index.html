@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PubVerse</title>
+  <meta name="description" content="PubVerse evaluates research ideas on substance, not signal, so the ones that matter are recognized sooner.">
+  <link rel="icon" href="assets/pubverse_mark.png">
+  <link rel="stylesheet" href="css/app.css">
+  <style>
+    /* Page-local layout helpers only. Presentational, nothing about how scoring works. */
+    .row{display:flex;gap:14px;align-items:center}
+    .row.wrap{flex-wrap:wrap}
+    .between{justify-content:space-between}
+    .stack{display:grid;gap:14px}
+    .stack.tight{gap:8px}
+    .mini{font-size:.82rem;color:var(--muted)}
+    .strong{font-weight:500;color:var(--ink)}
+    .sp{flex:1}
+    .field{margin:0}
+    .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
+    .chip{display:inline-block;font-size:.85rem;padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:var(--paper);color:var(--blue-d);margin:0 6px 8px 0}
+    .chip:hover{background:var(--blue-l);text-decoration:none}
+    .verdict p{margin:0}
+    .linkline{word-break:break-all}
+    .section-intro{max-width:640px;margin:0 auto 22px}
+    .hero .affil{justify-content:center;margin-top:18px}
+    .veil .affil{justify-content:center;margin-top:20px}
+    @media(max-width:620px){.formgrid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+
+  <!-- Login veil: blocks all UI until the backend confirms a session. The only way in is to sign in. -->
+  <div class="veil" id="veil">
+    <div class="card">
+      <img class="mark" src="assets/pubverse_wordmark.png" alt="PubVerse">
+      <p class="muted" style="margin:.3em 0 18px">Sign in to evaluate ideas on substance.</p>
+
+      <div class="compass-load" id="veilBoot"></div>
+
+      <form id="loginForm" hidden autocomplete="on">
+        <div class="stack">
+          <div class="field" style="text-align:left">
+            <label for="lu">Username</label>
+            <input id="lu" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div class="field" style="text-align:left">
+            <label for="lp">Password</label>
+            <input id="lp" name="password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="err" id="loginErr"></div>
+          <button class="btn" id="loginBtn" type="submit" style="width:100%">Sign in</button>
+        </div>
+      </form>
+
+      <div class="affil">
+        <img src="assets/compass42.png" alt="">
+        <span>Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- The app, revealed only after authentication. -->
+  <div id="app" hidden>
+
+    <nav class="nav">
+      <div class="wrap">
+        <a class="brand" href="index.html"><img src="assets/pubverse_wordmark.png" alt="PubVerse"></a>
+        <div class="spacer"></div>
+        <a class="link" href="compass.html">Compass</a>
+        <a class="link" href="docs.html">Docs</a>
+        <a class="link" id="signout" href="#">Sign out</a>
+      </div>
+    </nav>
+
+    <header class="hero">
+      <div class="wrap">
+        <h1>Substance over signal</h1>
+        <p class="lede">PubVerse, alongside fortytwodegrees, points the waymark of emerging knowledge and enlightenment. We quantify hidden relationships within knowledge spaces so ideas are evaluated on substance, not signal, and the ones that matter are recognized sooner.</p>
+        <div class="affil">
+          <img src="assets/compass42.png" alt="">
+          <span>Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div id="tabsRoot" class="wrap">
+        <div class="tabs">
+          <button data-tab="score" class="active">Score</button>
+          <button data-tab="history">History</button>
+          <button data-tab="profile">Profile</button>
+        </div>
+
+        <!-- SCORE -->
+        <section class="tabpane active" data-tab="score">
+          <div class="card">
+            <div class="section-intro">
+              <h2>Score an abstract</h2>
+              <p class="muted">Paste an abstract and PubVerse evaluates it on substance: how novel the work is, how sound its methods are, and how much impact it is likely to have against the published literature. A title and other details stay optional until you choose to promote a result.</p>
+            </div>
+
+            <div class="stack">
+              <div class="field">
+                <label for="sTitle">Title (optional)</label>
+                <input id="sTitle" type="text" autocomplete="off" placeholder="Working title of the paper">
+              </div>
+              <div class="field">
+                <label for="sAbstract">Abstract (required)</label>
+                <textarea id="sAbstract" required placeholder="Paste the abstract here"></textarea>
+                <div class="counter" id="sCounter">0 / 1000 words</div>
+                <div class="err" id="scoreErr"></div>
+              </div>
+            </div>
+
+            <div class="row between" style="margin-top:10px">
+              <span class="mini">Scores are on a 0 to 10 scale.</span>
+              <button class="btn" id="scoreBtn" type="button" disabled>Score</button>
+            </div>
+
+            <div class="compass-load" id="scoreSpin"></div>
+
+            <div id="scoreResult" hidden style="margin-top:8px">
+              <div class="scorebar">
+                <div class="metric" id="mNovelty"><div class="v">--</div><div class="k">Novelty</div></div>
+                <div class="metric" id="mMethods"><div class="v">--</div><div class="k">Methods</div></div>
+                <div class="metric" id="mImpact"><div class="v">--</div><div class="k">Impact</div></div>
+              </div>
+              <div class="verdict"><p id="verdict"></p></div>
+
+              <div class="row wrap" style="margin-top:14px">
+                <button class="btn ghost sm" id="promoteToggle" type="button">Promote this result</button>
+                <span class="mini">Add identifiers to create a shareable page.</span>
+              </div>
+
+              <form id="promoteForm" hidden style="margin-top:16px">
+                <div class="panel stack">
+                  <div class="formgrid">
+                    <div class="field"><label for="pTitle">Title</label><input id="pTitle" type="text" autocomplete="off"></div>
+                    <div class="field"><label for="pAuthors">Authors</label><input id="pAuthors" type="text" autocomplete="off" placeholder="Comma separated"></div>
+                    <div class="field"><label for="pContact">Contact email</label><input id="pContact" type="email" autocomplete="off"></div>
+                    <div class="field"><label for="pAffil">Affiliation</label><input id="pAffil" type="text" autocomplete="off"></div>
+                    <div class="field"><label for="pRor">ROR ID</label><input id="pRor" type="text" autocomplete="off" placeholder="Optional"></div>
+                    <div class="field"><label for="pOrcid">ORCID</label><input id="pOrcid" type="text" autocomplete="off" placeholder="Optional"></div>
+                    <div class="field"><label for="pDoi">DOI</label><input id="pDoi" type="text" autocomplete="off" placeholder="Optional"></div>
+                  </div>
+                  <div class="err" id="promoteErr"></div>
+                  <div class="row">
+                    <button class="btn" id="promoteBtn" type="submit">Get shareable link</button>
+                  </div>
+                  <div id="shareOut" class="panel" hidden style="background:var(--blue-l);border-color:#cfe1f6">
+                    <div class="mini">Your shareable link</div>
+                    <div class="row" style="margin-top:6px">
+                      <a id="shareLink" class="linkline strong" href="#" target="_blank" rel="noopener"></a>
+                      <button class="btn ghost sm" id="copyShare" type="button">Copy</button>
+                    </div>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- HISTORY -->
+        <section class="tabpane" data-tab="history">
+          <div class="card">
+            <div class="row between">
+              <h2 style="margin:0">Your scored abstracts</h2>
+              <button class="btn ghost sm" id="historyRefresh" type="button">Refresh</button>
+            </div>
+            <div class="err" id="historyErr"></div>
+            <p class="muted" id="historyLoading" hidden style="margin:16px 0">Loading...</p>
+            <p class="muted" id="historyEmpty" hidden style="margin:16px 0">You have not scored any abstracts yet. Open the Score tab to start.</p>
+            <div class="stack" id="historyList" style="margin-top:16px"></div>
+          </div>
+        </section>
+
+        <!-- PROFILE -->
+        <section class="tabpane" data-tab="profile">
+          <div class="stack" style="gap:18px">
+            <div class="card">
+              <h2>Account</h2>
+              <div class="stack tight">
+                <div class="row between"><span class="muted">Username</span><span class="strong" id="pUser">--</span></div>
+                <div class="row between"><span class="muted">Email</span><span class="strong" id="pEmail">--</span></div>
+                <div class="row between"><span class="muted">Role</span><span class="strong" id="pRole">--</span></div>
+              </div>
+            </div>
+
+            <div class="card">
+              <h2>Saved compass topics</h2>
+              <p class="muted" id="topicsEmpty" hidden>No saved topics yet. Open the <a href="compass.html">compass</a> to find and save topics.</p>
+              <div id="topicsList" style="margin-top:6px"></div>
+            </div>
+
+            <div class="card">
+              <h2>Promoted results</h2>
+              <p class="muted" id="promotedEmpty" hidden>Nothing promoted yet. Score an abstract, then choose Promote to create a shareable page.</p>
+              <div class="stack" id="promotedList" style="margin-top:6px"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <span class="affil"><img src="assets/compass42.png" alt="">Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
+        <span class="sp"></span>
+        <span class="muted">PubVerse, substance over signal.</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+  /* Landing page glue. All transport lives in js/api.js, all shared widgets in
+     js/ui.js. This file only wires elements to those helpers. */
+  (function () {
+    'use strict';
+    var api = PV.api, ui = PV.ui;
+    function $(s) { return document.querySelector(s); }
+    function on(node, ev, fn) { if (node) node.addEventListener(ev, fn); }
+
+    // veil / auth
+    var veil = $('#veil'), veilBoot = $('#veilBoot'), loginForm = $('#loginForm');
+    var luser = $('#lu'), lpass = $('#lp'), loginBtn = $('#loginBtn');
+    var loginErr = '#loginErr', app = $('#app');
+
+    // score
+    var abstractEl = $('#sAbstract'), titleEl = $('#sTitle'), scoreBtn = $('#scoreBtn');
+    var scoreSpin = '#scoreSpin', scoreErr = '#scoreErr';
+    var scoreResult = $('#scoreResult'), verdictEl = $('#verdict');
+
+    // promote
+    var promoteToggle = $('#promoteToggle'), promoteForm = $('#promoteForm');
+    var promoteBtn = $('#promoteBtn'), promoteErr = '#promoteErr';
+    var shareOut = $('#shareOut'), shareLink = $('#shareLink'), copyShare = $('#copyShare');
+    var promoteFields = {
+      title: '#pTitle', authors: '#pAuthors', contact: '#pContact', affiliation: '#pAffil',
+      ror: '#pRor', orcid: '#pOrcid', doi: '#pDoi'
+    };
+
+    // history
+    var historyList = $('#historyList'), historyEmpty = $('#historyEmpty');
+    var historyLoading = $('#historyLoading'), historyErr = '#historyErr';
+
+    var currentUser = null, lastScoreId = null, historyLoaded = false;
+
+    /* ---------- boot + auth ---------- */
+
+    function isUser(res) { return !!(res && res.username && res.ok !== false); }
+
+    function boot() {
+      ui.showCompass(veilBoot, 'Loading');
+      api.me().then(function (res) {
+        if (isUser(res)) { onAuthed(res); return; }
+        showLogin();
+        if (res && res.ok === false && res.status !== 401 && res.message) {
+          ui.showError(loginErr, res.message);
+        }
+      });
+    }
+    function showLogin() {
+      ui.hideCompass(veilBoot);
+      loginForm.hidden = false;
+      if (luser) luser.focus();
+    }
+    function onAuthed(user) {
+      currentUser = user;
+      ui.clearError(loginErr);
+      veil.style.display = 'none';
+      app.hidden = false;
+      renderProfile(user);
+    }
+
+    on(loginForm, 'submit', function (e) {
+      e.preventDefault();
+      ui.clearError(loginErr);
+      var u = (luser.value || '').trim(), p = lpass.value || '';
+      if (!u || !p) { ui.showError(loginErr, 'Enter your username and password.'); return; }
+      loginBtn.disabled = true;
+      loginForm.hidden = true;
+      ui.showCompass(veilBoot, 'Signing in');
+      api.login(u, p).then(function (res) {
+        if (res && res.ok === false) { failLogin(res.message); return; }
+        api.me().then(function (me) {
+          loginBtn.disabled = false;
+          if (isUser(me)) { lpass.value = ''; onAuthed(me); }
+          else { failLogin('Sign in did not complete. Please try again.'); }
+        });
+      });
+    });
+    function failLogin(msg) {
+      ui.hideCompass(veilBoot);
+      loginForm.hidden = false;
+      loginBtn.disabled = false;
+      ui.showError(loginErr, msg || 'Sign in failed. Check your details and try again.');
+    }
+
+    on($('#signout'), 'click', function (e) {
+      e.preventDefault();
+      api.logout().then(function () { window.location.reload(); });
+    });
+
+    /* ---------- score ---------- */
+
+    var counter = ui.bindWordCounter(abstractEl, '#sCounter', {
+      onChange: function (over, count) { scoreBtn.disabled = over || count === 0; }
+    });
+    on(scoreBtn, 'click', doScore);
+    on(abstractEl, 'keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && !scoreBtn.disabled) doScore();
+    });
+
+    function doScore() {
+      var text = (abstractEl.value || '').trim();
+      if (!text) { ui.showError(scoreErr, 'Please paste an abstract to score.'); return; }
+      if (counter.isOver()) return;
+      ui.clearError(scoreErr);
+      scoreResult.hidden = true;
+      resetPromote();
+      scoreBtn.disabled = true;
+      ui.showCompass(scoreSpin, 'Assessing your abstract');
+      api.score(text, (titleEl.value || '').trim()).then(function (res) {
+        ui.hideCompass(scoreSpin);
+        scoreBtn.disabled = counter.isOver() || ui.wordCount(abstractEl.value) === 0;
+        if (!res || res.ok === false) {
+          ui.showError(scoreErr, (res && res.message) || 'We could not score that submission.');
+          return;
+        }
+        renderScore(res);
+        historyLoaded = false;
+      });
+    }
+
+    function renderScore(res) {
+      lastScoreId = (res.id != null) ? res.id : null;
+      var s = res.scores || res;
+      setMetric('#mNovelty', s.novelty);
+      setMetric('#mMethods', s.methods);
+      setMetric('#mImpact', s.impact);
+      verdictEl.textContent = res.verdict || '';
+      scoreResult.hidden = false;
+    }
+    function setMetric(sel, v) {
+      var node = $(sel + ' .v');
+      if (node) node.textContent = fmtScore(v);
+    }
+    function fmtScore(v) {
+      if (v == null || v === '' || isNaN(Number(v))) return '--';
+      return String(Math.round(Number(v) * 10) / 10);
+    }
+
+    /* ---------- promote ---------- */
+
+    on(promoteToggle, 'click', function () {
+      promoteForm.hidden = !promoteForm.hidden;
+      if (!promoteForm.hidden) {
+        var t = $(promoteFields.title);
+        if (t && !t.value) t.value = (titleEl.value || '').trim();
+        if (t) t.focus();
+      }
+    });
+    on(promoteForm, 'submit', function (e) {
+      e.preventDefault();
+      ui.clearError(promoteErr);
+      shareOut.hidden = true;
+      if (lastScoreId == null) { ui.showError(promoteErr, 'Score an abstract first, then promote it.'); return; }
+      var payload = { id: lastScoreId };
+      Object.keys(promoteFields).forEach(function (k) {
+        var node = $(promoteFields[k]);
+        var val = node ? (node.value || '').trim() : '';
+        if (val) payload[k] = val;
+      });
+      promoteBtn.disabled = true;
+      var label = promoteBtn.textContent;
+      promoteBtn.textContent = 'Working';
+      api.promote(payload).then(function (res) {
+        promoteBtn.disabled = false;
+        promoteBtn.textContent = label;
+        if (!res || res.ok === false) {
+          ui.showError(promoteErr, (res && res.message) || 'We could not promote that submission.');
+          return;
+        }
+        showShareLink(res.share_url);
+        refreshProfile();
+      });
+    });
+    function resetPromote() {
+      promoteForm.hidden = true;
+      shareOut.hidden = true;
+      ui.clearError(promoteErr);
+      Object.keys(promoteFields).forEach(function (k) {
+        var n = $(promoteFields[k]);
+        if (n) n.value = '';
+      });
+    }
+    function showShareLink(url) {
+      if (!url) { ui.showError(promoteErr, 'No link was returned. Please try again.'); return; }
+      var full = resolveUrl(url);
+      shareLink.href = full;
+      shareLink.textContent = full;
+      shareOut.hidden = false;
+    }
+    function resolveUrl(u) {
+      u = String(u);
+      if (/^https?:\/\//i.test(u)) return u;
+      var base = String(PV.API_BASE).replace(/\/+$/, '');
+      return base + (u.charAt(0) === '/' ? '' : '/') + u;
+    }
+    on(copyShare, 'click', function () {
+      var t = shareLink.textContent;
+      if (t && navigator.clipboard) {
+        navigator.clipboard.writeText(t).then(function () {
+          copyShare.textContent = 'Copied';
+          setTimeout(function () { copyShare.textContent = 'Copy'; }, 1500);
+        }, function () {});
+      }
+    });
+
+    /* ---------- history ---------- */
+
+    on($('#historyRefresh'), 'click', loadHistory);
+
+    function loadHistory() {
+      ui.clearError(historyErr);
+      historyEmpty.hidden = true;
+      historyLoading.hidden = false;
+      historyList.innerHTML = '';
+      api.history().then(function (res) {
+        historyLoading.hidden = true;
+        historyLoaded = true;
+        if (res && res.ok === false) {
+          ui.showError(historyErr, res.message || 'Could not load your history.');
+          return;
+        }
+        renderHistory(toList(res));
+      });
+    }
+    function toList(res) {
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.items)) return res.items;
+      if (res && Array.isArray(res.history)) return res.history;
+      return [];
+    }
+    function renderHistory(items) {
+      historyList.innerHTML = '';
+      if (!items.length) { historyEmpty.hidden = false; return; }
+      historyEmpty.hidden = true;
+      items.forEach(function (it) { historyList.appendChild(historyRow(it)); });
+    }
+    function historyRow(it) {
+      var id = (it.id != null) ? it.id : it._id;
+
+      var panel = document.createElement('div');
+      panel.className = 'panel';
+
+      var head = document.createElement('div');
+      head.className = 'row between';
+      var title = document.createElement('div');
+      title.className = 'strong';
+      title.textContent = rowTitle(it);
+      var date = document.createElement('div');
+      date.className = 'mini nowrap';
+      date.textContent = fmtDate(it.created_at || it.created || it.date || it.timestamp);
+      head.appendChild(title);
+      head.appendChild(date);
+
+      var sc = it.scores || it;
+      var scores = document.createElement('div');
+      scores.className = 'mini';
+      scores.style.marginTop = '8px';
+      scores.textContent = 'Novelty ' + fmtScore(sc.novelty) +
+        '   |   Methods ' + fmtScore(sc.methods) +
+        '   |   Impact ' + fmtScore(sc.impact);
+
+      var actions = document.createElement('div');
+      actions.className = 'row';
+      actions.style.marginTop = '12px';
+      var del = document.createElement('button');
+      del.className = 'btn ghost sm';
+      del.type = 'button';
+      del.textContent = 'Delete';
+      on(del, 'click', function () {
+        del.disabled = true;
+        api.deleteHistory(id).then(function (res) {
+          if (res && res.ok === false) {
+            del.disabled = false;
+            ui.showError(historyErr, res.message || 'Could not delete that item.');
+            return;
+          }
+          if (panel.parentNode) panel.parentNode.removeChild(panel);
+          if (!historyList.children.length) historyEmpty.hidden = false;
+        });
+      });
+      actions.appendChild(del);
+
+      panel.appendChild(head);
+      panel.appendChild(scores);
+      panel.appendChild(actions);
+      return panel;
+    }
+    function rowTitle(it) {
+      if (it.title) return it.title;
+      var a = String(it.abstract || it.text || '').trim();
+      if (a) return a.length > 90 ? a.slice(0, 90) + '...' : a;
+      return 'Untitled abstract';
+    }
+    function fmtDate(v) {
+      if (v == null || v === '') return '';
+      var d;
+      if (typeof v === 'number') { d = new Date(v < 1e12 ? v * 1000 : v); }
+      else {
+        d = new Date(v);
+        if (isNaN(d.getTime())) {
+          var n = Number(v);
+          if (!isNaN(n)) d = new Date(n < 1e12 ? n * 1000 : n);
+        }
+      }
+      if (isNaN(d.getTime())) return String(v);
+      return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    /* ---------- profile ---------- */
+
+    function renderProfile(user) {
+      $('#pUser').textContent = user.username || '--';
+      $('#pEmail').textContent = user.email || 'Not set';
+      $('#pRole').textContent = user.role || '--';
+      renderTopics(listField(user, ['topics', 'compass_topics', 'saved_topics']));
+      renderPromoted(listField(user, ['promoted', 'promotions', 'promoted_items']));
+    }
+    function listField(obj, keys) {
+      for (var i = 0; i < keys.length; i++) {
+        if (obj && Array.isArray(obj[keys[i]])) return obj[keys[i]];
+      }
+      return [];
+    }
+    function renderTopics(topics) {
+      var list = $('#topicsList'), empty = $('#topicsEmpty');
+      list.innerHTML = '';
+      if (!topics.length) { empty.hidden = false; return; }
+      empty.hidden = true;
+      topics.forEach(function (t) {
+        var label = (typeof t === 'string') ? t : (t.topic || t.name || t.label || '');
+        if (!label) return;
+        var a = document.createElement('a');
+        a.className = 'chip';
+        a.href = 'compass.html?topic=' + encodeURIComponent(label);
+        a.textContent = label;
+        list.appendChild(a);
+      });
+    }
+    function renderPromoted(items) {
+      var list = $('#promotedList'), empty = $('#promotedEmpty');
+      list.innerHTML = '';
+      if (!items.length) { empty.hidden = false; return; }
+      empty.hidden = true;
+      items.forEach(function (it) {
+        var panel = document.createElement('div');
+        panel.className = 'panel';
+        var t = document.createElement('div');
+        t.className = 'strong';
+        t.textContent = it.title || 'Promoted result';
+        panel.appendChild(t);
+        var url = it.share_url || it.url;
+        if (url) {
+          var a = document.createElement('a');
+          a.className = 'linkline';
+          a.style.display = 'inline-block';
+          a.style.marginTop = '6px';
+          a.href = resolveUrl(url);
+          a.textContent = resolveUrl(url);
+          a.target = '_blank';
+          a.rel = 'noopener';
+          panel.appendChild(a);
+        }
+        list.appendChild(panel);
+      });
+    }
+    function refreshProfile() {
+      api.me().then(function (me) {
+        if (isUser(me)) { currentUser = me; renderProfile(me); }
+      });
+    }
+
+    /* ---------- tabs + start ---------- */
+
+    ui.initTabs('#tabsRoot');
+    on($('.tabs button[data-tab="history"]'), 'click', function () { if (!historyLoaded) loadHistory(); });
+    on($('.tabs button[data-tab="profile"]'), 'click', refreshProfile);
+
+    boot();
+  })();
+  </script>
+</body>
+</html>

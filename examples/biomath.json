@@ -1,0 +1,89 @@
+{
+  "topic": "biomathematics (population dynamics)",
+  "window": "preprints, recent",
+  "haystack_count": 36185,
+  "screened": 120,
+  "needles": [
+    {
+      "title": "Nonlocal Proliferation and Explosive Tumour Dynamics: Mechanistic Modelling and Bayesian Inference",
+      "source": "bioRxiv",
+      "date": "2026-03-25",
+      "novelty": 8,
+      "methods": 9,
+      "impact": 8,
+      "verdict": "A genuinely new mechanism for explosive tumour growth, established with rigorous analytical proofs and absent from the existing literature."
+    },
+    {
+      "title": "Optimal spatial release strategies for confined gene drives and Wolbachia",
+      "source": "bioRxiv",
+      "date": "2026-03-25",
+      "novelty": 9,
+      "methods": 9,
+      "impact": 4,
+      "verdict": "A genuinely new framework for choosing where and when to release confined gene drives and Wolbachia, more complete than anything in the existing literature."
+    },
+    {
+      "title": "Local equations for the generalized Lotka-Volterra model on sparse asymmetric graphs",
+      "source": "arXiv",
+      "date": "2025-11-21",
+      "novelty": 8,
+      "methods": 8,
+      "impact": 8,
+      "verdict": "The first mapping of the phase diagram for sparse, asymmetric ecological networks, opening a regime the field had left unexplored."
+    },
+    {
+      "title": "General predictions for the effects of warming on competition",
+      "source": "bioRxiv",
+      "date": "2026-02-25",
+      "novelty": 9,
+      "methods": 8,
+      "impact": 4,
+      "verdict": "A genuinely new theory tying metabolic scaling to species coexistence, yielding general predictions for how warming reshapes competition that the existing literature lacks."
+    },
+    {
+      "title": "Decoding species coexistence: A reinforcement learning perspective",
+      "source": "arXiv",
+      "date": "2025-08-25",
+      "novelty": 9,
+      "methods": 7,
+      "impact": 4,
+      "verdict": "A genuinely new, learning-based way for organisms to adapt their mobility that resolves a long-standing coexistence puzzle left open in the existing literature."
+    },
+    {
+      "title": "Modeling Epidemic Dynamics of Mutant Strains with Evolutionary Game-based Vaccination Behavior",
+      "source": "arXiv",
+      "date": "2026-01-02",
+      "novelty": 8,
+      "methods": 7,
+      "impact": 7,
+      "verdict": "A genuinely new coupling of viral mutation with the way people change their vaccination choices, closing a gap the existing literature left open by treating behavior as fixed."
+    },
+    {
+      "title": "Mechanistic-statistical inference of mosquito dynamics from mark-release-recapture data",
+      "source": "arXiv",
+      "date": "2025-10-07",
+      "novelty": 8,
+      "methods": 8,
+      "impact": 4,
+      "verdict": "A genuinely new way to jointly infer mosquito movement, survival, and recapture from field data, a combined treatment not present in the existing literature."
+    },
+    {
+      "title": "Equilibrium and Competition in Evolutionary Dynamics",
+      "source": "arXiv",
+      "date": "2026-05-02",
+      "novelty": 8,
+      "methods": 9,
+      "impact": null,
+      "verdict": "Rigorous new proofs that settle the long-term behavior of competing polymerization dynamics, a level of mathematical guarantee the existing literature had not reached."
+    },
+    {
+      "title": "Inhomogeneous Branching Random Walks: Incorporating Genealogy and Density Effects",
+      "source": "arXiv",
+      "date": "2025-12-09",
+      "novelty": 8,
+      "methods": 4,
+      "impact": 4,
+      "verdict": "A genuinely new way to build lineage history and crowding into branching random walks, a combination the existing literature had not addressed."
+    }
+  ]
+}

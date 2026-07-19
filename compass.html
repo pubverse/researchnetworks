@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PubVerse Compass</title>
+  <meta name="description" content="Name a subject and PubVerse surfaces the needles: recent papers it judges genuinely new and soundly done.">
+  <link rel="icon" href="/assets/pubverse_mark.png">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    /* Page-local layout helpers only. Presentational, nothing about how scoring works. */
+    .stack{display:grid;gap:14px}
+    .field{margin:0}
+    .sp{flex:1}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .mini{font-size:.82rem;color:var(--muted)}
+  </style>
+</head>
+<body>
+
+  <!-- login veil: blocks the app until the backend confirms a session -->
+  <div class="veil" id="veil">
+    <div class="card">
+      <img class="mark" src="/assets/pubverse_wordmark.png" alt="PubVerse">
+      <p class="muted" style="margin:.3em 0 18px">Sign in to evaluate ideas on substance.</p>
+
+      <div class="compass-load" id="veilBoot"><img src="/assets/compass42.png" alt=""><div class="cap"></div></div>
+
+      <form id="loginForm" hidden autocomplete="on">
+        <div class="stack">
+          <div class="field" style="text-align:left">
+            <label for="lu">Username</label>
+            <input id="lu" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div class="field" style="text-align:left">
+            <label for="lp">Password</label>
+            <input id="lp" name="password" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="err" id="loginErr"></div>
+          <button class="btn" id="loginBtn" type="submit" style="width:100%">Sign in</button>
+        </div>
+      </form>
+
+      <div class="affil">
+        <img src="/assets/compass42.png" alt="">
+        <span>Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- everything below is revealed only once a session is confirmed -->
+  <div id="app" hidden>
+
+    <nav class="nav">
+      <div class="wrap">
+        <a class="brand" href="/"><img src="/assets/pubverse_wordmark.png" alt="PubVerse"></a>
+        <div class="spacer"></div>
+        <a class="link active" href="/compass">Compass</a>
+        <a class="link" href="/docs.html">Docs</a>
+        <a class="link" id="signout" href="#">Sign out</a>
+      </div>
+    </nav>
+
+    <section class="hero wrap">
+      <h1>Point the compass at a subject</h1>
+      <p class="lede">Name a topic and PubVerse reads the recent literature for you, then surfaces the needles: the papers it judges genuinely new and soundly done, each with a short reason in plain language.</p>
+    </section>
+
+    <!-- the run form -->
+    <section class="wrap">
+      <div class="card">
+        <label for="topic">Topic</label>
+        <input id="topic" maxlength="120" autocomplete="off" placeholder="e.g. population dynamics in mathematical biology">
+        <div class="counter" id="topicCounter"></div>
+        <div class="row" style="margin-top:10px">
+          <button class="btn" id="checkBtn">Check topic</button>
+        </div>
+        <div class="err" id="topicErr"></div>
+        <div class="verdict" id="validOk" hidden></div>
+
+        <!-- revealed only once a topic checks out as covered -->
+        <div id="runControls" hidden>
+          <div class="grid" style="margin-top:20px">
+            <div class="field">
+              <label for="months">How far back</label>
+              <select id="months"></select>
+            </div>
+            <div class="field">
+              <label for="email">Alert me when the run finishes (optional)</label>
+              <input id="email" type="email" autocomplete="email" placeholder="you@example.org">
+            </div>
+            <div class="field">
+              <button class="btn" id="findBtn">Find needles</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 42 compass spinner (own root-absolute image so the shared helper leaves it alone) -->
+    <section class="wrap">
+      <div class="compass-load" id="spinner"><img src="/assets/compass42.png" alt=""><div class="cap"></div></div>
+    </section>
+
+    <!-- results dashboard (worked example on load, live run replaces it) -->
+    <section class="wrap" id="dash" hidden></section>
+
+    <footer>
+      <div class="wrap">
+        <span class="affil"><img src="/assets/compass42.png" alt="">Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
+        <span class="sp"></span>
+        <span class="muted">PubVerse, substance over signal.</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script src="/js/config.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/ui.js"></script>
+  <script>
+  /* Compass page glue. All transport lives in js/api.js, all shared widgets in
+     js/ui.js. This file only wires this page's flow to those helpers. */
+  (function () {
+    'use strict';
+    var PV = window.PV, api = PV.api, ui = PV.ui;
+    function $(s) { return document.querySelector(s); }
+    function on(node, ev, fn) { if (node) node.addEventListener(ev, fn); }
+
+    /* ---------- veil / auth (matches the landing page) ---------- */
+    var veil = $('#veil'), veilBoot = $('#veilBoot'), loginForm = $('#loginForm'), app = $('#app');
+    var luser = $('#lu'), lpass = $('#lp'), loginBtn = $('#loginBtn');
+    var loginErr = '#loginErr';
+    var me = null, started = false;
+
+    function isUser(res) { return !!(res && res.username && res.ok !== false); }
+
+    function boot() {
+      ui.showCompass(veilBoot, 'Loading');
+      api.me().then(function (res) {
+        if (isUser(res)) { onAuthed(res); return; }
+        showLogin();
+        if (res && res.ok === false && res.status !== 401 && res.message) {
+          ui.showError(loginErr, res.message);
+        }
+      });
+    }
+    function showLogin() {
+      ui.hideCompass(veilBoot);
+      loginForm.hidden = false;
+      if (luser) luser.focus();
+    }
+    function onAuthed(user) {
+      me = user;
+      ui.clearError(loginErr);
+      veil.style.display = 'none';
+      app.hidden = false;
+      initPage();
+    }
+
+    on(loginForm, 'submit', function (e) {
+      e.preventDefault();
+      ui.clearError(loginErr);
+      var u = (luser.value || '').trim(), p = lpass.value || '';
+      if (!u || !p) { ui.showError(loginErr, 'Enter your username and password.'); return; }
+      loginBtn.disabled = true;
+      loginForm.hidden = true;
+      ui.showCompass(veilBoot, 'Signing in');
+      api.login(u, p).then(function (res) {
+        if (res && res.ok === false) { failLogin(res.message); return; }
+        api.me().then(function (who) {
+          loginBtn.disabled = false;
+          if (isUser(who)) { lpass.value = ''; onAuthed(who); }
+          else { failLogin('Sign in did not complete. Please try again.'); }
+        });
+      });
+    });
+    function failLogin(msg) {
+      ui.hideCompass(veilBoot);
+      loginForm.hidden = false;
+      loginBtn.disabled = false;
+      ui.showError(loginErr, msg || 'Sign in failed. Check your details and try again.');
+    }
+
+    on($('#signout'), 'click', function (e) {
+      e.preventDefault();
+      api.logout().then(function () { window.location.reload(); });
+    });
+
+    /* ---------- page wiring (runs once, after auth) ---------- */
+    var checkedTopic = null;
+    var polling = false;
+
+    function initPage() {
+      if (started) return;
+      started = true;
+
+      ui.bindCharCounter('#topic', '#topicCounter');
+
+      var sel = $('#months');
+      PV.TIMEFRAMES.forEach(function (m) {
+        var o = document.createElement('option');
+        o.value = String(m);
+        o.textContent = m + (m === 1 ? ' month' : ' months');
+        if (m === PV.TIMEFRAME_DEFAULT) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.value = String(PV.TIMEFRAME_DEFAULT);
+
+      on($('#topic'), 'input', resetValidation);
+      on($('#checkBtn'), 'click', onCheck);
+      on($('#findBtn'), 'click', onFind);
+
+      loadExample();
+    }
+
+    function resetValidation() {
+      checkedTopic = null;
+      $('#runControls').hidden = true;
+      $('#validOk').hidden = true;
+      ui.clearError('#topicErr');
+    }
+
+    /* ---------- check topic ---------- */
+    function onCheck() {
+      var topic = ($('#topic').value || '').trim();
+      ui.clearError('#topicErr');
+      $('#validOk').hidden = true;
+      if (!topic) { ui.showError('#topicErr', 'Enter a topic first.'); return; }
+      if (topic.length > PV.TOPIC_CHAR_LIMIT) {
+        ui.showError('#topicErr', 'That topic is too long. Keep it under ' + PV.TOPIC_CHAR_LIMIT + ' characters.');
+        return;
+      }
+      var btn = $('#checkBtn');
+      btn.disabled = true;
+      var label = btn.textContent;
+      btn.textContent = 'Checking...';
+      api.compassValidate(topic).then(function (r) {
+        btn.disabled = false;
+        btn.textContent = label;
+        if (r && r.ok) {
+          checkedTopic = topic;
+          $('#validOk').textContent = r.message || 'This topic is covered. Choose how far back to look and find the needles.';
+          $('#validOk').hidden = false;
+          $('#runControls').hidden = false;
+        } else {
+          ui.showError('#topicErr', (r && r.message) || 'That topic is not covered yet. Try a broader or nearby subject.');
+        }
+      });
+    }
+
+    /* ---------- run + poll ---------- */
+    function onFind() {
+      if (polling) return;
+      var topic = checkedTopic || ($('#topic').value || '').trim();
+      if (!topic) { ui.showError('#topicErr', 'Enter and check a topic first.'); return; }
+      var months = parseInt($('#months').value, 10) || PV.TIMEFRAME_DEFAULT;
+      var email = ($('#email').value || '').trim();
+
+      ui.clearError('#topicErr');
+      $('#findBtn').disabled = true;
+      ui.showCompass('#spinner', 'Reading the recent literature. This can take a few minutes.');
+
+      api.compassRun(topic, months, email || undefined).then(function (r) {
+        if (!r || r.ok === false || !r.run_id) {
+          ui.hideCompass('#spinner');
+          $('#findBtn').disabled = false;
+          ui.showError('#topicErr', (r && r.message) || 'Could not start the run. Please try again.');
+          return;
+        }
+        pollRun(r.run_id);
+      });
+    }
+
+    function statusCaption(s) {
+      if (s === 'queued') return 'Queued. Waiting for a free slot...';
+      if (s === 'running') return 'Reading the recent literature. This can take a few minutes.';
+      return 'Working...';
+    }
+
+    function pollRun(runId) {
+      polling = true;
+      var tries = 0, MAX = 480;
+      var iv = setInterval(function () {
+        tries++;
+        api.compassPoll(runId).then(function (r) {
+          if (r && r.status === 'done' && r.dashboard) {
+            clearInterval(iv); polling = false;
+            ui.hideCompass('#spinner');
+            $('#findBtn').disabled = false;
+            renderDashboard(r.dashboard, { live: true, runId: runId });
+            $('#dash').scrollIntoView({ behavior: 'smooth' });
+          } else if (r && (r.status === 'error' || r.ok === false)) {
+            clearInterval(iv); polling = false;
+            ui.hideCompass('#spinner');
+            $('#findBtn').disabled = false;
+            ui.showError('#topicErr', (r && r.message) || 'The run did not finish. Please try again.');
+          } else if (tries >= MAX) {
+            clearInterval(iv); polling = false;
+            ui.hideCompass('#spinner');
+            $('#findBtn').disabled = false;
+            ui.showError('#topicErr', 'This run is taking longer than expected. If you left an email, we will alert you when it finishes.');
+          } else {
+            ui.showCompass('#spinner', statusCaption(r && r.status));
+          }
+        });
+      }, 2500);
+    }
+
+    /* ---------- worked example on first visit ---------- */
+    function loadExample() {
+      fetch('/examples/biomath.json', { cache: 'no-cache' }).then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      }).then(function (data) {
+        if (data) renderDashboard(data, { example: true });
+      }).catch(function () { /* the example is a convenience, never block the page on it */ });
+    }
+
+    /* ---------- dashboard rendering (shared by example + live run) ---------- */
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function fmt(n) {
+      if (n == null || n === '') return '-';
+      var x = Number(n);
+      return isNaN(x) ? esc(n) : x.toLocaleString('en-US');
+    }
+    function tile(v, k) {
+      return '<div class="metric"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + '</div></div>';
+    }
+    function scoreClass(x) {
+      var n = Number(x);
+      if (n >= 8) return 'good';
+      if (n >= 5) return 'warn';
+      return 'bad';
+    }
+    function scoreCell(x) {
+      if (x == null || x === '') return '<span class="muted">-</span>';
+      return '<span class="tag ' + scoreClass(x) + '">' + esc(x) + ' / 10</span>';
+    }
+
+    function renderDashboard(data, opts) {
+      opts = opts || {};
+      var dash = $('#dash');
+      var needles = Array.isArray(data.needles) ? data.needles : [];
+      var html = '<div class="card">';
+
+      html += '<div class="row">';
+      html += '<h2 style="margin:0">' + esc(data.topic || 'Results') + '</h2>';
+      if (opts.example) html += '<span class="tag">worked example</span>';
+      html += '</div>';
+      if (data.window) html += '<p class="muted" style="margin:.3em 0 0">Looking back over ' + esc(data.window) + '.</p>';
+
+      html += '<div class="scorebar" style="margin-top:16px">';
+      html += tile(fmt(data.haystack_count), 'papers gathered');
+      html += tile(fmt(data.screened), 'read in full');
+      html += tile(String(needles.length), needles.length === 1 ? 'needle found' : 'needles found');
+      html += '</div>';
+
+      if (data.notes) html += '<div class="verdict">' + esc(data.notes) + '</div>';
+
+      if (needles.length) {
+        html += '<div style="overflow-x:auto"><table><thead><tr>' +
+          '<th>Title</th><th>Source</th><th>Date</th><th>Novelty</th><th>Methods</th><th>Impact</th><th>Why it stood out</th>' +
+          '</tr></thead><tbody>';
+        needles.forEach(function (n) {
+          html += '<tr class="needle-row">' +
+            '<td>' + esc(n.title) + '</td>' +
+            '<td class="nowrap">' + esc(n.source) + '</td>' +
+            '<td class="nowrap">' + esc(n.date) + '</td>' +
+            '<td>' + scoreCell(n.novelty) + '</td>' +
+            '<td>' + scoreCell(n.methods) + '</td>' +
+            '<td>' + scoreCell(n.impact) + '</td>' +
+            '<td>' + esc(n.verdict) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+      } else {
+        html += '<p class="muted">No needles cleared the bar in this run. That is a real result, not a failure. Most subjects are mostly incremental at any given moment.</p>';
+      }
+
+      html += '<div class="row" style="margin-top:20px">';
+      if (opts.live && opts.runId) {
+        html += '<button class="btn ghost sm" id="saveTopicBtn">Save topic to my profile</button>';
+        html += '<a class="btn ghost sm" id="expNeedles">Export needles (.tsv)</a>';
+        html += '<a class="btn ghost sm" id="expHaystack">Export full scope (.tsv)</a>';
+      } else if (opts.example) {
+        html += '<span class="muted">This is a completed run you can explore. Enter your own topic above to start a new one.</span>';
+      }
+      html += '</div>';
+
+      html += '</div>';
+      dash.innerHTML = html;
+      dash.hidden = false;
+
+      if (opts.live && opts.runId) {
+        var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');
+        if (en) { en.href = api.compassExportUrl(opts.runId, 'needles', 'novelty,methods,impact'); en.setAttribute('download', ''); }
+        if (eh) { eh.href = api.compassExportUrl(opts.runId, 'haystack'); eh.setAttribute('download', ''); }
+        if (sb) on(sb, 'click', function () { saveTopic(data.topic, sb); });
+      }
+    }
+
+    /* Save a topic to the signed-in user's profile. The contract has no server
+       endpoint for this, so the topic is stashed per user in the browser for the
+       Profile view to read back. Keyed by username so accounts do not mix. */
+    function saveTopic(topic, btn) {
+      if (!topic) return;
+      try {
+        var key = 'pv_saved_topics_' + ((me && me.username) || 'me');
+        var arr = JSON.parse(localStorage.getItem(key) || '[]');
+        if (arr.indexOf(topic) === -1) arr.push(topic);
+        localStorage.setItem(key, JSON.stringify(arr));
+        btn.textContent = 'Saved to your profile';
+        btn.disabled = true;
+      } catch (e) {
+        btn.textContent = 'Could not save';
+      }
+    }
+
+    boot();
+  })();
+  </script>
+</body>
+</html>

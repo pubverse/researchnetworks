@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PubVerse - Documentation</title>
+  <meta name="description" content="What PubVerse is, how to score an abstract, how the Compass finds needles, and answers to common questions. Affiliated with fortytwodegrees.org.">
+  <link rel="icon" href="assets/pubverse_mark.png">
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Page-scoped layout only. The design system lives in css/app.css; nothing
+       here changes the shared look, it just spaces out a long reading page. -->
+  <style>
+    main section{padding:38px 0;border-top:1px solid var(--line)}
+    .spacer{flex:1}
+    .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:8px 0 6px}
+    .toc{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px}
+    .toc .lbl{font-size:.76rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+    .toc a{font-size:.93rem}
+    .prose p{max-width:72ch}
+    .prose h2{margin-bottom:.35em}
+    .faq h3{margin-top:26px}
+    .faq p{max-width:72ch}
+    .affil-block{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+    .affil-block img{height:56px}
+    @media(max-width:720px){.nav .affil{display:none}}
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="wrap">
+      <a class="brand" href="index.html"><img src="assets/pubverse_mark.png" alt="">PubVerse</a>
+      <a class="link" href="index.html">Score</a>
+      <a class="link" href="compass.html">Compass</a>
+      <a class="link active" href="docs.html">Docs</a>
+      <span class="spacer"></span>
+      <a class="affil" href="https://fortytwodegrees.org" target="_blank" rel="noopener">
+        <img src="assets/compass42.png" alt="">Affiliated with fortytwodegrees.org
+      </a>
+    </div>
+  </nav>
+
+  <main>
+
+    <div class="wrap">
+      <!-- Shared mission block. Mirrors partials/mission.html, the canonical copy
+           the landing and compass headers reuse. Keep the two in sync. -->
+      <section class="hero">
+        <span class="tag">Substance over signal</span>
+        <h1>Research judged on substance, not signal</h1>
+        <p class="lede">PubVerse quantifies the hidden relationships inside a knowledge space so ideas are evaluated on what they contain, and the results that matter are recognized sooner.</p>
+      </section>
+
+      <p class="cta">
+        <a class="btn" href="index.html">Score an abstract</a>
+        <a class="btn ghost" href="compass.html">Open the Compass</a>
+      </p>
+
+      <div class="panel toc">
+        <span class="lbl">On this page</span>
+        <a href="#mission">Mission</a>
+        <a href="#what">What PubVerse is</a>
+        <a href="#score">Scoring an abstract</a>
+        <a href="#compass">The Compass</a>
+        <a href="#needle">What a needle is</a>
+        <a href="#faq">Questions</a>
+        <a href="#affiliation">Affiliation</a>
+      </div>
+    </div>
+
+    <section id="mission">
+      <div class="wrap prose">
+        <h2>Mission</h2>
+        <p>PubVerse exists to change how new research is judged. For most of the history of science, a good idea has had to wait for the crowd to catch up before anyone treats it as important. We think the substance of a result can be recognized on the day it appears, and not years later. That belief is the whole point of this work.</p>
+        <blockquote class="verdict">PubVerse, alongside fortytwodegrees, points the waymark of emerging knowledge and enlightenment. We quantify hidden relationships within knowledge spaces so ideas are evaluated on substance, not signal, and the ones that matter are recognized sooner.</blockquote>
+        <p>PubVerse is built alongside fortytwodegrees.org and shares its aim of pointing toward emerging knowledge before it becomes obvious. The compass you see turning while PubVerse is at work is the same waymark.</p>
+      </div>
+    </section>
+
+    <section id="what">
+      <div class="wrap prose">
+        <h2>What PubVerse is</h2>
+        <p>PubVerse reads a research abstract and tells you three things about it: how new the idea is, how sound the methods look, and how much the work is likely to matter. It reaches those judgments by weighing the abstract against the published scientific literature in its field, not against a popularity score.</p>
+        <p>The guiding idea is substance over signal. Signal is everything that surrounds a paper and has nothing to do with whether it is right or important: the name of the journal, the size of the lab, the number of people already crowded around the same fashionable question. Substance is the work itself. PubVerse is built to look past the signal, read the substance, and say what it sees in plain language.</p>
+        <p>You get numbers, but the numbers are not the product. Each result comes with a short written verdict that explains, in ordinary terms, why the work reads as new, or careful, or likely to matter. The reasoning is meant to be read and argued with, the way you would argue with a thoughtful colleague.</p>
+      </div>
+    </section>
+
+    <section id="score">
+      <div class="wrap prose">
+        <h2>How to score an abstract</h2>
+        <p>Scoring is the quickest way to see PubVerse at work, and it lives on the landing page.</p>
+        <p>Paste the abstract into the box. A live counter shows your word count against the limit. If you run over, the counter turns red and the Score button waits until you trim it. Press Score. PubVerse first makes sure the text is a genuine research abstract and quietly turns away posters, fragments, and writing that is not research at all. If the text clears that check, PubVerse evaluates it and returns three measures, each on a scale of 0 to 10: Novelty, Methods, and Impact. Below them sits a short verdict that puts the three numbers into a sentence or two of plain reasoning.</p>
+        <p>You do not need a title, authors, or a DOI to score an abstract. Those are asked for only if you decide to promote a result. Promoting adds the identifying details, checks that a DOI you supply really belongs to the work, and gives you a link you can share with anyone. Everything you score is kept in your own private history so you can return to it, and you can delete any of it whenever you like.</p>
+      </div>
+    </section>
+
+    <section id="compass">
+      <div class="wrap prose">
+        <h2>How the Compass works for you</h2>
+        <p>The Compass is for watching a whole area of research rather than a single abstract. It takes its name from the 42 compass: a way to keep your bearings while a field moves.</p>
+        <p>Name a topic you care about. PubVerse confirms that it can cover that area, and tells you plainly if it cannot. Then you choose how far back to look, from the last month out to the last two years. PubVerse sweeps the recent literature in that area and hands back a short list of needles, the results worth your attention, each carried with the same three measures and a plain verdict. It also shows how much material it read to find them, so you can see the size of the haystack behind the short list.</p>
+        <p>You can save a topic to your profile so it is one click away next time, leave an email address to be told when a sweep has finished, and export a simple list of what the Compass found, either the needles alone or the full scope it searched.</p>
+      </div>
+    </section>
+
+    <section id="needle">
+      <div class="wrap prose">
+        <h2>What is a needle</h2>
+        <p>A needle is a result that is both genuinely new and genuinely sound, found while it is still easy to miss.</p>
+        <p>Most research, by its nature, extends what is already known. That work is valuable, but it is not a needle. A needle breaks new ground, and it holds up when you look at it closely. The hard part is that these two qualities rarely announce themselves early. A truly new result often has few citations, sits in an unfashionable corner, or comes from a group no one is watching yet. By the time the wider field agrees it mattered, the moment to have acted on it early is gone.</p>
+        <p>The Compass exists to catch needles in that early window, when recognizing them is worth the most. When PubVerse calls something a needle, the verdict says in plain words why: what is new about it, and why the work looks trustworthy rather than merely surprising.</p>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap prose faq">
+        <h2>Questions</h2>
+
+        <h3>What data do you use?</h3>
+        <p>PubVerse compares your work against the published scientific record: the papers and preprints that make up the literature of your field. It reads what has already been established so it can tell what in your abstract is actually new. It does not use citation counts, download numbers, journal prestige, or anything about who the authors are to reach its judgment. Those are exactly the signals it is built to look past.</p>
+
+        <h3>Is my abstract stored?</h3>
+        <p>Anything you score is saved to your own history so you can come back to it later. That history is private to your account. No one else can see it, and you can delete any entry whenever you like. Nothing you score becomes visible to anyone else unless you choose to promote it.</p>
+
+        <h3>Who can see promoted results?</h3>
+        <p>Promoting a result creates a link you can share. Anyone you give that link to can open it and see that one result together with PubVerse's reasoning. Nothing else in your account, and none of your other scored abstracts, is exposed by sharing it. If you do not promote a result, it stays private to you.</p>
+
+        <h3>How is this different from citation counts?</h3>
+        <p>Citation counts measure attention, and attention is slow and uneven. A careful, important result can sit uncited for years while the field catches up, and a thin result can gather citations simply by landing in a crowded, fashionable topic. Counting citations tells you what has already been noticed. PubVerse reads the work itself against what has been published before, so a new and rigorous result can be recognized right away, without waiting for the citation record to agree.</p>
+      </div>
+    </section>
+
+    <section id="affiliation">
+      <div class="wrap prose">
+        <h2>Affiliation</h2>
+        <div class="affil-block">
+          <a href="https://fortytwodegrees.org" target="_blank" rel="noopener"><img src="assets/compass42.png" alt="The 42 compass mark"></a>
+          <p>PubVerse is affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a> and carries its compass mark. fortytwodegrees is where the larger effort lives: pointing toward emerging knowledge and helping good ideas be seen for what they are, sooner. The two share a purpose, and the compass you watch while a sweep is running is the same waymark.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <a class="affil" href="https://fortytwodegrees.org" target="_blank" rel="noopener">
+        <img src="assets/compass42.png" alt="">Affiliated with fortytwodegrees.org
+      </a>
+      <span class="spacer"></span>
+      <a href="index.html">Score</a>
+      <a href="compass.html">Compass</a>
+      <a href="docs.html">Docs</a>
+    </div>
+  </footer>
+
+  <!-- Shared runtime. config.js must load first; api.js and ui.js hang off window.PV. -->
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+</body>
+</html>
