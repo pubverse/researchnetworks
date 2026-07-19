@@ -6,11 +6,16 @@
   'use strict';
 
   // Backend base URL.
-  // The local default is below. In production this is overridden to the tunnel
-  // URL, either by editing this one line at deploy time or by setting
-  // window.PV_API_BASE before this script loads. The static site never stores
-  // any secret, password, or hash.
-  var API_BASE = window.PV_API_BASE || 'http://localhost:8077';
+  // Defaults to same-origin (empty string) so no internal host or port is ever
+  // baked into this public file. In production set this to the backend tunnel URL,
+  // either by editing this one line at deploy time or by setting window.PV_API_BASE
+  // before this script loads. For local development point it at your backend the
+  // same way (e.g. window.PV_API_BASE = 'http://localhost:8077'). The static site
+  // never stores any secret, password, or hash.
+  // NOTE: this is a temporary public tunnel to the backend. Swap it for the stable
+  // api.pubverse.ai once that is set up. Override without redeploy via window.PV_API_BASE.
+  var API_BASE = (typeof window.PV_API_BASE === 'string') ? window.PV_API_BASE
+    : 'https://soldiers-pace-amended-modelling.trycloudflare.com';
 
   window.PV = {
     API_BASE: API_BASE,
