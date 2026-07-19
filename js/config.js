@@ -14,7 +14,7 @@
   // NOTE: this is a temporary public tunnel to the backend. Swap it for the stable
   // api.pubverse.ai once that is set up. Override without redeploy via window.PV_API_BASE.
   var API_BASE = (typeof window.PV_API_BASE === 'string') ? window.PV_API_BASE
-    : 'https://ripe-scores-interface-giant.trycloudflare.com';
+    : 'https://soldiers-pace-amended-modelling.trycloudflare.com';
 
   window.PV = {
     API_BASE: API_BASE,
