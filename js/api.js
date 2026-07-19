@@ -9,11 +9,20 @@
 (function () {
   'use strict';
 
-  if (!window.PV || !window.PV.API_BASE) {
+  // API_BASE may be '' (same-origin), so check that config defined it, not truthiness.
+  if (!window.PV || typeof window.PV.API_BASE !== 'string') {
     throw new Error('PubVerse: js/config.js must load before js/api.js');
   }
 
   var NET_ERROR = 'Could not reach the PubVerse service. Check your connection and try again.';
+
+  // Session token. The site and API are on different domains, so the httpOnly session cookie is a
+  // third-party cookie that Safari and hardened browsers block. We therefore also keep the token in
+  // localStorage and send it as a Bearer header, which works regardless of cookie policy.
+  var TOKEN_KEY = 'pv_token';
+  function getToken() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+  function setToken(t) { try { if (t) localStorage.setItem(TOKEN_KEY, t); } catch (e) {} }
+  function clearToken() { try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
 
   function statusMessage(status) {
     if (status === 401 || status === 403) return 'Please sign in and try again.';
@@ -41,6 +50,8 @@
       credentials: 'include',
       headers: {}
     };
+    var tok = getToken();
+    if (tok) init.headers['Authorization'] = 'Bearer ' + tok;
     if (opts.body !== undefined && opts.body !== null) {
       init.headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(opts.body);
@@ -82,6 +93,10 @@
     var params = new URLSearchParams();
     if (scope) params.set('scope', scope);
     if (cols) params.set('cols', Array.isArray(cols) ? cols.join(',') : cols);
+    // A download link cannot carry an Authorization header, so pass the token in the query
+    // (the export endpoint accepts pv_token). Cookies are blocked cross-site.
+    var tok = getToken();
+    if (tok) params.set('pv_token', tok);
     var qs = params.toString();
     return window.PV.API_BASE + '/api/compass/export/' +
       encodeURIComponent(runId) + '.tsv' + (qs ? '?' + qs : '');
@@ -90,9 +105,11 @@
   window.PV.api = {
     // account
     login: function (username, password) {
-      return request('/api/login', { method: 'POST', body: { username: username, password: password } });
+      return request('/api/login', { method: 'POST', body: { username: username, password: password } })
+        .then(function (res) { if (res && res.ok && res.token) setToken(res.token); return res; });
     },
     logout: function () {
+      clearToken();
       return request('/api/logout', { method: 'POST' });
     },
     me: function () {
@@ -127,6 +144,20 @@
     compassPoll: function (runId) {
       return request('/api/compass/run/' + encodeURIComponent(runId));
     },
-    compassExportUrl: compassExportUrl
+    compassExportUrl: compassExportUrl,
+
+    // saved compass topics (Profile). These hit the real server so a saved topic
+    // persists across browsers and devices and shows up in Profile.
+    compassSaveTopic: function (topic, monthsBack) {
+      var body = { topic: topic };
+      if (monthsBack != null) body.months_back = monthsBack;
+      return request('/api/compass/topics', { method: 'POST', body: body });
+    },
+    compassTopics: function () {
+      return request('/api/compass/topics');
+    },
+    compassDeleteTopic: function (id) {
+      return request('/api/compass/topics/' + encodeURIComponent(id), { method: 'DELETE' });
+    }
   };
 })();
