@@ -68,7 +68,7 @@
       <div class="wrap">
         <a class="brand" href="index.html"><img src="assets/pubverse_wordmark.png" alt="PubVerse"></a>
         <div class="spacer"></div>
-        <a class="link" href="compass.html">Compass</a>
+        <a class="link" href="/compass">Compass</a>
         <a class="link" href="docs.html">Docs</a>
         <a class="link" id="signout" href="#">Sign out</a>
       </div>
@@ -128,6 +128,7 @@
                 <div class="metric" id="mImpact"><div class="v">--</div><div class="k">Impact</div></div>
               </div>
               <div class="verdict"><p id="verdict"></p></div>
+              <div class="warn-note" id="scoreWarn" hidden></div>
 
               <div class="row wrap" style="margin-top:14px">
                 <button class="btn ghost sm" id="promoteToggle" type="button">Promote this result</button>
@@ -143,12 +144,13 @@
                     <div class="field"><label for="pAffil">Affiliation</label><input id="pAffil" type="text" autocomplete="off"></div>
                     <div class="field"><label for="pRor">ROR ID</label><input id="pRor" type="text" autocomplete="off" placeholder="Optional"></div>
                     <div class="field"><label for="pOrcid">ORCID</label><input id="pOrcid" type="text" autocomplete="off" placeholder="Optional"></div>
-                    <div class="field"><label for="pDoi">DOI</label><input id="pDoi" type="text" autocomplete="off" placeholder="Optional"></div>
+                    <div class="field"><label for="pDoi">DOI (required)</label><input id="pDoi" type="text" autocomplete="off" placeholder="e.g. 10.1101/2026.01.02.123456"></div>
                   </div>
                   <div class="err" id="promoteErr"></div>
                   <div class="row">
                     <button class="btn" id="promoteBtn" type="submit">Get shareable link</button>
                   </div>
+                  <div class="compass-load" id="promoteSpin"></div>
                   <div id="shareOut" class="panel" hidden style="background:var(--blue-l);border-color:#cfe1f6">
                     <div class="mini">Your shareable link</div>
                     <div class="row" style="margin-top:6px">
@@ -170,7 +172,7 @@
               <button class="btn ghost sm" id="historyRefresh" type="button">Refresh</button>
             </div>
             <div class="err" id="historyErr"></div>
-            <p class="muted" id="historyLoading" hidden style="margin:16px 0">Loading...</p>
+            <div class="compass-load" id="historySpin"></div>
             <p class="muted" id="historyEmpty" hidden style="margin:16px 0">You have not scored any abstracts yet. Open the Score tab to start.</p>
             <div class="stack" id="historyList" style="margin-top:16px"></div>
           </div>
@@ -190,7 +192,7 @@
 
             <div class="card">
               <h2>Saved compass topics</h2>
-              <p class="muted" id="topicsEmpty" hidden>No saved topics yet. Open the <a href="compass.html">compass</a> to find and save topics.</p>
+              <p class="muted" id="topicsEmpty" hidden>No saved topics yet. Open the <a href="/compass">compass</a> to find and save topics.</p>
               <div id="topicsList" style="margin-top:6px"></div>
             </div>
 
@@ -226,6 +228,19 @@
     function $(s) { return document.querySelector(s); }
     function on(node, ev, fn) { if (node) node.addEventListener(ev, fn); }
 
+    // Defense in depth for any plain-language reasoning shown to the reader. The
+    // backend already builds verdicts only from the measures, but this guarantees
+    // that no bracketed reference handle or internal term can ever reach the page.
+    function scrub(s) {
+      var t = String(s == null ? '' : s);
+      t = t.replace(/\[[A-Za-z]?\d+[^\]]*\]/g, '');
+      t = t.replace(/\b(qwen|gte|setfit|embeddings?|retrieval|grounded|critique|neighbou?rs?|clusters?|clustering|thresholds?|pgvector)\b/gi, '');
+      t = t.replace(/\(\s*\)/g, '');
+      t = t.replace(/\s{2,}/g, ' ');
+      t = t.replace(/\s+([.,;:])/g, '$1');
+      return t.trim();
+    }
+
     // veil / auth
     var veil = $('#veil'), veilBoot = $('#veilBoot'), loginForm = $('#loginForm');
     var luser = $('#lu'), lpass = $('#lp'), loginBtn = $('#loginBtn');
@@ -247,7 +262,7 @@
 
     // history
     var historyList = $('#historyList'), historyEmpty = $('#historyEmpty');
-    var historyLoading = $('#historyLoading'), historyErr = '#historyErr';
+    var historySpin = '#historySpin', historyErr = '#historyErr';
 
     var currentUser = null, lastScoreId = null, historyLoaded = false;
 
@@ -344,7 +359,10 @@
       setMetric('#mNovelty', s.novelty);
       setMetric('#mMethods', s.methods);
       setMetric('#mImpact', s.impact);
-      verdictEl.textContent = res.verdict || '';
+      verdictEl.textContent = scrub(res.verdict || '');
+      var warnEl = $('#scoreWarn');
+      if (res.warning) { warnEl.textContent = res.warning; warnEl.hidden = false; }
+      else { warnEl.hidden = true; }
       scoreResult.hidden = false;
     }
     function setMetric(sel, v) {
@@ -377,12 +395,15 @@
         var val = node ? (node.value || '').trim() : '';
         if (val) payload[k] = val;
       });
+      if (!payload.doi) {
+        ui.showError(promoteErr, 'A DOI is required to publish a result. Add the DOI, then try again.');
+        return;
+      }
       promoteBtn.disabled = true;
-      var label = promoteBtn.textContent;
-      promoteBtn.textContent = 'Working';
+      ui.showCompass('#promoteSpin', 'Checking the DOI and publishing');
       api.promote(payload).then(function (res) {
         promoteBtn.disabled = false;
-        promoteBtn.textContent = label;
+        ui.hideCompass('#promoteSpin');
         if (!res || res.ok === false) {
           ui.showError(promoteErr, (res && res.message) || 'We could not promote that submission.');
           return;
@@ -430,10 +451,10 @@
     function loadHistory() {
       ui.clearError(historyErr);
       historyEmpty.hidden = true;
-      historyLoading.hidden = false;
       historyList.innerHTML = '';
+      ui.showCompass(historySpin, 'Loading your history');
       api.history().then(function (res) {
-        historyLoading.hidden = true;
+        ui.hideCompass(historySpin);
         historyLoaded = true;
         if (res && res.ok === false) {
           ui.showError(historyErr, res.message || 'Could not load your history.');
@@ -532,14 +553,20 @@
       $('#pUser').textContent = user.username || '--';
       $('#pEmail').textContent = user.email || 'Not set';
       $('#pRole').textContent = user.role || '--';
-      renderTopics(listField(user, ['topics', 'compass_topics', 'saved_topics']));
-      renderPromoted(listField(user, ['promoted', 'promotions', 'promoted_items']));
+      loadTopics();
+      loadPromoted();
     }
-    function listField(obj, keys) {
-      for (var i = 0; i < keys.length; i++) {
-        if (obj && Array.isArray(obj[keys[i]])) return obj[keys[i]];
-      }
-      return [];
+    // GET /api/me carries only the account, so the two lists come from the
+    // endpoints that actually hold them: saved topics from /api/compass/topics,
+    // promoted results from the promoted rows of /api/history.
+    function loadTopics() {
+      api.compassTopics().then(function (res) { renderTopics(toList(res)); });
+    }
+    function loadPromoted() {
+      api.history().then(function (res) {
+        var promoted = toList(res).filter(function (it) { return it && it.promoted && it.share_url; });
+        renderPromoted(promoted);
+      });
     }
     function renderTopics(topics) {
       var list = $('#topicsList'), empty = $('#topicsEmpty');
@@ -551,7 +578,7 @@
         if (!label) return;
         var a = document.createElement('a');
         a.className = 'chip';
-        a.href = 'compass.html?topic=' + encodeURIComponent(label);
+        a.href = '/compass?topic=' + encodeURIComponent(label);
         a.textContent = label;
         list.appendChild(a);
       });

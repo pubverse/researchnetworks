@@ -92,4 +92,23 @@ tr:hover td{background:var(--paper)}
 footer{border-top:1px solid var(--line);margin-top:60px;padding:30px 0;color:var(--muted);font-size:.85rem}
 footer .wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
 .nowrap{white-space:nowrap}
-@media(max-width:720px){.nav .wrap{gap:14px}.hero{padding:34px 0 20px}h1{font-size:1.6rem}}
+
+/* advisory (non-blocking) review warning under the score */
+.warn-note{background:#fdf1e3;border:1px solid #f3d9b0;color:#8a5a1f;border-radius:var(--r-s);padding:11px 15px;margin-top:12px;font-size:.9rem}
+.warn-note[hidden]{display:none}
+
+/* ---- mobile ---- */
+@media(max-width:720px){
+  .wrap{padding:0 16px}
+  .nav .wrap{gap:12px;height:auto;min-height:56px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+  .nav a.link{font-size:.9rem}
+  .affil{display:none}
+  .hero{padding:30px 0 18px} h1{font-size:1.6rem} h2{font-size:1.2rem}
+  .card{padding:18px} .panel{padding:16px}
+  .scorebar{gap:10px} .metric{min-width:calc(50% - 6px)} .metric .v{font-size:1.7rem}
+  .tabs{overflow-x:auto;-webkit-overflow-scrolling:touch} .tabs button{padding:12px 12px;white-space:nowrap}
+  .btn{padding:11px 18px}
+  table{font-size:.84rem} th,td{padding:8px 8px}
+  .veil .card{width:94%}
+}
+@media(max-width:460px){ .metric{min-width:100%} .brand{font-size:1.12rem} }
