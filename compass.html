@@ -579,6 +579,39 @@
         var u = paperUrl(n), s = esc(n.source || '');
         return u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + s + '</a>' : s;
       }
+      // The prior work the evaluation cited, deduped across every needle in the run.
+      function allCitedWorks(ns) {
+        var m = {};
+        (ns || []).forEach(function (n) {
+          (n.cited_works || []).forEach(function (w) {
+            var k = w.doi || w.source_id || w.title;
+            if (k && !m[k]) m[k] = w;
+          });
+        });
+        return Object.keys(m).map(function (k) { return m[k]; });
+      }
+      function toBibtex(works) {
+        return works.map(function (w, i) {
+          var key = 'pubverse' + (w.doi ? w.doi.replace(/[^a-zA-Z0-9]/g, '') : (i + 1));
+          var lines = ['@article{' + key + ','];
+          if (w.title) lines.push('  title = {' + String(w.title).replace(/[{}]/g, '') + '},');
+          if (w.year) lines.push('  year = {' + w.year + '},');
+          if (w.doi) lines.push('  doi = {' + w.doi + '},');
+          var u = w.url || (w.doi ? 'https://doi.org/' + w.doi : '');
+          if (u) lines.push('  url = {' + u + '},');
+          lines.push('}');
+          return lines.join('\n');
+        }).join('\n\n');
+      }
+      function downloadBib(works, topic) {
+        var blob = new Blob([toBibtex(works)], { type: 'application/x-bibtex' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'pubverse-cited-works' + (topic ? '-' + String(topic).replace(/[^a-z0-9]+/gi, '-').toLowerCase() : '') + '.bib';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      }
+      var cited = allCitedWorks(needles);
       if (needles.length) {
         html += '<div style="overflow-x:auto"><table><thead><tr>' +
           '<th>Title</th><th>Source</th><th>Date</th><th>Novelty</th><th>Methods</th><th>Impact</th><th>Why it stood out</th>' +
@@ -595,6 +628,16 @@
             '</tr>';
         });
         html += '</tbody></table></div>';
+        if (cited.length) {
+          html += '<details style="margin-top:16px"><summary class="strong" style="cursor:pointer">Cited relevant works (' + cited.length + ')</summary>' +
+                  '<p class="muted" style="margin:6px 0">The prior work these needles were evaluated against.</p><ul style="margin:0;padding-left:18px">';
+          cited.forEach(function (w) {
+            var wu = w.url || (w.doi ? 'https://doi.org/' + w.doi : '');
+            var wt = esc(w.title || '(untitled)') + (w.year ? ' (' + esc(w.year) + ')' : '');
+            html += '<li style="margin:4px 0">' + (wu ? '<a href="' + esc(wu) + '" target="_blank" rel="noopener">' + wt + '</a>' : wt) + '</li>';
+          });
+          html += '</ul></details>';
+        }
       } else {
         html += '<p class="muted">No needles cleared the bar in this run. That is a real result, not a failure. Most subjects are mostly incremental at any given moment.</p>';
       }
@@ -604,6 +647,7 @@
         html += '<button class="btn ghost sm" id="saveTopicBtn">Save topic to my profile</button>';
         html += '<a class="btn ghost sm" id="expNeedles">Export needles (.tsv)</a>';
         html += '<a class="btn ghost sm" id="expHaystack">Export full scope (.tsv)</a>';
+        if (cited.length) html += '<a class="btn ghost sm" id="expBib">Cited works (.bib)</a>';
       } else if (opts.example) {
         html += '<span class="muted">This is a completed run you can explore. Enter your own topic above to start a new one.</span>';
       }
@@ -617,6 +661,8 @@
         var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');
         if (en) { en.href = api.compassExportUrl(opts.runId, 'needles', 'id,source,date,title,novelty,methods,impact', opts.exportToken); en.setAttribute('download', ''); }
         if (eh) { eh.href = api.compassExportUrl(opts.runId, 'haystack', 'id,source,date,title', opts.exportToken); eh.setAttribute('download', ''); }
+        var eb = $('#expBib');
+        if (eb) on(eb, 'click', function (e) { e.preventDefault(); downloadBib(cited, data.topic); });
         if (sb) on(sb, 'click', function () { saveTopic(data.topic, sb); });
       }
     }
