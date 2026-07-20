@@ -115,6 +115,16 @@
       </div>
     </section>
 
+    <!-- switch between the user's completed needle searches -->
+    <section class="wrap" id="pastRunsWrap" hidden>
+      <div class="card" style="padding:14px 18px">
+        <div class="row" style="gap:10px">
+          <label for="pastRuns" class="mini" style="white-space:nowrap">Your past searches</label>
+          <select id="pastRuns" style="flex:1;min-width:0"></select>
+        </div>
+      </div>
+    </section>
+
     <!-- 42 compass spinner (own root-absolute image so the shared helper leaves it alone) -->
     <section class="wrap">
       <div class="compass-load" id="spinner"><img src="/assets/compass42.png" alt=""><div class="cap"></div></div>
@@ -127,7 +137,6 @@
       <div class="wrap">
         <span class="affil"><img src="/assets/compass42.png" alt="">PubVerse, an affiliate of <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
         <span class="sp"></span>
-        <span class="muted">PubVerse, substance over signal.</span>
       </div>
     </footer>
 
@@ -174,6 +183,7 @@
       veil.style.display = 'none';
       app.hidden = false;
       initPage();
+      loadPastRuns();
     }
 
     on(loginForm, 'submit', function (e) {
@@ -203,6 +213,34 @@
     on($('#signout'), 'click', function (e) {
       e.preventDefault();
       api.logout().then(function () { window.location.reload(); });
+    });
+
+    // ---- run switcher: load + switch between the user's completed needle searches ----
+    function loadPastRuns() {
+      if (!api.compassRuns) return;
+      api.compassRuns().then(function (rows) {
+        var sel = $('#pastRuns'), wrap = $('#pastRunsWrap');
+        if (!sel || !wrap) return;
+        rows = (rows || []).filter(function (r) { return r && r.status === 'done'; });
+        if (!rows.length) { wrap.hidden = true; return; }
+        var opts = ['<option value="">Your past searches (' + rows.length + ')…</option>'];
+        rows.forEach(function (r) {
+          var d = r.ts ? new Date(r.ts * 1000).toLocaleDateString() : '';
+          opts.push('<option value="' + esc(r.run_id) + '">' + esc(r.topic || 'search') + (d ? ' — ' + esc(d) : '') + '</option>');
+        });
+        sel.innerHTML = opts.join('');
+        wrap.hidden = false;
+      });
+    }
+    on($('#pastRuns'), 'change', function () {
+      var rid = this.value;
+      if (!rid) return;
+      api.compassPoll(rid).then(function (r) {
+        if (r && r.dashboard) {
+          renderDashboard(r.dashboard, { runId: rid, exportToken: r.export_token });
+          var dash = $('#dash'); if (dash) dash.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
     });
 
     /* ---------- page wiring (runs once, after auth) ---------- */
@@ -679,7 +717,7 @@
       }
 
       html += '<div class="row" style="margin-top:20px">';
-      if (opts.live && opts.runId) {
+      if (opts.runId) {
         html += '<button class="btn ghost sm" id="saveTopicBtn">Save topic to my profile</button>';
         html += '<a class="btn ghost sm" id="expNeedles">Export needles (.tsv)</a>';
         html += '<a class="btn ghost sm" id="expHaystack">Export full scope (.tsv)</a>';
@@ -693,7 +731,7 @@
       dash.innerHTML = html;
       dash.hidden = false;
 
-      if (opts.live && opts.runId) {
+      if (opts.runId) {
         var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');
         if (en) { en.href = api.compassExportUrl(opts.runId, 'needles', 'id,source,date,title,novelty,methods,impact', opts.exportToken); en.setAttribute('download', ''); }
         if (eh) { eh.href = api.compassExportUrl(opts.runId, 'haystack', 'id,source,date,title', opts.exportToken); eh.setAttribute('download', ''); }

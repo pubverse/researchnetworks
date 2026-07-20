@@ -158,6 +158,9 @@
     compassPoll: function (runId) {
       return request('/api/compass/run/' + encodeURIComponent(runId));
     },
+    compassRuns: function () {
+      return request('/api/compass/runs');
+    },
     compassExportUrl: compassExportUrl,
 
     // saved compass topics (Profile). These hit the real server so a saved topic
