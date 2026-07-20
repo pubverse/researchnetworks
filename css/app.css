@@ -103,6 +103,8 @@ footer .wrap{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
   .nav .wrap{gap:12px;height:auto;min-height:56px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
   .nav a.link{font-size:.9rem}
   .affil{display:none}
+  /* keep the footer affiliate line visible on phones; only the nav/veil badge is decluttered */
+  footer .affil{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
   .hero{padding:30px 0 18px} h1{font-size:1.6rem} h2{font-size:1.2rem}
   .card{padding:18px} .panel{padding:16px}
   .scorebar{gap:10px} .metric{min-width:calc(50% - 6px)} .metric .v{font-size:1.7rem}

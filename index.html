@@ -98,7 +98,7 @@
           <div class="card">
             <div class="section-intro">
               <h2>Score an abstract</h2>
-              <p class="muted">Paste an abstract and PubVerse evaluates it on substance: how novel the work is, how sound its methods are, and how much impact it is likely to have against the published literature. A title and other details stay optional until you choose to promote a result.</p>
+              <p class="muted">Paste an abstract and PubVerse evaluates it on substance: how novel the work is, how sound its methods are, and how much impact it is likely to have. It weighs your work against the entire published record, every field and every era since the dawn of academic publishing, more than 116 million publications and growing every day. A title and other details stay optional until you choose to promote a result.</p>
             </div>
 
             <div class="stack">
@@ -192,6 +192,11 @@
 
             <div class="card">
               <h2>Saved compass topics</h2>
+              <p class="muted">Topics you follow. Add one to keep it here and jump straight to its compass.</p>
+              <div class="row" style="gap:8px;margin:8px 0">
+                <input id="topicAdd" type="text" placeholder="Add a topic of interest" maxlength="120" style="flex:1;min-width:0">
+                <button class="btn" id="topicAddBtn" type="button">Add</button>
+              </div>
               <p class="muted" id="topicsEmpty" hidden>No saved topics yet. Open the <a href="/compass">compass</a> to find and save topics.</p>
               <div id="topicsList" style="margin-top:6px"></div>
             </div>
@@ -208,7 +213,7 @@
 
     <footer>
       <div class="wrap">
-        <span class="affil"><img src="assets/compass42.png" alt="">Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
+        <span class="affil"><img src="assets/compass42.png" alt="">PubVerse, an affiliate of <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
         <span class="sp"></span>
         <span class="muted">PubVerse, substance over signal.</span>
       </div>
@@ -604,6 +609,21 @@
     // promoted results from the promoted rows of /api/history.
     function loadTopics() {
       api.compassTopics().then(function (res) { renderTopics(toList(res)); });
+      var addBtn = $('#topicAddBtn'), addInput = $('#topicAdd');
+      if (addBtn && addInput) {
+        var doAdd = function () {
+          var v = (addInput.value || '').trim();
+          if (!v) return;
+          addBtn.disabled = true;
+          api.compassSaveTopic(v).then(function () {
+            addInput.value = '';
+            addBtn.disabled = false;
+            loadTopics();
+          }).catch(function () { addBtn.disabled = false; });
+        };
+        addBtn.onclick = doAdd;
+        addInput.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); doAdd(); } };
+      }
     }
     function loadPromoted() {
       api.history().then(function (res) {
@@ -619,11 +639,24 @@
       topics.forEach(function (t) {
         var label = (typeof t === 'string') ? t : (t.topic || t.name || t.label || '');
         if (!label) return;
+        var wrap = document.createElement('span');
+        wrap.className = 'chip';
         var a = document.createElement('a');
-        a.className = 'chip';
         a.href = '/compass?topic=' + encodeURIComponent(label);
         a.textContent = label;
-        list.appendChild(a);
+        a.style.color = 'inherit';
+        a.style.textDecoration = 'none';
+        wrap.appendChild(a);
+        if (t && t.id != null) {
+          var x = document.createElement('button');
+          x.type = 'button';
+          x.textContent = '×';
+          x.setAttribute('aria-label', 'Remove ' + label);
+          x.style.cssText = 'margin-left:8px;border:none;background:none;color:inherit;cursor:pointer;font-weight:700;opacity:.55';
+          x.onclick = function () { api.compassDeleteTopic(t.id).then(loadTopics); };
+          wrap.appendChild(x);
+        }
+        list.appendChild(wrap);
       });
     }
     function renderPromoted(items) {
