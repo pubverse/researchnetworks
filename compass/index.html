@@ -611,6 +611,42 @@
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
       }
+      // Resolve a dimension's dim-local [N#] handles to its cited works.
+      function refMap(works) {
+        var m = {};
+        (works || []).forEach(function (w) {
+          (w.refs && w.refs.length ? w.refs : (w.ref ? [w.ref] : [])).forEach(function (r) { if (r) m[r] = w; });
+        });
+        return m;
+      }
+      // Render one raw grounded verdict, turning each [N#] into a superscript link to the work it cites.
+      function renderVerdict(text, works) {
+        var rmap = refMap(works);
+        var t = esc(String(text == null ? '' : text));
+        t = t.replace(/\[([A-Za-z]?\d+[^\]]*)\]/g, function (whole, inner) {
+          var key = String(inner).split(/\s+/)[0];
+          var w = rmap[key];
+          if (!w) return '';
+          var u = w.url || (w.doi ? 'https://doi.org/' + w.doi : '');
+          var tip = esc((w.title || '') + (w.year ? ' (' + w.year + ')' : ''));
+          return u ? '<sup><a href="' + esc(u) + '" target="_blank" rel="noopener" title="' + tip + '">' + esc(key) + '</a></sup>'
+                   : '<sup title="' + tip + '">' + esc(key) + '</sup>';
+        });
+        return t.replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
+      }
+      // The reasoning cell: the model's raw novelty verdict up front, methods + impact in a details.
+      // Falls back to the plain summary verdict when a grounded verdict is absent.
+      function reasonCell(n) {
+        var r = n.reasoning || {}, nov = r.novelty || {}, meth = r.methods || {}, imp = r.impact || {};
+        var html = nov.text ? renderVerdict(nov.text, nov.works) : esc(scrub(n.verdict));
+        if (meth.text || imp.text) {
+          html += '<details style="margin-top:6px"><summary class="mini" style="cursor:pointer">methods &amp; impact</summary>';
+          if (meth.text) html += '<div style="margin:4px 0"><span class="mini strong">Methods:</span> ' + renderVerdict(meth.text, meth.works) + '</div>';
+          if (imp.text) html += '<div style="margin:4px 0"><span class="mini strong">Impact:</span> ' + renderVerdict(imp.text, imp.works) + '</div>';
+          html += '</details>';
+        }
+        return html;
+      }
       var cited = allCitedWorks(needles);
       if (needles.length) {
         html += '<div style="overflow-x:auto"><table><thead><tr>' +
@@ -624,7 +660,7 @@
             '<td>' + scoreCell(n.novelty) + '</td>' +
             '<td>' + scoreCell(n.methods) + '</td>' +
             '<td>' + scoreCell(n.impact) + '</td>' +
-            '<td>' + esc(scrub(n.verdict)) + '</td>' +
+            '<td>' + reasonCell(n) + '</td>' +
             '</tr>';
         });
         html += '</tbody></table></div>';
