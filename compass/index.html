@@ -77,6 +77,10 @@
                placeholder="e.g. population dynamics in mathematical biology">
         <datalist id="coveredTopics"></datalist>
         <div class="mini" id="topicHint" style="margin-top:6px">Pick a subject PubVerse already covers, or type your own and check it.</div>
+        <div class="field" style="margin-top:12px;max-width:260px">
+          <label for="months">How far back</label>
+          <select id="months"></select>
+        </div>
         <div class="row" style="margin-top:10px">
           <button class="btn" id="checkBtn">Check topic</button>
         </div>
@@ -99,10 +103,6 @@
         <!-- revealed only once a topic checks out as covered -->
         <div id="runControls" hidden>
           <div class="grid" style="margin-top:20px">
-            <div class="field">
-              <label for="months">How far back</label>
-              <select id="months"></select>
-            </div>
             <div class="field">
               <label for="email">Alert me when the run finishes (optional)</label>
               <input id="email" type="email" autocomplete="email" placeholder="you@example.org">
