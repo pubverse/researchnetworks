@@ -57,11 +57,19 @@
       init.body = JSON.stringify(opts.body);
     }
 
+    // Time-box every request. Without this, a hung connection (accepted but never answered) leaves
+    // fetch pending forever, which strands the sign-in card on its boot spinner. On timeout we abort,
+    // which throws below and returns the uniform NET_ERROR so the caller (e.g. boot) can move on.
     var res;
+    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, opts.timeout || 20000) : null;
+    if (ctrl) init.signal = ctrl.signal;
     try {
       res = await fetch(window.PV.API_BASE + path, init);
     } catch (e) {
       return { ok: false, message: NET_ERROR };
+    } finally {
+      if (timer) clearTimeout(timer);
     }
 
     var text = '';

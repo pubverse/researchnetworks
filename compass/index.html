@@ -170,7 +170,7 @@
         if (res && res.ok === false && res.status !== 401 && res.message) {
           ui.showError(loginErr, res.message);
         }
-      });
+      }).catch(function () { showLogin(); });
     }
     function showLogin() {
       ui.hideCompass(veilBoot);
