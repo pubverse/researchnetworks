@@ -672,11 +672,36 @@
         });
         return t.replace(/\(\s*\)/g, '').replace(/\s{2,}/g, ' ').trim();
       }
+      // Grounding receipts: for the novelty judgment, show the nearest PRIOR WORK it was grounded against,
+      // each with its cosine to this paper (bar vs the 0.62 relevance / 0.82 near-duplicate lines) and the
+      // retrieved passage of what that prior did. This is exactly the evidence the model judged against, so
+      // an expert can verify the call in seconds. Renders only when the per-prior similarity is present.
+      function groundingReceipts(works) {
+        var ws = (works || []).filter(function (w) { return w.sim != null; })
+                  .sort(function (a, b) { return (b.sim || 0) - (a.sim || 0); });
+        if (!ws.length) return '';
+        var rows = ws.map(function (w) {
+          var sim = +w.sim, pct = Math.max(0, Math.min(1, sim)) * 100;
+          var col = sim >= 0.82 ? '#e0685f' : (sim >= 0.62 ? '#3ea66b' : '#f6c445');
+          var src = (w.source_type && w.source_type !== 'dense')
+            ? ' <span style="font-size:10px;color:#0b57d0;border:1px solid #b9c9ee;border-radius:3px;padding:0 3px">' + esc(w.source_type) + '</span>' : '';
+          var did = w.did ? '<div style="color:#666;font:11px ui-monospace,Menlo,monospace;margin:2px 0 0 20px">' + esc(String(w.did).slice(0, 220)) + '</div>' : '';
+          return '<div style="margin:5px 0;line-height:1.4">' +
+            '<span style="color:#0b57d0;font-weight:600">[' + esc(w.ref || '?') + ']</span> ' +
+            esc(String(w.title || '').slice(0, 88)) + (w.year ? ' <span style="color:#aaa">' + esc(w.year) + '</span>' : '') + src +
+            '<span style="display:inline-block;width:90px;height:9px;background:#eef0f4;border-radius:3px;vertical-align:middle;margin:0 6px;position:relative">' +
+              '<span style="position:absolute;left:0;top:0;height:100%;border-radius:3px;width:' + pct.toFixed(0) + '%;background:' + col + '"></span></span>' +
+            '<span style="font:11px ui-monospace,monospace;color:#444">' + sim.toFixed(2) + '</span>' + did + '</div>';
+        }).join('');
+        return '<details style="margin-top:6px"><summary class="mini" style="cursor:pointer">what grounded this (' + ws.length + ' nearest prior work)</summary>' +
+          '<div class="mini" style="color:#888;margin:2px 0 4px">cosine to this paper: green &ge;0.62 relevant, red &ge;0.82 near-duplicate</div>' + rows + '</details>';
+      }
       // The reasoning cell: the model's raw novelty verdict up front, methods + impact in a details.
       // Falls back to the plain summary verdict when a grounded verdict is absent.
       function reasonCell(n) {
         var r = n.reasoning || {}, nov = r.novelty || {}, meth = r.methods || {}, imp = r.impact || {};
         var html = nov.text ? renderVerdict(nov.text, nov.works) : esc(scrub(n.verdict));
+        html += groundingReceipts(nov.works);
         if (meth.text || imp.text) {
           html += '<details style="margin-top:6px"><summary class="mini" style="cursor:pointer">methods &amp; impact</summary>';
           if (meth.text) html += '<div style="margin:4px 0"><span class="mini strong">Methods:</span> ' + renderVerdict(meth.text, meth.works) + '</div>';
