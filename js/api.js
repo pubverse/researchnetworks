@@ -128,7 +128,9 @@
     score: function (abstract, title) {
       var body = { abstract: abstract };
       if (title) body.title = title;
-      return request('/api/score', { method: 'POST', body: body });
+      // Scoring runs the full grounded pipeline (retrieval + LLM verdict) and can take ~30-60s, well past
+      // the 20s default; give it a generous ceiling so a slow score is not misreported as "could not reach".
+      return request('/api/score', { method: 'POST', body: body, timeout: 120000 });
     },
     history: function () {
       return request('/api/history');

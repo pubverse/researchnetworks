@@ -18,6 +18,8 @@
     .strong{font-weight:500;color:var(--ink)}
     .sp{flex:1}
     .field{margin:0}
+    .req{color:#c0392b;margin-left:2px;font-weight:600}
+    .opt{color:var(--muted);font-weight:400;font-size:.85em}
     .formgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px 16px}
     .chip{display:inline-block;font-size:.85rem;padding:6px 12px;border:1px solid var(--line);border-radius:20px;background:var(--paper);color:var(--blue-d);margin:0 6px 8px 0}
     .chip:hover{background:var(--blue-l);text-decoration:none}
@@ -42,11 +44,11 @@
       <form id="loginForm" hidden autocomplete="on">
         <div class="stack">
           <div class="field" style="text-align:left">
-            <label for="lu">Username</label>
+            <label for="lu">Username <span class="req" aria-hidden="true">*</span></label>
             <input id="lu" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
           </div>
           <div class="field" style="text-align:left">
-            <label for="lp">Password</label>
+            <label for="lp">Password <span class="req" aria-hidden="true">*</span></label>
             <input id="lp" name="password" type="password" autocomplete="current-password" required>
           </div>
           <div class="err" id="loginErr"></div>
@@ -103,11 +105,11 @@
 
             <div class="stack">
               <div class="field">
-                <label for="sTitle">Title (optional)</label>
+                <label for="sTitle">Title <span class="opt">(optional)</span></label>
                 <input id="sTitle" type="text" autocomplete="off" placeholder="Working title of the paper">
               </div>
               <div class="field">
-                <label for="sAbstract">Abstract (required)</label>
+                <label for="sAbstract">Abstract <span class="req" aria-hidden="true">*</span></label>
                 <textarea id="sAbstract" required placeholder="Paste the abstract here"></textarea>
                 <div class="counter" id="sCounter">0 / 1000 words</div>
                 <div class="err" id="scoreErr"></div>
@@ -144,7 +146,7 @@
                     <div class="field"><label for="pAffil">Affiliation</label><input id="pAffil" type="text" autocomplete="off"></div>
                     <div class="field"><label for="pRor">ROR ID</label><input id="pRor" type="text" autocomplete="off" placeholder="Optional"></div>
                     <div class="field"><label for="pOrcid">ORCID</label><input id="pOrcid" type="text" autocomplete="off" placeholder="Optional"></div>
-                    <div class="field"><label for="pDoi">DOI (required)</label><input id="pDoi" type="text" autocomplete="off" placeholder="e.g. 10.1101/2026.01.02.123456"></div>
+                    <div class="field"><label for="pDoi">DOI <span class="req" aria-hidden="true">*</span></label><input id="pDoi" type="text" autocomplete="off" placeholder="e.g. 10.1101/2026.01.02.123456"></div>
                   </div>
                   <div class="err" id="promoteErr"></div>
                   <div class="row">
