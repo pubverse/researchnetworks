@@ -131,6 +131,7 @@
               </div>
               <div class="verdict"><p id="verdict"></p></div>
               <div class="warn-note" id="scoreWarn" hidden></div>
+              <div id="scoreGrounding" hidden style="margin-top:12px"></div>
 
               <div class="row wrap" style="margin-top:14px">
                 <button class="btn ghost sm" id="promoteToggle" type="button">Promote this result</button>
@@ -369,6 +370,7 @@
       var warnEl = $('#scoreWarn');
       if (res.warning) { warnEl.textContent = res.warning; warnEl.hidden = false; }
       else { warnEl.hidden = true; }
+      renderGrounding(res);
       scoreResult.hidden = false;
     }
     function setMetric(sel, v) {
@@ -378,6 +380,69 @@
     function fmtScore(v) {
       if (v == null || v === '' || isNaN(Number(v))) return '--';
       return String(Math.round(Number(v) * 10) / 10);
+    }
+    // The grounding the engine produced: per-dimension reasoning (why these scores) and the prior work
+    // each judgment was weighed against, with clickable sources and a BibTeX export.
+    function escG(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function citeUrl(w) {
+      var u = String((w && (w.url || w.source_id)) || '').trim();
+      if (/^https?:\/\//i.test(u)) return u;
+      if (/^10\./.test(u)) return 'https://doi.org/' + u;
+      return '';
+    }
+    function renderGrounding(res) {
+      var box = $('#scoreGrounding');
+      if (!box) return;
+      var r = res.reasoning || {}, works = res.cited_works || [], html = '';
+      var dims = [['novelty', 'Novelty'], ['methods', 'Methods'], ['impact', 'Impact']];
+      if (dims.some(function (d) { return r[d[0]] && r[d[0]].text; })) {
+        html += '<div class="mini strong" style="margin-bottom:6px">Why these scores</div>';
+        dims.forEach(function (d) {
+          var rr = r[d[0]];
+          if (!rr || !rr.text) return;
+          html += '<p style="margin:0 0 8px"><b>' + d[1] +
+            (rr.score != null ? ' (' + rr.score + '/10)' : '') + ':</b> ' + escG(rr.text) + '</p>';
+        });
+      }
+      if (works.length) {
+        html += '<div class="mini strong" style="margin:12px 0 6px">Prior work this was judged against (' +
+          works.length + ')</div>';
+        works.forEach(function (w) {
+          var u = citeUrl(w), t = escG(w.title || w.source_id || 'source');
+          html += '<div style="margin:0 0 8px">' +
+            (u ? '<a href="' + escG(u) + '" target="_blank" rel="noopener">' + t + '</a>' : t) +
+            (w.year ? ' (' + escG(w.year) + ')' : '') +
+            (w.sim != null ? ' <span class="mini">cosine ' + (Math.round(w.sim * 100) / 100) + '</span>' : '');
+          if (w.did) html += '<div class="mini" style="color:var(--muted)">' + escG(String(w.did).slice(0, 240)) + '</div>';
+          html += '</div>';
+        });
+        html += '<button class="btn ghost sm" id="scoreBibBtn" type="button">Download references (BibTeX)</button>';
+      }
+      box.innerHTML = html;
+      box.hidden = !html;
+      var b = $('#scoreBibBtn');
+      if (b) on(b, 'click', function () { downloadScoreBib(works); });
+    }
+    function downloadScoreBib(works) {
+      var bib = (works || []).map(function (w, i) {
+        var sid = String(w.source_id || ''), key = 'pubverse' + (sid ? sid.replace(/[^a-zA-Z0-9]/g, '') : (i + 1));
+        var L = ['@article{' + key + ','];
+        if (w.title) L.push('  title = {' + String(w.title).replace(/[{}]/g, '') + '},');
+        if (w.year) L.push('  year = {' + w.year + '},');
+        if (/^10\./.test(sid)) L.push('  doi = {' + sid + '},');
+        var u = citeUrl(w);
+        if (u) L.push('  url = {' + u + '},');
+        L.push('}');
+        return L.join('\n');
+      }).join('\n\n');
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([bib], { type: 'application/x-bibtex' }));
+      a.download = 'pubverse-references.bib';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
     }
 
     /* ---------- promote ---------- */
