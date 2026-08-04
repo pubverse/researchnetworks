@@ -149,7 +149,7 @@
 
   <script src="/js/config.js?v=3"></script>
   <script src="/js/api.js?v=3"></script>
-  <script src="/js/ui.js"></script>
+  <script src="/js/ui.js?v=3"></script>
   <script>
   /* Compass page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires this page's flow to those helpers. */
@@ -203,7 +203,13 @@
         if (res && res.ok === false) { failLogin(res.message); return; }
         api.me().then(function (who) {
           loginBtn.disabled = false;
-          if (isUser(who)) { lpass.value = ''; onAuthed(who); }
+          // Offer the credentials to the password manager BEFORE blanking the field,
+          // or there is nothing left for it to read. Guarded so a stale cached ui.js
+          // cannot turn sign-in into a TypeError.
+          if (isUser(who)) {
+            if (ui.savePassword) ui.savePassword(u, p);
+            lpass.value = ''; onAuthed(who);
+          }
           else { failLogin('Sign in did not complete. Please try again.'); }
         });
       });

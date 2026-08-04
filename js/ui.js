@@ -154,6 +154,34 @@
     return { show: activate };
   }
 
+  // Ask the browser's password manager to offer to save these credentials.
+  //
+  // Our sign-in form calls preventDefault(), posts with fetch, and never navigates, so Chrome's
+  // own "did a login just succeed?" heuristics do not fire reliably. On top of that the pages
+  // blank the password field as soon as sign-in succeeds, so by the time Chrome inspects the form
+  // there is nothing left to read and no "Save password?" prompt ever appears. Asking explicitly
+  // through the Credential Management API is what restores it.
+  //
+  // Call this BEFORE clearing the password field. Requires a secure context, which we always have.
+  // Firefox and Safari do not implement PasswordCredential; there the feature check simply skips
+  // and their own heuristics apply. A password manager hiccup must never break sign-in, so every
+  // failure path here is swallowed on purpose.
+  function savePassword(username, password) {
+    try {
+      if (!window.PasswordCredential || !navigator.credentials ||
+          !navigator.credentials.store || !username || !password) {
+        return;
+      }
+      var cred = new window.PasswordCredential({
+        id: username,
+        password: password,
+        name: username
+      });
+      var p = navigator.credentials.store(cred);
+      if (p && typeof p.catch === 'function') { p.catch(function () {}); }
+    } catch (e) { /* never let this break the sign-in flow */ }
+  }
+
   window.PV.ui = {
     showCompass: showCompass,
     hideCompass: hideCompass,
@@ -162,6 +190,7 @@
     bindWordCounter: bindWordCounter,
     showError: showError,
     clearError: clearError,
-    initTabs: initTabs
+    initTabs: initTabs,
+    savePassword: savePassword
   };
 })();
