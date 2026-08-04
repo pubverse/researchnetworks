@@ -79,13 +79,40 @@
     <header class="hero">
       <div class="wrap">
         <h1>Substance over signal</h1>
-        <p class="lede">PubVerse, alongside fortytwodegrees.org, points the waymark of emerging knowledge and enlightenment. We quantify hidden relationships within knowledge spaces so ideas are evaluated on substance, not signal, and the ones that matter are recognized sooner.</p>
-        <div class="affil">
+        <p class="lede">PubVerse evaluates research on substance, not signal. We weigh every idea against the entire published record, more than 116 million publications and growing, so the ones that genuinely matter are recognized sooner.</p>
+        <div class="affil" style="margin-top:18px">
           <img src="assets/compass42.png" alt="">
           <span>Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
         </div>
       </div>
     </header>
+
+    <!-- How it works -->
+    <section class="wrap" style="padding-top:10px">
+      <div class="features">
+        <div class="feature">
+          <div class="ico">&#128269;</div>
+          <h3>Retrieve</h3>
+          <p>Every submission is grounded against the nearest prior work retrieved from our 116M-publication corpus. No claim is judged in isolation.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">&#9881;</div>
+          <h3>Evaluate</h3>
+          <p>A local language model reads the retrieved evidence and scores novelty, methods, and impact, citing the specific prior work behind each judgment.</p>
+        </div>
+        <div class="feature">
+          <div class="ico">&#129516;</div>
+          <h3>Discover</h3>
+          <p>Point the compass at a subject and PubVerse surfaces the needles: recent papers it judges genuinely new and soundly done, each with a plain-language reason.</p>
+        </div>
+      </div>
+
+      <div class="stats-bar">
+        <div class="stat"><div class="num">116M+</div><div class="lbl">Publications</div></div>
+        <div class="stat"><div class="num">3</div><div class="lbl">Scored dimensions</div></div>
+        <div class="stat"><div class="num">Every field</div><div class="lbl">Since the dawn of publishing</div></div>
+      </div>
+    </section>
 
     <main>
       <div id="tabsRoot" class="wrap">
@@ -218,13 +245,18 @@
       <div class="wrap">
         <span class="affil"><img src="assets/compass42.png" alt="">PubVerse, an affiliate of <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
         <span class="sp"></span>
+        <div class="foot-links">
+          <a href="/compass">Compass</a>
+          <a href="docs.html">Docs</a>
+          <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a>
+        </div>
       </div>
     </footer>
 
   </div>
 
-  <script src="js/config.js"></script>
-  <script src="js/api.js?v=2"></script>
+  <script src="js/config.js?v=3"></script>
+  <script src="js/api.js?v=3"></script>
   <script src="js/ui.js"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
@@ -372,6 +404,7 @@
       else { warnEl.hidden = true; }
       renderGrounding(res);
       scoreResult.hidden = false;
+      scoreResult.classList.add('fade-in');
     }
     function setMetric(sel, v) {
       var node = $(sel + ' .v');

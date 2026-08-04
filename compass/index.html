@@ -65,7 +65,7 @@
 
     <section class="hero wrap">
       <h1>Point the compass at a subject</h1>
-      <p class="lede">Name a topic and PubVerse reads the recent literature for you, then surfaces the needles: the papers it judges genuinely new and soundly done, each with a short reason in plain language.</p>
+      <p class="lede">Name a topic and PubVerse reads the recent literature for you, then surfaces the needles: the papers it judges genuinely new and soundly done, each with a short reason in plain language and the prior work it was evaluated against.</p>
     </section>
 
     <!-- the run form -->
@@ -137,13 +137,18 @@
       <div class="wrap">
         <span class="affil"><img src="/assets/compass42.png" alt="">PubVerse, an affiliate of <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
         <span class="sp"></span>
+        <div class="foot-links">
+          <a href="/">Score</a>
+          <a href="/docs.html">Docs</a>
+          <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a>
+        </div>
       </div>
     </footer>
 
   </div>
 
-  <script src="/js/config.js"></script>
-  <script src="/js/api.js?v=2"></script>
+  <script src="/js/config.js?v=3"></script>
+  <script src="/js/api.js?v=3"></script>
   <script src="/js/ui.js"></script>
   <script>
   /* Compass page glue. All transport lives in js/api.js, all shared widgets in
@@ -708,6 +713,112 @@
           if (imp.text) html += '<div style="margin:4px 0"><span class="mini strong">Impact:</span> ' + renderVerdict(imp.text, imp.works) + '</div>';
           html += '</details>';
         }
+        // Contribution decomposition triage (present only when PUBVERSE_CONTRIB_DECOMP=1).
+        // Shows per-claim delta operators, matched priors, and confidence for expert review.
+        if (n.contrib_decomp && n.contrib_decomp.claims && n.contrib_decomp.claims.length) {
+          html += renderContribDecomp(n.contrib_decomp);
+        }
+        // Velocity features (present only when PUBVERSE_DIREC_VEL=1).
+        // Shows density/isolation as a compact badge for the triage expert.
+        if (n.velocity && n.velocity.density != null) {
+          var v = n.velocity;
+          var dens = v.density != null ? Math.round(v.density * 100) : null;
+          var iso = v.isolation_score != null ? Math.round((1 - v.isolation_score) * 100) : null;
+          var dirNov = v.directional_novelty != null ? Math.round(((v.directional_novelty + 1) / 2) * 100) : null;
+          html += '<details style="margin-top:4px"><summary class="mini" style="cursor:pointer">position in field</summary>';
+          html += '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px">';
+          if (dens != null) html += '<span style="font-size:.75rem;color:var(--muted)">neighbor density: <b style="color:var(--ink)">' + dens + '%</b></span>';
+          if (iso != null) html += '<span style="font-size:.75rem;color:var(--muted)">field fit: <b style="color:var(--ink)">' + iso + '%</b></span>';
+          if (dirNov != null) html += '<span style="font-size:.75rem;color:var(--muted)">directional novelty: <b style="color:var(--ink)">' + dirNov + '%</b></span>';
+          html += '</div></details>';
+        }
+        // Evidence verification (anti-hallucination gate, always on).
+        // Shows whether the judge's cited claims are supported by the retrieved prior text,
+        // and flags near-duplicate priors that need full-text comparison.
+        if (n.evidence_verified) {
+          var ev = n.evidence_verified;
+          var sup = (ev.novelty_verification || {}).supported_claims || 0;
+          var unsup = (ev.novelty_verification || {}).unsupported_claims || 0;
+          var nd = (ev.prior_proximity || {}).near_duplicates || 0;
+          var cl = (ev.prior_proximity || {}).close_priors || 0;
+          var flags = ev.flags || [];
+          if (sup > 0 || unsup > 0 || nd > 0 || cl > 0 || flags.length > 0) {
+            var warnColor = unsup > 0 ? 'var(--bad)' : (nd > 0 ? 'var(--warn)' : 'var(--good)');
+            html += '<details style="margin-top:4px"><summary class="mini" style="cursor:pointer;color:' + warnColor + '">';
+            html += 'evidence check: ' + sup + ' supported';
+            if (unsup > 0) html += ', <b>' + unsup + ' unsupported</b>';
+            if (nd > 0) html += ', ' + nd + ' near-duplicate';
+            html += '</summary>';
+            if (flags.length) {
+              html += '<div style="margin-top:4px">';
+              flags.forEach(function(f) {
+                var fc = f.indexOf('unsupported') >= 0 ? 'var(--bad)' :
+                         (f.indexOf('near-duplicate') >= 0 ? 'var(--warn)' : 'var(--muted)');
+                html += '<div style="font-size:.75rem;color:' + fc + ';margin:2px 0">&#9888; ' + esc(f) + '</div>';
+              });
+              html += '</div>';
+            }
+            html += '</details>';
+          }
+        }
+        return html;
+      }
+      // Render the contribution decomposition as an expandable triage panel.
+      // Each claim shows its delta operator (badge), the matched prior (if any),
+      // confidence (bar), and whether the union of priors covers it.
+      function renderContribDecomp(decomp) {
+        var claims = decomp.claims || [];
+        var tier = (decomp.aggregate || {}).tier || decomp.novelty_tier || '';
+        var tierColors = {high:'var(--good)', moderate:'var(--warn)', low:'var(--bad)',
+                          uncontested:'var(--muted)', unknown:'var(--muted)'};
+        var tierColor = tierColors[tier] || 'var(--muted)';
+        var opLabels = {
+          'restate':'restates prior', 'add-constraint':'adds a constraint',
+          'change-mechanism':'new mechanism', 'recombine':'recombines priors',
+          'scale':'scales to new domain', 'contradict':'contradicts prior',
+          'uncontested':'no matching prior', 'error':'error'
+        };
+        var html = '<details style="margin-top:8px"><summary class="mini" style="cursor:pointer">' +
+          'contribution breakdown (' + claims.length + ' claim' + (claims.length !== 1 ? 's' : '') + ')' +
+          (tier ? ' &mdash; <span style="color:' + tierColor + ';font-weight:600">' + esc(tier) + '</span>' : '') +
+          '</summary>';
+        html += '<div style="margin-top:6px">';
+        claims.forEach(function (c, i) {
+          var op = c.delta || c.delta_operator || '';
+          var conf = c.confidence != null ? c.confidence : (c.delta_confidence != null ? c.delta_confidence : 0);
+          var sim = c.best_sim != null ? c.best_sim : '';
+          var claimText = (c.claim || c.claim_text || c.central_finding || '').slice(0, 120);
+          var union = c.union_covers;
+          var opLabel = opLabels[op] || op;
+          var opColor = {'restate':'var(--bad)','add-constraint':'var(--warn)',
+            'change-mechanism':'var(--good)','recombine':'var(--good)',
+            'scale':'var(--warn)','contradict':'var(--good)',
+            'uncontested':'var(--muted)'}[op] || 'var(--muted)';
+          html += '<div style="margin:6px 0;padding:8px 10px;background:var(--paper);border-radius:var(--r-s);border-left:3px solid ' + opColor + '">';
+          html += '<div style="font-size:.85rem;margin-bottom:2px">' + esc(claimText) + '</div>';
+          html += '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">';
+          html += '<span class="tag" style="background:' + opColor + '20;color:' + opColor + '">' + esc(opLabel) + '</span>';
+          if (conf > 0) {
+            var pct = Math.round(conf * 100);
+            html += '<span style="font-size:.75rem;color:var(--muted)">conf ';
+            html += '<span style="display:inline-block;width:40px;height:6px;background:#e0e4ea;border-radius:3px;vertical-align:middle;margin:0 4px">';
+            html += '<span style="display:block;height:100%;width:' + pct + '%;background:var(--blue);border-radius:3px"></span></span>';
+            html += pct + '%</span>';
+          }
+          if (sim !== '' && sim != null) {
+            html += '<span style="font-size:.75rem;color:var(--muted)">sim ' + esc(sim.toFixed ? sim.toFixed(3) : sim) + '</span>';
+          }
+          if (union === false) {
+            html += '<span class="tag" style="background:#e6f6ee;color:var(--good)">union gap</span>';
+          }
+          html += '</div>';
+          html += '</div>';
+        });
+        var summary = (decomp.aggregate || {}).summary;
+        if (summary) {
+          html += '<div class="mini" style="margin-top:6px;color:var(--muted)">' + esc(summary) + '</div>';
+        }
+        html += '</div></details>';
         return html;
       }
       var cited = allCitedWorks(needles);
@@ -755,6 +866,7 @@
       html += '</div>';
       dash.innerHTML = html;
       dash.hidden = false;
+      dash.classList.add('fade-in');
 
       if (opts.runId) {
         var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');

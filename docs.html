@@ -60,6 +60,7 @@
         <span class="lbl">On this page</span>
         <a href="#mission">Mission</a>
         <a href="#what">What PubVerse is</a>
+        <a href="#grounding">Grounding</a>
         <a href="#score">Scoring an abstract</a>
         <a href="#compass">The Compass</a>
         <a href="#needle">What a needle is</a>
@@ -83,6 +84,16 @@
         <p>PubVerse reads a research abstract and tells you three things about it: how new the idea is, how sound the methods look, and how much the work is likely to matter. It reaches those judgments by weighing the abstract against the published scientific literature in its field, not against a popularity score.</p>
         <p>The guiding idea is substance over signal. Signal is everything that surrounds a paper and has nothing to do with whether it is right or important: the name of the journal, the size of the lab, the number of people already crowded around the same fashionable question. Substance is the work itself. PubVerse is built to look past the signal, read the substance, and say what it sees in plain language.</p>
         <p>You get numbers, but the numbers are not the product. Each result comes with a short written verdict that explains, in ordinary terms, why the work reads as new, or careful, or likely to matter. The reasoning is meant to be read and argued with, the way you would argue with a thoughtful colleague.</p>
+      </div>
+    </section>
+
+    <section id="grounding">
+      <div class="wrap prose">
+        <h2>How every judgment is grounded</h2>
+        <p>Every score PubVerse produces is traceable to specific prior work retrieved from the database. When PubVerse says a paper is novel, it cites the nearest prior publications it compared against. When it says the methods are sound, it points to the prior art it used as the benchmark. No judgment comes from a model's internal knowledge alone.</p>
+        <p>The process works in three steps. First, PubVerse retrieves the most relevant prior work from its corpus of more than 116 million publications using semantic search over the full text of the scientific record. Second, it extracts the substance of each retrieved passage so the comparison is about findings and methods, not keyword overlap. Third, a local language model reads the retrieved evidence alongside the candidate abstract and produces a grounded verdict with citations to the specific prior work behind each claim.</p>
+        <p>This means every result has receipts. On the Compass page, each needle carries an expandable section showing the prior work it was evaluated against, how close each prior sits in similarity, and a short passage describing what that prior did. An expert can verify or challenge any call in seconds by reading the same evidence the model used.</p>
+        <p>When PubVerse cannot find relevant prior work in the database, it says so honestly. A paper whose contribution is absent from the retrieved work is not automatically scored as highly novel. PubVerse withholds its judgment rather than inflating a score on an uncontested claim, because the absence of a retrieved pre-emptor does not prove novelty. It may simply mean the relevant prior is not in the corpus or was not retrieved.</p>
       </div>
     </section>
 
@@ -149,15 +160,17 @@
         <img src="assets/compass42.png" alt="">PubVerse, an affiliate of fortytwodegrees.org
       </a>
       <span class="spacer"></span>
-      <a href="index.html">Score</a>
-      <a href="/compass">Compass</a>
-      <a href="docs.html">Docs</a>
+      <div class="foot-links">
+        <a href="index.html">Score</a>
+        <a href="/compass">Compass</a>
+        <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a>
+      </div>
     </div>
   </footer>
 
   <!-- Shared runtime. config.js must load first; api.js and ui.js hang off window.PV. -->
-  <script src="js/config.js"></script>
-  <script src="js/api.js?v=2"></script>
+  <script src="js/config.js?v=3"></script>
+  <script src="js/api.js?v=3"></script>
   <script src="js/ui.js"></script>
 </body>
 </html>
