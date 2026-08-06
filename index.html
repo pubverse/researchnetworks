@@ -404,11 +404,6 @@
       setMetric('#mNovelty', s.novelty);
       setMetric('#mMethods', s.methods);
       setMetric('#mImpact', s.impact);
-      // When the novelty call is withheld the backend sends null, so the dial reads "--".
-      // Name it, or a reader takes the dash for a loading glitch rather than the deliberate
-      // abstention the conclusion below is describing. Reset every render: the card is reused.
-      var novLabel = $('#mNovelty .k');
-      if (novLabel) novLabel.textContent = res.novelty_withheld ? 'Novelty (withheld)' : 'Novelty';
       verdictEl.textContent = scrub(res.verdict || '');
       var warnEl = $('#scoreWarn');
       if (res.warning) { warnEl.textContent = res.warning; warnEl.hidden = false; }
