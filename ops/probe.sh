@@ -14,7 +14,7 @@
 # THE TRAP IT AVOIDS
 #   Run from a GitHub runner, hpcf.tail8ba9b3.ts.net resolves publicly to Tailscale's ingress and
 #   everything is honest. Run from a machine on the owner's tailnet, MagicDNS resolves the SAME
-#   name to 100.115.159.103, the request travels the tailnet, and the probe can report a cheerful
+#   name to a tailnet address, the request travels the tailnet, and the probe can report a cheerful
 #   200 straight through a total public outage. So if the name resolves into 100.64.0.0/10 we pin
 #   the public addresses explicitly. That keeps this script honest in both places, which matters
 #   because it is the one you will reach for when debugging by hand.
@@ -118,9 +118,10 @@ fi
 echo "${#fails[@]} CHECK(S) FAILED:"
 printf '  - %s\n' "${fails[@]}"
 echo
+# Deliberately no internal paths, usernames or service names below. GitHub Pages serves every
+# file in this repository, so this script is fetchable at pubverse.ai/ops/probe.sh by anyone.
+# It holds no secrets, and it should not hand out the shape of the host either. The runbook that
+# says what to actually go and look at lives on the server, in the backend repo's deploy/ notes.
 echo "This probe runs outside the house, so a failure here is what a real visitor sees."
-echo "First things to look at on HPCF:"
-echo "  systemctl --user status pubverse-keeper.service"
-echo "  tail -20 /home/joneill/pubverse_platform/pubverse_backend/logs/keeper.log"
-echo "  tailscale funnel status"
+echo "Next step: check the keeper service and the funnel on the API host."
 exit 1

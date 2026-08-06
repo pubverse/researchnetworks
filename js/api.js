@@ -15,6 +15,11 @@
   }
 
   var NET_ERROR = 'Could not reach the PubVerse service. Check your connection and try again.';
+  // A request that timed out is a different situation from one that never connected, and saying
+  // so stops a slow assessment being read as a broken site. Scoring an abstract genuinely takes
+  // upwards of a minute, so this is the message a waiting user is most likely to see.
+  var SLOW_ERROR = 'The PubVerse service is taking longer than usual to answer. It is still ' +
+                   'running, so please give it a moment and try again.';
 
   // Session token. The site and API are on different domains, so the httpOnly session cookie is a
   // third-party cookie that Safari and hardened browsers block. We therefore also keep the token in
@@ -59,18 +64,49 @@
 
     // Time-box every request. Without this, a hung connection (accepted but never answered) leaves
     // fetch pending forever, which strands the sign-in card on its boot spinner. On timeout we abort,
-    // which throws below and returns the uniform NET_ERROR so the caller (e.g. boot) can move on.
+    // which throws below and returns a message that says so.
+    //
+    // A single blip should not read as an outage. The public path is a home connection behind a
+    // tunnel and it does drop briefly, so one transport failure is retried once before we give up.
+    // The retry is strictly opt-in per call, because it is not free and it is not always safe:
+    //   - GET is retried by default; asking twice costs nothing and changes nothing.
+    //   - POST is NOT retried by default. /api/score takes over a minute and writes a history row,
+    //     so retrying it would double a slow request and could file the same abstract twice.
+    //   - Sign-in opts back in explicitly: a connection that never landed created no server state.
+    // A request that reached the server and came back 4xx is a real answer and is never retried.
+    var wantRetry = (typeof opts.retry === 'boolean')
+      ? opts.retry
+      : (init.method === 'GET');
+
+    var attempt = async function () {
+      var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, opts.timeout || 20000) : null;
+      var i = ctrl ? Object.assign({}, init, { signal: ctrl.signal }) : init;
+      try {
+        return { res: await fetch(window.PV.API_BASE + path, i) };
+      } catch (e) {
+        // An abort is our own timeout firing, which is a different story from the connection
+        // never landing, and the reader deserves to be told which one happened.
+        return { err: (e && e.name === 'AbortError') ? 'timeout' : 'network' };
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+
     var res;
-    var ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, opts.timeout || 20000) : null;
-    if (ctrl) init.signal = ctrl.signal;
-    try {
-      res = await fetch(window.PV.API_BASE + path, init);
-    } catch (e) {
-      return { ok: false, message: NET_ERROR };
-    } finally {
-      if (timer) clearTimeout(timer);
+    var out = await attempt();
+    if (out.err && wantRetry) {
+      await new Promise(function (r) { setTimeout(r, 1200); });
+      out = await attempt();
     }
+    if (out.err) {
+      return {
+        ok: false,
+        transport: out.err,
+        message: out.err === 'timeout' ? SLOW_ERROR : NET_ERROR
+      };
+    }
+    res = out.res;
 
     var text = '';
     try { text = await res.text(); } catch (e) { text = ''; }
@@ -113,7 +149,10 @@
   window.PV.api = {
     // account
     login: function (username, password) {
-      return request('/api/login', { method: 'POST', body: { username: username, password: password } })
+      // Opts into the one retry: a sign-in that never reached the server created nothing, so
+      // asking again is safe, and a brief tunnel blip is exactly what strands people at the door.
+      return request('/api/login', { method: 'POST', retry: true,
+                                     body: { username: username, password: password } })
         .then(function (res) { if (res && res.ok && res.token) setToken(res.token); return res; });
     },
     logout: function () {
@@ -130,7 +169,10 @@
       if (title) body.title = title;
       // Scoring runs the full grounded pipeline (retrieval + LLM verdict) and can take ~30-60s, well past
       // the 20s default; give it a generous ceiling so a slow score is not misreported as "could not reach".
-      return request('/api/score', { method: 'POST', body: body, timeout: 120000 });
+      // Deliberately NOT retried, and given a long budget. A real assessment measured 60 to 75
+      // seconds against a busy GPU, so the ceiling has room over that; retrying would double a
+      // slow request and could file the same abstract into the history twice.
+      return request('/api/score', { method: 'POST', retry: false, body: body, timeout: 180000 });
     },
     history: function () {
       return request('/api/history');
