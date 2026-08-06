@@ -1,0 +1,71 @@
+# Off-box uptime probe for pubverse.ai.
+name: uptime
+
+# WHY THIS RUNS HERE AND NOT ON THE SERVER
+#   The watchdog on HPCF cannot report HPCF being dead. Power cut, uplink down, kernel panic and
+#   the watchdog dies with the thing it was watching, silently. This job runs on GitHub's runners,
+#   on a different network, through a different resolver, so it sees what a visitor sees.
+#
+#   It needs no secrets and no third-party monitoring account. When a check fails the job fails,
+#   and GitHub emails the repository owner about the failed scheduled run.
+#
+# KNOWN LIMITS, so nobody trusts this further than it deserves
+#   - Scheduled workflows are best-effort. Under load GitHub delays them, sometimes by many
+#     minutes, so treat this as "we will find out within roughly 5 to 15 minutes", not as a
+#     one-minute pager. For a hard sub-minute window during a demo, use the babysitter below.
+#   - GitHub disables scheduled workflows in repositories with no activity for 60 days. If this
+#     repo goes quiet, the probe quietly stops. Re-enable it in the Actions tab.
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+    inputs:
+      babysit_minutes:
+        description: "Demo babysitter: probe every 30s for this many minutes (0 = single run)"
+        required: false
+        default: "0"
+
+# Never let two probes overlap; a stuck run should not queue up behind itself.
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe once
+        if: ${{ github.event.inputs.babysit_minutes == '' || github.event.inputs.babysit_minutes == '0' }}
+        run: bash ops/probe.sh
+
+      # Demo mode. Dispatch this half an hour before showing the site to anyone who matters and
+      # it will probe every 30 seconds for the window, failing the moment something breaks so the
+      # alert mail arrives while there is still time to react.
+      - name: Babysit
+        if: ${{ github.event.inputs.babysit_minutes != '' && github.event.inputs.babysit_minutes != '0' }}
+        run: |
+          set -uo pipefail
+          minutes="${{ github.event.inputs.babysit_minutes }}"
+          deadline=$(( $(date +%s) + minutes * 60 ))
+          consecutive=0
+          echo "Babysitting for ${minutes} minute(s), probing every 30s."
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            if bash ops/probe.sh; then
+              consecutive=0
+            else
+              consecutive=$((consecutive + 1))
+              echo "::warning::probe failed ($consecutive in a row)"
+              # Two in a row before failing the job: a single blip during a 30s poll is noise,
+              # two means a visitor would notice.
+              if [ "$consecutive" -ge 2 ]; then
+                echo "::error::PubVerse is down: $consecutive consecutive failed probes"
+                exit 1
+              fi
+            fi
+            sleep 30
+          done
+          echo "Babysitting window finished with no sustained failure."
