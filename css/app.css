@@ -87,6 +87,11 @@ label{display:block;font-size:.85rem;color:var(--muted);margin:0 0 6px;letter-sp
 .tabs button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-family:var(--font);font-size:.98rem;padding:12px 18px;cursor:pointer;transition:color .15s,border-color .15s}
 .tabs button:hover{color:var(--ink)}
 .tabs button.active{color:var(--ink);border-bottom-color:var(--blue)}
+/* Restored 2026-08-11. Deleted as collateral damage by 3a0eb0f, a commit about versioning
+   config.js whose message never mentions tabs, so every visitor since 2026-08-04 has seen
+   Score, History and Profile stacked on one page. ui.js:139-145 only toggles the .active
+   class; without these two declarations that class styles nothing and the tabs are inert. */
+.tabpane{display:none} .tabpane.active{display:block}
 
 /* the 42 compass spinner */
 .compass-load{display:none;flex-direction:column;align-items:center;gap:14px;padding:34px}
