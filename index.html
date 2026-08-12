@@ -238,16 +238,25 @@
                built. data-src is deliberately absent: js/graph.js reads it and does nothing
                without it, and #fieldGraphSection stays hidden, so no empty box appears. -->
           <div id="fieldGraph"></div>
+
+        </div>
+      </section>
+
+
+      <!-- The publications link and the downloads live in their OWN section. They sat inside
+           #fieldGraphSection, which is only unhidden when a field map loads -- so pulling the map
+           took the arXiv export off the page entirely, while the files themselves still served 200.
+           They do not depend on the map and must not share its visibility. -->
+      <section class="wrap" id="recentPubs">
           <!-- Parag's "link to show all recent publications in this field". The map is a sample;
                this is the whole 12-month window, and the spreadsheet is the same rows for anyone
                who would rather sort them than look at them. -->
-          <p class="mini muted" style="margin-top:12px">
+        <p class="mini muted style="margin-top:12px">
             The map shows a sample. <a href="#" id="allRecent">See every recent publication in this field</a>
             &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.xlsx" download>Download the table (.xlsx)</a>
             &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.tsv" download>.tsv</a>
           </p>
           <div id="allRecentPanel" hidden style="margin-top:12px"></div>
-        </div>
       </section>
 
       <section class="wrap compass-load" id="spinner" hidden></section>
@@ -1222,6 +1231,10 @@
     on(document, 'pv:authed', function (e) {
       var user = e && e.detail;
       try { typeGreeting(railIdentity(user)); } catch (err) { console.error('[pubverse] greeting', err); }
+      // Compass is the default-active tab, so its click handler never fires on a first visit and
+      // the needle list never rendered. Deferring initialisation is right for a tab a visitor may
+      // never open; it is wrong for the one already in front of them.
+      try { startCompass(); } catch (err) { console.error('[pubverse] compass', err); }
       // The field map stays hidden until PV.graph exists AND its payload loads. Both failures are
       // logged rather than swallowed: a `.catch(function(){})` on a section that never appears is
       // indistinguishable from a section that was never meant to appear.
@@ -1232,7 +1245,12 @@
           console.warn('[pubverse] PV.graph is not loaded; the field map stays hidden');
           return;
         }
-        PV.graph.load(gEl.getAttribute('data-src')).then(function (d) {
+        var src = gEl.getAttribute('data-src');
+        if (!src) {                       // no map configured; say so once, fetch nothing
+          console.info('[pubverse] no field map configured; section stays hidden');
+          return;
+        }
+        PV.graph.load(src).then(function (d) {
           PV.graph.render(gEl, d);
           var s = $('#fieldGraphSection'); if (s) s.hidden = false;
         }).catch(function (err) { console.error('[pubverse] field map', err); });
