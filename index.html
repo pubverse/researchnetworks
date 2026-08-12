@@ -90,6 +90,14 @@
     @keyframes blink{50%{opacity:0}}
     @media(prefers-reduced-motion:reduce){.caret{animation:none}}
     .graph-card{min-height:180px}
+    /* The map is a full-viewport application inside the frame, so it needs a real height rather
+       than an intrinsic one -- an iframe's default 150px would crop it to nothing. Height is
+       viewport-relative with a floor and a ceiling so it stays usable on a laptop without eating a
+       whole phone screen. */
+    #fieldGraph{margin:0 -4px}
+    #fieldGraphFrame{display:block;width:100%;height:clamp(420px,64vh,760px);border:0;
+                     border-radius:12px;background:#0f1d16}
+    @media (max-width:720px){#fieldGraphFrame{height:clamp(360px,58vh,520px)}}
     .fg-controls{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:10px;
                  font-size:.84rem;color:var(--muted)}
     .fg-controls label{display:flex;align-items:center;gap:8px;margin:0;font-size:.84rem}
@@ -230,14 +238,22 @@
             <h2 style="margin:0">The shape of the field</h2>
             <span class="mini muted" id="fieldGraphNote"></span>
           </div>
-          <!-- HOLDING. The map that was here grouped papers under three hubs that are the
-               scoring pipeline's CONTEXTS (problems / impact / computational+experimental), not
-               topic clusters. The field's real structure comes from App_v5's kmeans stage, which
-               the pipeline runs at k=400-1200 and names with the qwen3 titling chain. Three hubs
-               is not a map of biomathematics, so it is not worth showing while the real one is
-               built. data-src is deliberately absent: js/graph.js reads it and does nothing
-               without it, and #fieldGraphSection stays hidden, so no empty box appears. -->
-          <div id="fieldGraph"></div>
+          <!-- The map is the pipeline's own renderer, not a bespoke one. It is built by
+               compass/field_map/: Prism splits the 12-month preprint pool into the four scoring
+               contexts, each context is clustered by Clustering_balanced.kmeans (the same function
+               App_v5 calls), qwen3 names every cluster, and the compass needles are placed against
+               those clusters by their whole abstract. The page is rendered by
+               create_interactive_visualization.py and then vendored to a single self-contained
+               file, so it carries no CDN dependency and no in-browser compiler.
+
+               It loads in an iframe deliberately. The map is a full React application with its own
+               fonts, palette and key handling; inlining it would put a second React on the page and
+               let its global CSS reset loose on the site. The iframe is same-origin, so nothing is
+               sandboxed away that the map needs. -->
+          <div id="fieldGraph">
+            <iframe id="fieldGraphFrame" loading="lazy"
+                    title="Interactive map of biomathematics preprints from the last 12 months"></iframe>
+          </div>
 
         </div>
       </section>
@@ -251,7 +267,7 @@
           <!-- Parag's "link to show all recent publications in this field". The map is a sample;
                this is the whole 12-month window, and the spreadsheet is the same rows for anyone
                who would rather sort them than look at them. -->
-        <p class="mini muted style="margin-top:12px">
+        <p class="mini muted" style="margin-top:12px">
             The map shows a sample. <a href="#" id="allRecent">See every recent publication in this field</a>
             &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.xlsx" download>Download the table (.xlsx)</a>
             &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.tsv" download>.tsv</a>
@@ -494,7 +510,6 @@
   <script src="js/api.js?v=5"></script>
   <script src="js/ui.js?v=5"></script>
   <script src="js/compass.js?v=5"></script>
-  <script src="js/graph.js?v=5"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires elements to those helpers. */
@@ -1239,21 +1254,23 @@
       // logged rather than swallowed: a `.catch(function(){})` on a section that never appears is
       // indistinguishable from a section that was never meant to appear.
       try {
-        var gEl = $('#fieldGraph');
-        if (!gEl) return;
-        if (!(window.PV && PV.graph && typeof PV.graph.load === 'function')) {
-          console.warn('[pubverse] PV.graph is not loaded; the field map stays hidden');
-          return;
-        }
-        var src = gEl.getAttribute('data-src');
-        if (!src) {                       // no map configured; say so once, fetch nothing
-          console.info('[pubverse] no field map configured; section stays hidden');
-          return;
-        }
-        PV.graph.load(src).then(function (d) {
-          PV.graph.render(gEl, d);
-          var s = $('#fieldGraphSection'); if (s) s.hidden = false;
-        }).catch(function (err) { console.error('[pubverse] field map', err); });
+        var frame = $('#fieldGraphFrame');
+        if (!frame) return;
+        var MAP_SRC = '/examples/biomath_field_map.html';
+        // Ask whether the map is actually there before pointing an iframe at it. An iframe fires
+        // `load` for a 404 page just as happily as for the real thing, so binding to that event
+        // would hand a visitor a framed error page inside a card headed "The shape of the field".
+        // A HEAD costs nothing and lets a missing map stay invisible instead.
+        fetch(MAP_SRC, { method: 'HEAD', cache: 'no-cache' })
+          .then(function (r) {
+            if (!r.ok) throw new Error('field map ' + r.status);
+            frame.src = MAP_SRC;
+            var s = $('#fieldGraphSection'); if (s) s.hidden = false;
+            var note = $('#fieldGraphNote');
+            if (note) note.textContent = 'Preprints from the last 12 months, clustered by the ' +
+                                         'scoring pipeline. Drag to pan, scroll to zoom.';
+          })
+          .catch(function (err) { console.error('[pubverse] field map', err); });
       } catch (err) { console.error('[pubverse] field map', err); }
     });
 
