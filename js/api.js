@@ -162,6 +162,12 @@
     me: function () {
       return request('/api/me');
     },
+    // The name the landing page greets you by. The account edited is always the one the session
+    // identifies, never a username in the body, so there is nothing here to point at another user.
+    setDisplayName: function (name) {
+      return request('/api/me/display-name',
+                     { method: 'POST', body: { display_name: name || '' } });
+    },
 
     // score and history
     score: function (abstract, title) {

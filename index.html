@@ -25,10 +25,123 @@
     .chip:hover{background:var(--blue-l);text-decoration:none}
     .verdict p{margin:0}
     .linkline{word-break:break-all}
-    .section-intro{max-width:640px;margin:0 auto 22px}
+    /* Left-aligned, not centred. A centred paragraph above a left-aligned form reads as two
+     different pages stacked; the measure is what keeps it comfortable, not the centring. */
+    .section-intro{max-width:62ch;margin:0 0 22px}
     .hero .affil{justify-content:center;margin-top:18px}
     .veil .affil{justify-content:center;margin-top:20px}
     @media(max-width:620px){.formgrid{grid-template-columns:1fr}}
+
+    /* ---- the rail ------------------------------------------------------------------
+       Slim, persistent, and quiet. It borrows the nav's own materials -- the same hairline,
+       the same blur, the same blue -- so it reads as part of the frame rather than a panel
+       bolted on. Collapsed it is an icon strip; expanded it names things. */
+    :root{--rail:56px; --rail-open:212px; --navh:64px}
+    /* The rail starts BELOW the nav rather than beside it. Full height looked right until it was
+       expanded: at 212px it covered the wordmark, because two independent fixed overlays with no
+       coordinator is not a layout system. Below the nav, they can never contend. */
+    main,footer{padding-left:var(--rail)}
+    .rail{position:fixed;left:0;top:var(--navh);bottom:0;width:var(--rail);z-index:50;
+          display:flex;flex-direction:column;gap:4px;padding:10px 8px;
+          background:rgba(250,249,247,.86);backdrop-filter:blur(12px);
+          border-right:1px solid var(--line);transition:width .18s ease}
+    .rail.open{width:var(--rail-open)}
+    .rail-items{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+    .rail-foot{margin-top:auto}
+    .rail-btn{display:flex;align-items:center;gap:12px;width:100%;height:40px;padding:0 10px;
+              border:none;background:none;border-radius:var(--r-s);cursor:pointer;
+              color:var(--muted);font-family:var(--font);font-size:.95rem;text-align:left;
+              white-space:nowrap;overflow:hidden;transition:background .15s,color .15s}
+    .rail-btn:hover{background:var(--blue-l);color:var(--ink);text-decoration:none}
+    .rail-btn:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+    .rail-ico{flex:0 0 20px;text-align:center;font-size:1.05rem;line-height:1}
+    /* The label is present for assistive tech at every width; only its box collapses. */
+    .rail-label{opacity:0;transition:opacity .12s}
+    .rail.open .rail-label{opacity:1}
+    .bars{flex:0 0 20px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+    .bars i{display:block;height:1.5px;background:currentColor;border-radius:1px;transition:width .18s ease}
+    .bars i:nth-child(1){width:16px} .bars i:nth-child(2){width:11px} .bars i:nth-child(3){width:16px}
+    .rail.open .bars i{width:16px}
+    .avatar{flex:0 0 24px;height:24px;border-radius:50%;background:var(--blue-l);color:var(--blue-d);
+            display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:500}
+
+    /* ---- account panel ---- */
+    /* position:fixed rather than overflow:hidden -- see setPanel. width:100% keeps the pinned body
+       from collapsing to its content, and the JS restores scrollY on close. */
+    body.panel-open{position:fixed;width:100%;overflow:hidden}
+    .config-panel{position:fixed;top:0;right:0;bottom:0;width:min(460px,92vw);z-index:60;
+                  background:var(--bg);border-left:1px solid var(--line);box-shadow:var(--shadow-lg);
+                  display:flex;flex-direction:column}
+    /* An author display rule outranks the UA stylesheet's [hidden]{display:none}, so without
+       this the panel is permanently on screen no matter what the attribute says. */
+    .config-panel[hidden],.scrim[hidden]{display:none}
+    .config-head{padding:18px 22px;border-bottom:1px solid var(--line)}
+    .config-body{padding:22px;overflow:auto}
+    .scrim{position:fixed;inset:0;z-index:55;background:rgba(27,31,36,.18)}
+    .iconbtn{border:none;background:none;font-size:1.5rem;line-height:1;color:var(--muted);cursor:pointer;padding:0 4px}
+    .iconbtn:hover{color:var(--ink)}
+
+    /* ---- greeting ---- */
+    .greeting-wrap{padding-top:26px}
+    .greeting{font-size:1.9rem;font-weight:300;margin:0 0 4px;min-height:1.2em}
+    .caret{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-2px;
+           background:var(--blue);animation:blink 1s step-end infinite}
+    .caret.done{display:none}
+    @keyframes blink{50%{opacity:0}}
+    @media(prefers-reduced-motion:reduce){.caret{animation:none}}
+    .graph-card{min-height:180px}
+    .fg-controls{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:10px;
+                 font-size:.84rem;color:var(--muted)}
+    .fg-controls label{display:flex;align-items:center;gap:8px;margin:0;font-size:.84rem}
+    .fg-controls input[type=range]{width:150px;padding:0}
+    .fg-canvas svg{display:block}
+    .pubtable{width:100%;border-collapse:collapse;font-size:.86rem}
+    .pubtable th{position:sticky;top:0;background:var(--bg);text-align:left;font-weight:500;
+                 color:var(--muted);border-bottom:1px solid var(--line);padding:8px 10px}
+    .pubtable td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+    .pubtable td:first-child{white-space:nowrap;color:var(--muted)}
+
+    /* ---- the (i) affordance on Course Plot ---- */
+    .info{width:18px;height:18px;margin-left:6px;vertical-align:2px;border:1px solid var(--line);
+          border-radius:50%;background:var(--paper);color:var(--muted);font-size:.72rem;line-height:1;
+          font-family:var(--font);cursor:help;padding:0}
+    .info:hover,.info:focus-visible{border-color:var(--blue);color:var(--blue-d)}
+    /* The tip positions against its heading, not the viewport: without a positioned ancestor a
+       320px box anchored to nothing overflows a 360px phone to the right, off-screen and with no
+       way to dismiss it. left:0 plus a viewport-relative max keeps it inside the card. */
+    /* The containing block is the HEADING, not the little (i) button. Anchored to the button the
+       tip starts wherever the heading text happens to end -- x=184 on a 380px phone -- and runs
+       off the right edge. Anchored to the heading it starts at the card's padding edge and
+       max-width:100% resolves against a box that is already inside the card. */
+    .section-intro h2{position:relative}
+    .tiphost{display:inline-block}
+    .tip{display:none;position:absolute;left:0;top:100%;z-index:30;width:max-content;
+         max-width:min(320px,100%);margin-top:8px;padding:10px 12px;
+         background:var(--ink);color:#fff;border-radius:var(--r-s);font-size:.85rem;font-weight:400;line-height:1.45}
+    .info:hover + .tip,.info:focus-visible + .tip{display:block}
+
+    /* Compass markup was authored against a .row that wrapped and used a 12px gap. This page's
+       .row does neither, so the moved rows are given back both, scoped to where they live. */
+    #dash .row,.tabpane[data-tab="compass"] .row{gap:12px;flex-wrap:wrap}
+
+    /* A wrapping row cannot be `class="row wrap"` here: `.wrap` is the page container
+       (max-width 1080, margin:0 auto, 22px padding), so that pairing shrink-wraps the row and
+       centres it. It is why the Check coverage button sat in the middle of the card. */
+    .rwrap{flex-wrap:wrap}
+
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+             clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+    @media(max-width:760px){
+      /* The rail stays a visible icon strip on small screens. It must: the toggle lives inside
+         it, so sliding it off-screen would leave nothing to open it with. Expanding overlays
+         the content instead of pushing it, since there is no room to push into. */
+      :root{--rail:44px}
+      .rail{padding:8px 6px}
+      .rail.open{box-shadow:var(--shadow-lg)}
+      .rail-btn{height:38px;padding:0 8px}
+      .greeting{font-size:1.5rem}
+    }
   </style>
 </head>
 <body>
@@ -66,68 +179,156 @@
   <!-- The app, revealed only after authentication. -->
   <div id="app" hidden>
 
+    <!-- Persistent rail. Slim by default so it costs almost nothing, and it holds the things
+         that are true on every screen: where you are, and who you are. Work lives to the right. -->
+    <nav class="rail" id="rail" aria-label="Sections">
+      <button class="rail-btn rail-toggle" id="railToggle" type="button"
+              aria-expanded="false" aria-controls="rail" aria-label="Expand menu">
+        <span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="rail-label">Menu</span>
+      </button>
+
+      <div class="rail-items">
+        <a class="rail-btn" href="docs.html">
+          <span class="rail-ico" aria-hidden="true">&#9635;</span>
+          <span class="rail-label">Docs</span>
+        </a>
+      </div>
+
+      <div class="rail-foot">
+        <button class="rail-btn" id="railAccount" type="button" aria-controls="configPanel" aria-expanded="false">
+          <span class="avatar" id="railAvatar" aria-hidden="true">G</span>
+          <span class="rail-label" id="railName">Guest</span>
+        </button>
+      </div>
+    </nav>
+
     <nav class="nav">
       <div class="wrap">
         <a class="brand" href="index.html"><img src="assets/pubverse_wordmark.png" alt="PubVerse"></a>
         <div class="spacer"></div>
-        <a class="link" href="/compass">Compass</a>
         <a class="link" href="docs.html">Docs</a>
         <a class="link" id="signout" href="#">Sign out</a>
       </div>
     </nav>
 
-    <header class="hero">
-      <div class="wrap">
-        <h1>Substance over signal</h1>
-        <p class="lede">PubVerse evaluates research on substance, not signal. We weigh every idea against the entire published record, more than 116 million publications and growing, so the ones that genuinely matter are recognized sooner.</p>
-        <div class="affil" style="margin-top:18px">
-          <img src="assets/compass42.png" alt="">
-          <span>Affiliated with <a href="https://fortytwodegrees.org" target="_blank" rel="noopener">fortytwodegrees.org</a></span>
-        </div>
-      </div>
-    </header>
-
-    <!-- How it works -->
-    <section class="wrap" style="padding-top:10px">
-      <div class="features">
-        <div class="feature">
-          <div class="ico">&#128269;</div>
-          <h3>Retrieve</h3>
-          <p>Every submission is grounded against the nearest prior work retrieved from our 116M-publication corpus. No claim is judged in isolation.</p>
-        </div>
-        <div class="feature">
-          <div class="ico">&#9881;</div>
-          <h3>Evaluate</h3>
-          <p>A local language model reads the retrieved evidence and scores novelty, methods, and impact, citing the specific prior work behind each judgment.</p>
-        </div>
-        <div class="feature">
-          <div class="ico">&#129516;</div>
-          <h3>Discover</h3>
-          <p>Point the compass at a subject and PubVerse surfaces the needles: recent papers it judges genuinely new and soundly done, each with a plain-language reason.</p>
-        </div>
-      </div>
-
-      <div class="stats-bar">
-        <div class="stat"><div class="num">116M+</div><div class="lbl">Publications</div></div>
-        <div class="stat"><div class="num">3</div><div class="lbl">Scored dimensions</div></div>
-        <div class="stat"><div class="num">Every field</div><div class="lbl">Since the dawn of publishing</div></div>
-      </div>
-    </section>
-
     <main>
-      <div id="tabsRoot" class="wrap">
-        <div class="tabs">
-          <button data-tab="score" class="active">Score</button>
-          <button data-tab="history">History</button>
-          <button data-tab="profile">Profile</button>
-        </div>
 
-        <!-- SCORE -->
-        <section class="tabpane active" data-tab="score">
+      <!-- The field, first. A visitor lands on what their subject looks like today, not on a
+           pitch about the product. The greeting types in, the map draws, the needles list
+           beneath it, and only then do the tabs offer somewhere else to go. -->
+      <section class="wrap greeting-wrap">
+        <h1 class="greeting">
+          <span class="sr-only" id="greetingText"></span>
+          <span id="greetingAnim" aria-hidden="true"></span><span class="caret" id="greetingCaret" aria-hidden="true"></span>
+        </h1>
+      </section>
+
+      <section class="wrap" id="fieldGraphSection" hidden>
+        <div class="card graph-card">
+          <div class="row between rwrap" style="margin-bottom:10px">
+            <h2 style="margin:0">The shape of the field</h2>
+            <span class="mini muted" id="fieldGraphNote"></span>
+          </div>
+          <div id="fieldGraph" data-src="/examples/biomath_graph.json"></div>
+          <!-- Parag's "link to show all recent publications in this field". The map is a sample;
+               this is the whole 12-month window, and the spreadsheet is the same rows for anyone
+               who would rather sort them than look at them. -->
+          <p class="mini muted" style="margin-top:12px">
+            The map shows a sample. <a href="#" id="allRecent">See every recent publication in this field</a>
+            &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.xlsx" download>Download the table (.xlsx)</a>
+            &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.tsv" download>.tsv</a>
+          </p>
+          <div id="allRecentPanel" hidden style="margin-top:12px"></div>
+        </div>
+      </section>
+
+      <section class="wrap compass-load" id="spinner" hidden></section>
+      <section class="wrap" id="dash" hidden></section>
+
+      <div id="tabsRoot" class="wrap">
+        <!-- Plain buttons on purpose. ui.js activates on click only: there is no roving tabindex,
+             no arrow-key movement, no aria-selected and no role=tabpanel on the sections. Declaring
+             role="tablist" here would promise a screen reader a tab widget and then hand it three
+             buttons that are not tabs, which is worse than the honest un-annotated version. -->
+        <div class="tabs">
+          <button data-tab="compass" class="active">Compass</button>
+          <button data-tab="score" aria-describedby="coursePlotHint"
+                  title="Ranks a pasted abstract or idea against prior work.">Course Plot</button>
+          <button data-tab="history">History</button>
+        </div>
+        <span class="sr-only" id="coursePlotHint">Ranks a pasted abstract or idea against prior work.</span>
+
+        <!-- COMPASS -->
+        <section class="tabpane active" data-tab="compass">
+          <div class="stack" style="gap:18px">
+            <div class="card">
+              <div class="section-intro">
+                <h2>Point the compass at a subject</h2>
+                <p class="muted">Name a field and PubVerse reads what has been posted recently, then flags the papers it judges genuinely new and soundly done, with the prior work behind each call.</p>
+              </div>
+
+              <div class="stack tight">
+                <div class="field">
+                  <label for="topic">Subject</label>
+                  <input id="topic" type="text" list="coveredTopics" maxlength="120" autocomplete="off"
+                         placeholder="e.g. population dynamics, oncology">
+                  <datalist id="coveredTopics"></datalist>
+                  <p class="mini muted" id="topicHint"></p>
+                </div>
+
+                <div class="field">
+                  <label for="months">Look back</label>
+                  <select id="months">
+                    <option value="3">3 months</option>
+                    <option value="6" selected>6 months</option>
+                    <option value="12">12 months</option>
+                  </select>
+                </div>
+
+                <div class="row rwrap" style="gap:10px">
+                  <button class="btn" id="checkBtn" type="button">Check coverage</button>
+                  <span class="mini" id="topicErr" hidden></span>
+                  <span class="mini" id="validOk" hidden></span>
+                </div>
+              </div>
+
+              <div id="requestPanel" hidden>
+                <p class="muted" id="requestAsk"></p>
+                <div class="row rwrap" style="gap:10px">
+                  <input id="reqEmail" type="email" placeholder="Email (optional)" style="flex:1;min-width:0">
+                  <button class="btn ghost" id="requestBtn" type="button">Request this subject</button>
+                </div>
+                <p class="mini" id="requestErr" hidden></p>
+                <p class="mini" id="requestDone" hidden></p>
+              </div>
+
+              <div id="runControls" hidden>
+                <div class="row rwrap" style="gap:10px;margin-top:12px">
+                  <input id="email" type="email" placeholder="Email me when it finishes (optional)" style="flex:1;min-width:0">
+                  <button class="btn" id="findBtn" type="button">Find the needles</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card" id="pastRunsWrap" hidden>
+              <div class="row between rwrap">
+                <label for="pastRuns" style="margin:0">Earlier searches</label>
+                <select id="pastRuns" style="max-width:60%"></select>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- COURSE PLOT (the abstract evaluator) -->
+        <section class="tabpane" data-tab="score">
           <div class="card">
             <div class="section-intro">
-              <h2>Score an abstract</h2>
-              <p class="muted">Paste an abstract and PubVerse evaluates it on substance: how novel the work is, how sound its methods are, and how much impact it is likely to have. It weighs your work against the entire published record, every field and every era since the dawn of academic publishing, more than 116 million publications and growing every day. A title and other details stay optional until you choose to promote a result.</p>
+              <h2>Course Plot
+                <span class="tiphost"><button type="button" class="info" id="abstractInfo" aria-describedby="abstractInfoTip"
+                        aria-label="What to include">i</button><span class="tip" id="abstractInfoTip" role="tooltip">Include a hypothesis, the methods, and an impact statement. Abstracts that state all three are read more accurately, because each is scored separately.</span></span>
+              </h2>
+              <p class="muted">Paste an abstract or an idea. PubVerse scores it for novelty, methods and impact against the prior work it retrieves, and cites what it compared against.</p>
             </div>
 
             <div class="stack">
@@ -208,15 +409,33 @@
           </div>
         </section>
 
-        <!-- PROFILE -->
-        <section class="tabpane" data-tab="profile">
-          <div class="stack" style="gap:18px">
+      </div>
+    </main>
+
+    <!-- Account and saved work. Lifted out of the tab bar so the tabs carry only the three
+         things a visitor came to do, and reached instead from the rail, where configuration
+         lives on every screen rather than competing with the work for a tab slot. -->
+    <aside id="configPanel" class="config-panel" hidden role="dialog" aria-modal="true" aria-labelledby="configTitle">
+      <div class="config-head row between">
+        <h2 id="configTitle" style="margin:0">Your account</h2>
+        <button class="iconbtn" id="configClose" type="button" aria-label="Close">&#215;</button>
+      </div>
+      <div class="config-body">
+        <div class="stack" style="gap:18px">
             <div class="card">
               <h2>Account</h2>
               <div class="stack tight">
                 <div class="row between"><span class="muted">Username</span><span class="strong" id="pUser">--</span></div>
                 <div class="row between"><span class="muted">Email</span><span class="strong" id="pEmail">--</span></div>
                 <div class="row between"><span class="muted">Role</span><span class="strong" id="pRole">--</span></div>
+              </div>
+              <div class="field" style="margin-top:16px">
+                <label for="pDisplayName">Name to greet you by</label>
+                <div class="row rwrap" style="gap:10px">
+                  <input id="pDisplayName" type="text" maxlength="60" placeholder="Guest" style="flex:1;min-width:0">
+                  <button class="btn sm" id="pNameSave" type="button">Save</button>
+                </div>
+                <p class="mini muted" id="pNameMsg" style="margin-top:6px">Leave it empty to go back to Guest.</p>
               </div>
             </div>
 
@@ -237,9 +456,9 @@
               <div class="stack" id="promotedList" style="margin-top:6px"></div>
             </div>
           </div>
-        </section>
       </div>
-    </main>
+    </aside>
+    <div id="configScrim" class="scrim" hidden></div>
 
     <footer>
       <div class="wrap">
@@ -255,9 +474,11 @@
 
   </div>
 
-  <script src="js/config.js?v=4"></script>
-  <script src="js/api.js?v=4"></script>
-  <script src="js/ui.js?v=4"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/api.js?v=5"></script>
+  <script src="js/ui.js?v=5"></script>
+  <script src="js/compass.js?v=5"></script>
+  <script src="js/graph.js?v=5"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires elements to those helpers. */
@@ -330,6 +551,10 @@
       veil.style.display = 'none';
       app.hidden = false;
       renderProfile(user);
+      // Announce rather than call. Everything the landing page starts hangs off this event and
+      // is guarded there, so a failure in the greeting, the graph or the compass pane cannot
+      // reach this function's caller -- whose .catch signs the visitor back out.
+      try { document.dispatchEvent(new CustomEvent('pv:authed', { detail: user })); } catch (e) {}
     }
 
     on(loginForm, 'submit', function (e) {
@@ -364,6 +589,10 @@
 
     on($('#signout'), 'click', function (e) {
       e.preventDefault();
+      // Stop the greeting before the round trip. The reload usually collects it anyway, but a
+      // mid-type sign-out otherwise leaves a timer writing into a hidden node and holding a
+      // closure over the previous session's name until the page actually goes away.
+      stopGreeting();
       api.logout().then(function () { window.location.reload(); });
     });
 
@@ -706,6 +935,7 @@
       $('#pUser').textContent = user.username || '--';
       $('#pEmail').textContent = user.email || 'Not set';
       $('#pRole').textContent = user.role || '--';
+      var dn = $('#pDisplayName'); if (dn) dn.value = user.display_name || '';
       loadTopics();
       loadPromoted();
     }
@@ -797,12 +1027,279 @@
       });
     }
 
+    /* ---------- the rail ---------- */
+
+    var rail = $('#rail'), railToggle = $('#railToggle');
+    on(railToggle, 'click', function () {
+      var open = rail.classList.toggle('open');
+      railToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      railToggle.setAttribute('aria-label', open ? 'Collapse menu' : 'Expand menu');
+    });
+
+    /* The account panel. Focus moves into it on open and back to the button on close, because
+       a slide-over that leaves focus behind strands anyone not using a mouse. */
+    var panel = $('#configPanel'), scrim = $('#configScrim'), acct = $('#railAccount');
+    var FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+    function setPanel(open) {
+      if (!panel || !scrim || !acct) return;
+      panel.hidden = !open;
+      scrim.hidden = !open;
+      acct.setAttribute('aria-expanded', open ? 'true' : 'false');
+      // A fixed overlay that leaves the page behind it scrollable and tabbable is a modal in
+      // appearance only. Lock the scroll, take the background out of the accessibility tree, and
+      // collapse the rail so two overlays are never up at once.
+      // iOS treats body as the visual-viewport scroller, so toggling overflow there resets
+      // scrollTop and teleports the reader to the top when the panel closes. Pin the body at a
+      // negative offset instead and put the scroll back on the way out.
+      if (open) {
+        lockedScrollY = window.scrollY || window.pageYOffset || 0;
+        document.body.style.top = (-lockedScrollY) + 'px';
+        document.body.classList.add('panel-open');
+      } else if (document.body.classList.contains('panel-open')) {
+        document.body.classList.remove('panel-open');
+        document.body.style.top = '';
+        window.scrollTo(0, lockedScrollY);
+      }
+      var bg = [$('main'), $('footer'), $('.nav'), rail];
+      bg.forEach(function (n) { if (n) { if (open) n.setAttribute('aria-hidden', 'true'); else n.removeAttribute('aria-hidden'); } });
+      // Collapse the rail on the way in AND on the way out: closing used to leave it expanded
+      // behind the panel, so focus returned to a label the collapse had faded to opacity 0.
+      if (rail && rail.classList.contains('open')) railToggle.click();
+      if (open) {
+        // Paint from what we already know BEFORE the round trip. refreshProfile re-fetches
+        // /api/me and only then fills these fields, so on a slow link -- or whenever that call
+        // fails -- the panel opened showing an empty name box for an account that has a name,
+        // which reads as "not set" rather than "not loaded yet".
+        if (currentUser) renderProfile(currentUser);
+        refreshProfile();
+        var c = $('#configClose'); if (c) c.focus();
+      }
+      else acct.focus();
+    }
+    var lockedScrollY = 0;
+    // Keep Tab inside the panel. Without this the first Tab past the close button walks into the
+    // page behind the scrim, which the user cannot see.
+    on(panel, 'keydown', function (e) {
+      if (e.key !== 'Tab' || panel.hidden) return;
+      var f = Array.prototype.slice.call(panel.querySelectorAll(FOCUSABLE)).filter(function (n) {
+        return n.offsetWidth || n.offsetHeight || n.getClientRects().length;
+      });
+      // Zero focusable children: swallow Tab rather than returning, or the browser default walks
+      // focus into the aria-hidden page behind a scrim the user cannot see past. Escape remains
+      // the way out in every case, including the single-element case where both ends are the
+      // same node and each branch simply refocuses it.
+      if (!f.length) { e.preventDefault(); return; }
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    });
+    on($('#pNameSave'), 'click', function () {
+      var input = $('#pDisplayName'), msg = $('#pNameMsg'), btn = $('#pNameSave');
+      if (!input) return;
+      btn.disabled = true;
+      if (msg) msg.textContent = 'Saving...';
+      api.setDisplayName(input.value).then(function (me) {
+        currentUser = me;
+        railIdentity(me);
+        typeGreeting((me && (me.display_name || me.username)) || 'Guest');
+        if (msg) msg.textContent = me.display_name
+          ? 'The greeting will use ' + me.display_name + '.'
+          : 'Back to Guest.';
+      }).catch(function (e) {
+        console.error('[pubverse] display name', e);
+        if (msg) msg.textContent = 'That could not be saved. Please try again.';
+      }).then(function () { btn.disabled = false; });
+    });
+
+    on(acct, 'click', function () { setPanel(panel.hidden); });
+    on($('#configClose'), 'click', function () { setPanel(false); });
+    on(scrim, 'click', function () { setPanel(false); });
+    on(document, 'keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (panel && !panel.hidden) setPanel(false);
+      else if (rail && rail.classList.contains('open')) railToggle.click();
+    });
+
+    /* ---------- the greeting ---------- */
+
+    // The full sentence goes into the accessibility tree once, complete. Only a visual copy is
+    // animated: a polite live region retyped per character would be announced dozens of times.
+    // Re-entrant. pv:authed can fire more than once in a session, and two step loops writing
+    // slice(0, ++i) to one node with their own counters make the text stutter forwards and
+    // backwards as they fight over it. The timer is held so a second call cancels the first.
+    var typeTimer = null;
+    // Declared, not assigned to a var, so it is hoisted and the sign-out handler above can call it.
+    function stopGreeting() { if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; } }
+    function typeGreeting(name) {
+      var full = (name || 'Guest') + ', here is how your field is today';
+      var sr = $('#greetingText'), anim = $('#greetingAnim'), caret = $('#greetingCaret');
+      if (sr) sr.textContent = full;
+      if (!anim) return;
+      if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
+      if (anim.textContent === full) { if (caret) caret.classList.add('done'); return; }
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduced) { anim.textContent = full; if (caret) caret.classList.add('done'); return; }
+      if (caret) caret.classList.remove('done');
+      var i = 0;
+      (function step() {
+        anim.textContent = full.slice(0, ++i);
+        if (i < full.length) typeTimer = setTimeout(step, 26);
+        else { typeTimer = null; if (caret) caret.classList.add('done'); }
+      })();
+    }
+
+    function railIdentity(user) {
+      var name = (user && (user.display_name || user.username)) || 'Guest';
+      var n = $('#railName'), a = $('#railAvatar');
+      if (n) n.textContent = name;
+      if (a) a.textContent = (name.charAt(0) || 'G').toUpperCase();
+      return name;
+    }
+
     /* ---------- tabs + start ---------- */
 
     ui.initTabs('#tabsRoot');
     on($('.tabs button[data-tab="history"]'), 'click', function () { if (!historyLoaded) loadHistory(); });
-    on($('.tabs button[data-tab="profile"]'), 'click', refreshProfile);
 
+    // Deferred to first activation of the tab, matching the history pattern. Compass used to run
+    // on page load when it owned a whole page; inside a tab that fires a poll loop and two GETs
+    // for a pane the visitor may never open. It is NOT started from pv:authed -- an earlier draft
+    // did both, so the deferral existed only in the comment.
+    //
+    // PV.compass does not exist yet: the logic still lives in compass.html's inline IIFE and has
+    // to be extracted into js/compass.js before this tab does anything. Until then say so, out
+    // loud and on the page. A guarded call to a module nobody wrote fails silently, which is how
+    // a dead tab ships looking finished.
+    var compassStarted = false;
+    function startCompass() {
+      if (compassStarted) return;
+      if (window.PV && PV.compass && typeof PV.compass.init === 'function') {
+        try {
+          PV.compass.init();
+          compassStarted = true;          // only after it returns: a transient failure must not
+          return;                         // brick the tab for the rest of the session
+        } catch (e) {
+          console.error('[pubverse] compass init failed', e);
+        }
+      } else {
+        console.warn('[pubverse] PV.compass is not loaded; the Compass tab is inert');
+      }
+      // A form whose controls are enabled is a promise. Until the module exists, take the promise
+      // back: disable the inputs so nobody types a subject, picks a window, clicks Check coverage
+      // and gets silence. A live-looking dead form is the same defect as a comment that describes
+      // behaviour the code does not have.
+      var pane = $('.tabpane[data-tab="compass"]');
+      if (!pane) return;
+      Array.prototype.forEach.call(pane.querySelectorAll('input,select,button,textarea'), function (n) {
+        n.disabled = true;
+      });
+      if (!pane.querySelector('.compass-fallback')) {
+        var n = document.createElement('p');
+        n.className = 'mini compass-fallback';
+        n.style.marginTop = '10px';
+        n.innerHTML = 'Search is not wired into this tab yet. Use <a href="/compass">the compass page</a> meanwhile.';
+        pane.insertBefore(n, pane.firstChild);
+      }
+    }
+    on($('.tabs button[data-tab="compass"]'), 'click', startCompass);
+
+    /* Deliberately outside boot()'s promise chain. api.me().then(...).catch(showLogin) means a
+       throw anywhere in that chain drops a signed-in visitor back to the login card over a
+       cosmetic failure, so the landing furniture is started separately and each piece is
+       guarded on its own.
+
+       Registered BEFORE boot(). It only worked the other way round because api.me() resolves on a
+       later tick, which is an accident of the transport rather than a guarantee: any path that
+       reaches onAuthed synchronously would dispatch into a document with no listener yet, and the
+       greeting and map would simply never start. */
+    on(document, 'pv:authed', function (e) {
+      var user = e && e.detail;
+      try { typeGreeting(railIdentity(user)); } catch (err) { console.error('[pubverse] greeting', err); }
+      // The field map stays hidden until PV.graph exists AND its payload loads. Both failures are
+      // logged rather than swallowed: a `.catch(function(){})` on a section that never appears is
+      // indistinguishable from a section that was never meant to appear.
+      try {
+        var gEl = $('#fieldGraph');
+        if (!gEl) return;
+        if (!(window.PV && PV.graph && typeof PV.graph.load === 'function')) {
+          console.warn('[pubverse] PV.graph is not loaded; the field map stays hidden');
+          return;
+        }
+        PV.graph.load(gEl.getAttribute('data-src')).then(function (d) {
+          PV.graph.render(gEl, d);
+          var s = $('#fieldGraphSection'); if (s) s.hidden = false;
+        }).catch(function (err) { console.error('[pubverse] field map', err); });
+      } catch (err) { console.error('[pubverse] field map', err); }
+    });
+
+    /* Every recent publication in the field. Loaded on click, never on page load: the export is a
+       few megabytes, which is nothing to download deliberately and a lot to spend on a visitor who
+       came to read three needles. Renders the first page and says plainly how many rows there are,
+       rather than implying the table is the whole set. */
+    var allLoaded = false;
+    on($('#allRecent'), 'click', function (e) {
+      e.preventDefault();
+      var panel = $('#allRecentPanel');
+      if (!panel) return;
+      if (allLoaded) { panel.hidden = !panel.hidden; return; }
+      panel.hidden = false;
+      panel.innerHTML = '<p class="mini muted">Loading the full window...</p>';
+      fetch('/examples/arxiv_biomath_12mo.slim.json', { cache: 'no-cache' })
+        .then(function (r) { if (!r.ok) throw new Error('table ' + r.status); return r.json(); })
+        .then(function (d) {
+          allLoaded = true;
+          var all = d.rows || [], meta = d.meta || {}, PAGE = 50, page = 0, rows = all;
+          panel.innerHTML =
+            '<div class="row rwrap between" style="margin-bottom:8px">' +
+            '  <input id="pubSearch" type="search" placeholder="Filter by title or category"' +
+            '         style="flex:1;min-width:220px;max-width:420px">' +
+            '  <span class="mini muted" id="pubCount"></span></div>' +
+            '<div style="overflow:auto;max-height:440px"><table class="pubtable"><thead><tr>' +
+            '<th>Date</th><th>Title</th><th>Category</th></tr></thead><tbody id="pubBody"></tbody></table></div>' +
+            '<div class="row rwrap" style="gap:10px;margin-top:10px">' +
+            '  <button class="btn ghost sm" id="pubPrev" type="button">Previous</button>' +
+            '  <button class="btn ghost sm" id="pubNext" type="button">Next</button>' +
+            '  <span class="mini muted" id="pubPage"></span></div>';
+
+          function paint() {
+            var start = page * PAGE, slice = rows.slice(start, start + PAGE), h = [];
+            slice.forEach(function (r) {
+              var t = (r.t || '').replace(/[<&>]/g, '');
+              h.push('<tr><td>' + (r.d || '') + '</td><td><a href="https://arxiv.org/abs/' +
+                     encodeURIComponent(r.i) + '" target="_blank" rel="noopener">' + t +
+                     '</a></td><td>' + (r.c || '') + '</td></tr>');
+            });
+            $('#pubBody').innerHTML = h.join('') ||
+              '<tr><td colspan="3" class="mini muted">Nothing matches that filter.</td></tr>';
+            var pages = Math.max(1, Math.ceil(rows.length / PAGE));
+            $('#pubPage').textContent = 'Page ' + (page + 1) + ' of ' + pages;
+            $('#pubCount').textContent = rows.length.toLocaleString() + ' of ' +
+              all.length.toLocaleString() + ' publications, ' +
+              (meta.window ? meta.window.from + ' to ' + meta.window.to : '');
+            $('#pubPrev').disabled = page === 0;
+            $('#pubNext').disabled = page >= pages - 1;
+          }
+          on($('#pubPrev'), 'click', function () { if (page > 0) { page--; paint(); } });
+          on($('#pubNext'), 'click', function () {
+            if ((page + 1) * PAGE < rows.length) { page++; paint(); }
+          });
+          on($('#pubSearch'), 'input', function (e) {
+            var q = (e.target.value || '').trim().toLowerCase();
+            rows = q ? all.filter(function (r) {
+              return ((r.t || '') + ' ' + (r.c || '')).toLowerCase().indexOf(q) !== -1;
+            }) : all;
+            page = 0; paint();
+          });
+          paint();
+        })
+        .catch(function (err) {
+          console.error('[pubverse] recent publications', err);
+          panel.innerHTML = '<p class="mini muted">The full table could not be loaded. ' +
+                            'The downloads above still work.</p>';
+        });
+    });
+
+    // Last, so every listener above is armed before the session check can resolve.
     boot();
   })();
   </script>

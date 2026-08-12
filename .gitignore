@@ -1,0 +1,5 @@
+
+# The full export JSON is a build artifact: the page fetches .slim.json and the download links
+# serve .tsv/.xlsx, so tracking a third copy adds megabytes to a public repo's history on every
+# regeneration and is fetched by nobody.
+examples/*_12mo.json

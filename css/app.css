@@ -1,31 +1,50 @@
-/* PubVerse design system. Clean, white, thin geometric sans, cornflower-blue node accents.
-   Inspired by the PubVerse wordmark (thin sans + blue node-graph glyph) and the 42 compass.
-   Do NOT put any scoring-method detail in class names, comments, or content. */
-@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&display=swap');
+/* PubVerse design system. Warm paper, a serif for prose, thin geometric sans for the interface,
+   cornflower-blue node accents from the wordmark (thin sans + blue node-graph glyph) and the 42
+   compass. Do NOT put any scoring-method detail in class names, comments, or content. */
+/* AESTHETIC NOTE, 2026-08-11. Warmed toward the reading-tool feel: paper rather than screen-white,
+   warm greys rather than blue-greys, a serif for anything that is prose, and structure carried by
+   hairlines instead of shadows. The cornflower blue stays because the wordmark is blue and an
+   accent that fights the logo is not a refinement. Jost keeps the UI; Newsreader takes headings
+   and long copy, which is what makes a page of findings feel like something to read rather than a
+   dashboard to operate. */
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600&family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500&display=swap');
 
 :root{
-  --ink:#1b1f24; --muted:#6b7684; --bg:#ffffff; --paper:#f6f9fd; --panel:#ffffff;
-  --line:#e4e9f0; --blue:#4a90d9; --blue-d:#2f6db0; --blue-l:#eaf2fb;
-  --good:#2e9e6b; --warn:#d98a2b; --bad:#d1495b; --shadow:0 1px 3px rgba(27,31,36,.06),0 8px 28px rgba(47,109,176,.06);
-  --shadow-lg:0 4px 6px rgba(27,31,36,.04),0 20px 40px rgba(47,109,176,.08);
-  --r:14px; --r-s:9px; --maxw:1080px;
+  --ink:#1f1e1d; --muted:#6f6b66; --bg:#faf9f7; --paper:#f3f1ed; --panel:#ffffff;
+  --line:#e7e4de; --blue:#4a90d9; --blue-d:#2f6db0; --blue-l:#eaf2fb;
+  --good:#2e9e6b; --warn:#b8722c; --bad:#c0483f;
+  /* Shadows are almost gone. Depth comes from the hairline and the paper/panel contrast, which
+     survives a phone screen in daylight far better than a 28px blur does. */
+  --shadow:0 1px 2px rgba(31,30,29,.04);
+  --shadow-lg:0 2px 4px rgba(31,30,29,.04),0 12px 32px rgba(31,30,29,.06);
+  --r:12px; --r-s:8px; --maxw:1080px;
   --font:'Jost',-apple-system,'Segoe UI',system-ui,sans-serif;
+  --serif:'Newsreader',Georgia,'Times New Roman',serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{font-family:var(--font);font-weight:400;color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}
 a{color:var(--blue-d);text-decoration:none}
 a:hover{text-decoration:underline}
-h1,h2,h3{font-weight:500;letter-spacing:.2px;line-height:1.2;margin:0 0 .5em}
-h1{font-size:2rem;font-weight:300} h2{font-size:1.4rem} h3{font-size:1.08rem}
+/* Headings are serif and set tighter than the sans was, because a serif at the same tracking reads
+   loose. Optical sizing does the rest at display sizes. */
+h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.01em;line-height:1.18;margin:0 0 .5em;
+         font-optical-sizing:auto}
+h1{font-size:2.1rem;font-weight:300} h2{font-size:1.45rem} h3{font-size:1.1rem}
+/* Explanatory copy is the other place the serif earns its keep: these are paragraphs someone is
+   meant to read, not labels they are meant to scan. */
+.lede,.section-intro p,.muted.reading{font-family:var(--serif);font-size:1.02rem;line-height:1.6}
 .muted{color:var(--muted)} .center{text-align:center}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 22px}
 
 /* top bar */
-.nav{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{position:sticky;top:0;z-index:40;background:rgba(250,249,247,.86);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 .nav .wrap{display:flex;align-items:center;gap:26px;height:64px}
 .brand{display:flex;align-items:center;gap:10px;font-size:1.28rem;font-weight:400;letter-spacing:.5px;color:var(--ink)}
-.brand img{height:26px}
+/* The wordmark is a PNG on white. Against screen-white that was invisible; against warm paper it
+   reads as a pale rectangle around the logo. multiply drops the white and keeps the blue glyph. */
+.brand img{height:26px;mix-blend-mode:multiply}
+.affil img,.veil .mark{mix-blend-mode:multiply}
 .nav a.link{color:var(--muted);font-size:.95rem;letter-spacing:.3px;transition:color .15s}
 .nav a.link:hover,.nav a.link.active{color:var(--ink);text-decoration:none}
 .nav .spacer{flex:1}
@@ -46,7 +65,7 @@ textarea{resize:vertical;min-height:180px;line-height:1.6}
 label{display:block;font-size:.85rem;color:var(--muted);margin:0 0 6px;letter-spacing:.3px}
 
 /* cards / panels */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:26px;transition:box-shadow .2s}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:28px 30px;transition:border-color .2s,box-shadow .2s}
 .card.hoverable:hover{box-shadow:var(--shadow-lg);border-color:var(--blue-l)}
 .panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--r);padding:20px}
 .grid{display:grid;gap:18px}
