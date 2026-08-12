@@ -1,100 +1,263 @@
 {
-  "topic": "biomathematics (population dynamics)",
-  "window": "preprints, recent",
-  "haystack_count": 36185,
-  "needles": [
-    {
-      "title": "Nonlocal Proliferation and Explosive Tumour Dynamics: Mechanistic Modelling and Bayesian Inference",
-      "source": "bioRxiv",
-      "url": "https://doi.org/10.64898/2026.03.23.713731",
-      "doi": "10.64898/2026.03.23.713731",
-      "date": "2026-03-25",
-      "novelty": 8,
-      "methods": 9,
-      "impact": 8,
-      "verdict": "A genuinely new mechanism for explosive tumour growth, established with rigorous analytical proofs and absent from the existing literature."
-    },
-    {
-      "title": "Optimal spatial release strategies for confined gene drives and Wolbachia",
-      "source": "bioRxiv",
-      "url": "https://doi.org/10.64898/2026.03.04.709515",
-      "doi": "10.64898/2026.03.04.709515",
-      "date": "2026-03-25",
-      "novelty": 9,
-      "methods": 9,
-      "impact": 4,
-      "verdict": "A genuinely new framework for choosing where and when to release confined gene drives and Wolbachia, more complete than anything in the existing literature."
-    },
-    {
-      "title": "Local equations for the generalized Lotka-Volterra model on sparse asymmetric graphs",
-      "source": "arXiv",
-      "url": "http://arxiv.org/abs/2511.17499v2",
-      "date": "2025-11-21",
-      "novelty": 8,
-      "methods": 8,
-      "impact": 8,
-      "verdict": "The first mapping of the phase diagram for sparse, asymmetric ecological networks, opening a regime the field had left unexplored."
-    },
-    {
-      "title": "General predictions for the effects of warming on competition",
-      "source": "bioRxiv",
-      "url": "https://doi.org/10.1101/2025.10.02.680125",
-      "doi": "10.1101/2025.10.02.680125",
-      "date": "2026-02-25",
-      "novelty": 9,
-      "methods": 8,
-      "impact": 4,
-      "verdict": "A genuinely new theory tying metabolic scaling to species coexistence, yielding general predictions for how warming reshapes competition that the existing literature lacks."
-    },
-    {
-      "title": "Decoding species coexistence: A reinforcement learning perspective",
-      "source": "arXiv",
-      "url": "http://arxiv.org/abs/2508.17599v2",
-      "date": "2025-08-25",
-      "novelty": 9,
-      "methods": 7,
-      "impact": 4,
-      "verdict": "A genuinely new, learning-based way for organisms to adapt their mobility that resolves a long-standing coexistence puzzle left open in the existing literature."
-    },
-    {
-      "title": "Modeling Epidemic Dynamics of Mutant Strains with Evolutionary Game-based Vaccination Behavior",
-      "source": "arXiv",
-      "url": "http://arxiv.org/abs/2601.00757v1",
-      "date": "2026-01-02",
-      "novelty": 8,
-      "methods": 7,
-      "impact": 7,
-      "verdict": "A genuinely new coupling of viral mutation with the way people change their vaccination choices, closing a gap the existing literature left open by treating behavior as fixed."
-    },
-    {
-      "title": "Mechanistic-statistical inference of mosquito dynamics from mark-release-recapture data",
-      "source": "arXiv",
-      "url": "http://arxiv.org/abs/2510.06080v2",
-      "date": "2025-10-07",
-      "novelty": 8,
-      "methods": 8,
-      "impact": 4,
-      "verdict": "A genuinely new way to jointly infer mosquito movement, survival, and recapture from field data, a combined treatment not present in the existing literature."
-    },
-    {
-      "title": "Equilibrium and Competition in Evolutionary Dynamics",
-      "source": "arXiv",
-      "url": "http://arxiv.org/abs/2605.02956v1",
-      "date": "2026-05-02",
-      "novelty": 8,
-      "methods": 9,
-      "impact": null,
-      "verdict": "Rigorous new proofs that settle the long-term behavior of competing polymerization dynamics, a level of mathematical guarantee the existing literature had not reached."
-    },
-    {
-      "title": "Inhomogeneous Branching Random Walks: Incorporating Genealogy and Density Effects",
-      "source": "arXiv",
-      "url": "http://arxiv.org/abs/2512.09145v1",
-      "date": "2025-12-09",
-      "novelty": 8,
-      "methods": 4,
-      "impact": 4,
-      "verdict": "A genuinely new way to build lineage history and crowding into branching random walks, a combination the existing literature had not addressed."
-    }
-  ]
+ "topic": "biomathematics",
+ "window": "preprints, last 12 months",
+ "haystack_count": 42100,
+ "judged_count": 285,
+ "generated": "2026-08-11",
+ "note": "Machine-flagged, unreviewed. Ordered by date.",
+ "needles": [
+  {
+   "title": "Dynamics Decomposition of Boolean Networks: An algebraic foundation",
+   "date": "2026-07-23",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2607.21795",
+   "novelty": 9,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces a novel semiring-based algebraic framework for systematically decomposing Boolean network dynamics into modular components. This provides a reusable mathematical method that reframes modularity analysis, advancing beyond the general background on Boolean vs. ODE modeling and parameterization challenges in [N1]-[N6]."
+  },
+  {
+   "title": "Dimension-dependent continuum limits in tissue mechanics",
+   "date": "2026-07-08",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2607.07000",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper establishes a specific physical mechanism linking dimensionality to nonlinear transport exponents in tissue mechanics, going beyond the generic multiscale upscaling methods described in [N1]. While it uses continuum limits (related to [N1]'s domain), the finding that dimensionality fixes the exponent $\\gamma$ is a novel mechanistic insight rather than just applying an existing method."
+  },
+  {
+   "title": "In-vivo glioma viscosity and fluidity as clinical tumor markers of vimentin expression and collective cell migration",
+   "date": "2026-06-24",
+   "source": "medrxiv",
+   "doi": "10.64898/2026.06.21.26356180",
+   "url": "https://doi.org/10.64898/2026.06.21.26356180",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper empirically characterizes a real biological mechanism linking vimentin-driven ECM remodeling and cellular elongation to reduced in-vivo tumor fluidity measurable by MRE, advancing beyond general viscoelasticity measurements [N1] and calls to investigate mechanics in cancer progression [N6]."
+  },
+  {
+   "title": "A multi-scale information geometry reveals the structure of mutual information in neural populations",
+   "date": "2026-05-07",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2605.06304",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 9,
+   "verdict": "Introduces a novel reusable mathematical framework (multi-scale Riemannian geometry derived from coarse-graining principles) that reframes how representational metrics are constructed for neural populations, moving beyond arbitrary distance definitions and linear readout limitations [N1] while bridging mechanistic and normative modeling approaches [N3]."
+  },
+  {
+   "title": "Beyond Continuity: Simulation-free Reconstruction of Discrete Branching Dynamics from Single-cell Snapshots",
+   "date": "2026-05-01",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2605.00545",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "Introduces Unbalanced Schr\u00f6dinger Bridge (USB), a new simulation-free framework that explicitly models discrete birth-death jumps alongside diffusion, reframing trajectory inference from continuous mass transport to discrete branching dynamics. This directly addresses the proliferation-differentiation confounding highlighted in [N1] and [N2]."
+  },
+  {
+   "title": "Decoding the metabolic blockade effect: PFAS inhibition of organic anion transporters impairs VOC clearance and amplifies neurocognitive decline",
+   "date": "2026-02-15",
+   "source": "medrxiv",
+   "doi": "10.64898/2026.02.12.26346123",
+   "url": "https://doi.org/10.64898/2026.02.12.26346123",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper empirically characterizes a novel toxicological interaction mechanism (PFAS-mediated competitive inhibition of OAT1 impairing VOC clearance), delivering a surprising synergistic toxicity finding that extends beyond standard additive mixture models. While [N1]\u2013[N3] contextualize the docking validation, metabolomic data handling, and ML frameworks used, they do not pre-empt this specific t"
+  },
+  {
+   "title": "Cortical population coding critically depends on fine-tuning of cell physiology",
+   "date": "2025-12-14",
+   "source": "biorxiv",
+   "doi": "10.1101/2024.02.15.580451",
+   "url": "https://doi.org/10.1101/2024.02.15.580451",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper empirically discovers and first characterizes a precise physiological tuning mechanism in cortical layer 4\u2014where dendrite size, noise correlation time, and cell number are matched to reliably encode single thalamic spikes\u2014directly answering the open parameter-configuration question raised in [N2]. This surprising empirical finding of a natural biological design principle goes beyond appl"
+  },
+  {
+   "title": "Spatial dynamics of the tumor microenvironment associated with emerging resistance to targeted therapy in EGFR-mutated non-small cell lung cancer",
+   "date": "2025-12-04",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.02.10.637543",
+   "url": "https://doi.org/10.1101/2025.02.10.637543",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper empirically characterizes specific spatial TME dynamics (pre-existing NF-\u03baB signaling, fibroblast activation, and immature versus mature TLS maturation) driving early EGFR-TKI resistance in clinical samples, directly addressing the empirical gaps in quantifying spatial heterogeneity highlighted in [N4]\u2013[N6]. While leveraging standard spatial transcriptomics, it reports a direct biologica"
+  },
+  {
+   "title": "Characterizing neuronal population geometry with AI equation discovery",
+   "date": "2025-11-13",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.11.12.688086",
+   "url": "https://doi.org/10.1101/2025.11.12.688086",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces a novel AI-driven equation discovery method (using LLMs) to derive an interpretable nonlinear tuning model that resolves the single-cell vs. population code dimensionality discrepancy, going beyond standard linear/nonlinear fitting techniques [N1-N6] by uncovering a specific mechanism (tuning smoothness) governing high-dimensional geometry."
+  },
+  {
+   "title": "Tissue surface mechanics constrains proliferation-driven forces to guide mammalian body axis elongation",
+   "date": "2025-10-27",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.10.27.684710",
+   "url": "https://doi.org/10.1101/2025.10.27.684710",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 8,
+   "verdict": "The paper empirically discovers and first-characterizes a real natural mechanism for mammalian axial elongation\u2014proliferation-driven isotropic expansion constrained by a posterior supracellular actin cap\u2014which overturns the standard expectation that convergent extension drives vertebrate axis formation. It addresses prior force-quantification gaps [N5] and organoid/measurement limitations [N4] usi"
+  },
+  {
+   "title": "T Cells Tear Apart Confining Extracellular Matrix Via a Breaststroke-like Motion to Generate Migration Paths",
+   "date": "2025-10-05",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.10.03.680352",
+   "url": "https://doi.org/10.1101/2025.10.03.680352",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper empirically discovers a novel mechanical mechanism (breaststroke-like protrusion tearing) for T cell path generation in confining ECM and identifies matrix shear strength\u2014not stiffness or viscoelasticity\u2014as the key governing parameter. This constitutes a genuine empirical discovery of a natural cell-matrix interaction mechanism that directly addresses the gap in 3D matrix property charac"
+  },
+  {
+   "title": "Diverse ancestral myosin motors generate and segregate distinct types of nanocluster-rich domains at the plasma membrane",
+   "date": "2025-10-02",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.09.30.679578",
+   "url": "https://doi.org/10.1101/2025.09.30.679578",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 8,
+   "verdict": "The paper empirically discovers and first-characterizes a real biological mechanism where distinct ancestral non-muscle myosin classes drive the spatial segregation of different plasma membrane nanocluster domains, moving beyond general cytoskeletal dynamics modeling [N1, N2] and assembly challenges [N5]. This qualifies as an empirical discovery of a previously unknown natural mechanism linking cy"
+  },
+  {
+   "title": "Clinical Exposure Normalization Restores Translational Predictiveness of In Vitro Drug Response",
+   "date": "2025-09-24",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.09.22.676882",
+   "url": "https://doi.org/10.1101/2025.09.22.676882",
+   "novelty": 9,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces a novel normalization method (clinical exposure normalization) that reframes the interpretation of in vitro potency data, overturning the standard assumption that raw AUC reflects true efficacy. This builds on [N1]'s identification of PK/PD conflation but provides the first large-scale empirical demonstration and specific corrective mechanism."
+  },
+  {
+   "title": "A structural transition ensures robust formation of skeletal muscle",
+   "date": "2025-09-22",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.09.22.677369",
+   "url": "https://doi.org/10.1101/2025.09.22.677369",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper empirically discovers a novel physical mechanism in zebrafish muscle development\u2014ordered chiral twisting of myocytes driving a fluid-to-glass-like structural transition for robust 3D packing\u2014which overturns the textbook cylindrical fiber assumption. Building on the open challenges regarding mechanical drivers of morphogenesis noted in [N3], [N4], and [N5], it provides the first empirical"
+  },
+  {
+   "title": "Mixed-mobility supported lipid bilayers reveal the modulatory role ofimmobilized ICAM1 on T cell activation, effector functions and immune synapse organization",
+   "date": "2025-09-16",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.09.12.675755",
+   "url": "https://doi.org/10.1101/2025.09.12.675755",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 8,
+   "verdict": "The paper empirically characterizes the modulatory role of mixed ligand mobility (immobile ICAM1/mobile TCR) on immune synapse organization using a newly established mixed-mobility SLB platform, overcoming limitations of prior single-mobility systems [N2]. This represents the first characterization of this specific biophysical mechanism in nature."
+  },
+  {
+   "title": "Patterned integrin-laminin adhesion coordinates epithelial collective cell migration",
+   "date": "2025-09-16",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.09.12.675859",
+   "url": "https://doi.org/10.1101/2025.09.12.675859",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "Empirically characterizes a real in vivo mechanism\u2014spatially patterned and redundant integrin-laminin adhesion coordinating collective migration\u2014addressing the unresolved persistence mechanisms noted in [N5] and [N6]."
+  },
+  {
+   "title": "Reverse Engineering the Evolutionary Logic of Cytoskeletal Dynamics",
+   "date": "2025-09-12",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.09.10.674348",
+   "url": "https://doi.org/10.1101/2025.09.10.674348",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces ActiveDROPS, a novel cell-free reconstitution method using bacterial lysate droplets to screen uncharacterized kinesin variants, enabling the empirical discovery of distinct behavioral classes (slow-sustained, fast-burst, multiphase) and the mechanistic identification of domain determinants for motor dynamics. This represents a new experimental platform and characterization of"
+  },
+  {
+   "title": "Elasticity and plasticity of epithelial gap closure",
+   "date": "2025-09-05",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2509.05110",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces a novel continuum model that reframes epithelial gap closure as a competition between tissue elasticity and plastic intercalation, identifying two distinct physical regimes governed by the ratio of energy barriers to released energy. It reveals a non-obvious deintercalation mechanism in fluidized tissues and explains the emergent role of actomyosin cable inhomogeneities, subst"
+  },
+  {
+   "title": "Longitudinal Live Imaging Derived 4D Hemodynamics and Dynamic Tissue Mechanics Across Outflow Tract Morphogenesis",
+   "date": "2025-08-30",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.08.26.672464",
+   "url": "https://doi.org/10.1101/2025.08.26.672464",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 8,
+   "verdict": "First characterizes longitudinal hemodynamic-tissue mechanics interplay in vivo and empirically discovers a double-helical flow pattern in the developing outflow tract, directly overcoming historical measurement barriers noted in [N3] and [N5]. While it adapts standard image-based moving-domain CFD to live ultrasound data, the in vivo discovery of stage-specific regional stress/strain correlations"
+  },
+  {
+   "title": "Predicting Brain Morphogenesis via Physics-Transfer Learning",
+   "date": "2025-08-22",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2509.05305",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces a novel physics-transfer learning framework and synthetic continuum mechanics library to predict brain morphogenesis, directly addressing the manual finite element modeling and subject-specific generation bottlenecks noted in [N1] and [N3]. By embedding nonlinear elasticity from simple geometries into neural networks, it provides a reusable computational method that reframes c"
+  },
+  {
+   "title": "The Optic cup is actively shape programmed by independently patterned apical forces",
+   "date": "2025-08-21",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.08.21.671431",
+   "url": "https://doi.org/10.1101/2025.08.21.671431",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 7,
+   "verdict": "The paper empirically characterizes a surprising morphogenetic mechanism where apical strain patterns actively drive basal invagination, directly addressing the broad challenges of linking local force patterns to 3D tissue bending outlined in [N1], [N2], and [N4]. This constitutes a genuine empirical discovery of a real biological shape-programming mechanism rather than a routine application of ex"
+  },
+  {
+   "title": "Stochastic synaptic dynamics under learning",
+   "date": "2025-08-19",
+   "source": "arxiv",
+   "doi": "",
+   "url": "https://arxiv.org/abs/2508.13846",
+   "novelty": 8,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces new analytical tools that incorporate spike-time-resolving cross-correlations into drift-diffusion descriptions of STDP, overturning the standard expectation that rate-based approximations accurately predict memory capacity. By directly addressing prior critiques of Fokker-Planck accuracy [N1] and extending beyond equilibrium-focused analyses [N3], it quantitatively reframes h"
+  },
+  {
+   "title": "Group Response Analysis: Clinically Interpretable Longitudinal Responder Analysis Methods Developed Using FDA Data",
+   "date": "2025-08-15",
+   "source": "medrxiv",
+   "doi": "10.1101/2025.08.13.25333581",
+   "url": "https://doi.org/10.1101/2025.08.13.25333581",
+   "novelty": 9,
+   "methods": 8,
+   "impact": 8,
+   "verdict": "The paper introduces a novel statistical framework (ROOT, GRO, GROOT) for longitudinal responder analysis in clinical trials, which reframes the problem beyond standard baseline-to-endpoint dichotomization. This is methodologically distinct from [N1], which focuses on placebo response rates and trial failure causes rather than longitudinal efficacy metrics."
+  }
+ ]
 }
