@@ -47,6 +47,7 @@
     api.compassPoll(rid).then(function (r) {
       if (r && r.dashboard) {
         renderDashboard(r.dashboard, { runId: rid, exportToken: r.export_token });
+        announceMap(r, rid);
         var dash = $('#dash'); if (dash) dash.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
@@ -311,6 +312,7 @@
           ui.hideCompass('#spinner');
           $('#findBtn').disabled = false;
           renderDashboard(r.dashboard, { live: true, runId: runId, exportToken: r.export_token });
+          announceMap(r, runId);
           $('#dash').scrollIntoView({ behavior: 'smooth' });
         } else if (r && (r.status === 'error' || r.ok === false)) {
           clearInterval(iv); polling = false;
@@ -337,6 +339,19 @@
     }).then(function (data) {
       if (data) renderDashboard(data, { example: true });
     }).catch(function () { /* the example is a convenience, never block the page on it */ });
+  }
+
+
+  /* The field map belongs to the run, not to this module: the landing page owns the frame and the
+     compass page does not have one. So this announces and lets whoever is listening decide, which
+     also means a page without a map listener is simply unaffected rather than broken. */
+  function announceMap(r, runId) {
+    if (!r || !r.map) return;
+    try {
+      document.dispatchEvent(new CustomEvent('pv:run-map', { detail: {
+        state: r.map, runId: runId, topic: r.topic, exportToken: r.export_token
+      }}));
+    } catch (e) {}
   }
 
   /* ---------- dashboard rendering (shared by example + live run) ---------- */

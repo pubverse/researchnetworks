@@ -220,6 +220,14 @@
       return request('/api/compass/runs');
     },
     compassExportUrl: compassExportUrl,
+    // A run's own field map, as a document for the iframe. Same-origin rules do not apply here --
+    // the API is a different host from the site -- but the map is self-contained (React, D3 and the
+    // compiled app are inlined at build time), so it needs no credentials of its own to render.
+    compassRunMapUrl: function (runId, exportToken) {
+      var qs = exportToken ? ('?pv_token=' + encodeURIComponent(exportToken)) : '';
+      return window.PV.API_BASE + '/api/compass/run/' +
+             encodeURIComponent(runId) + '/map' + qs;
+    },
 
     // saved compass topics (Profile). These hit the real server so a saved topic
     // persists across browsers and devices and shows up in Profile.

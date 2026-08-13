@@ -1376,6 +1376,32 @@
       } catch (err) { console.error('[pubverse] field map', err); }
     });
 
+    /* A finished run replaces the worked example with the map of the field it actually searched.
+       The landscape behind a map takes about an hour to cluster and name, so it is built once per
+       field and cached; the first run in a NEW field therefore finishes without one and reports
+       map:'building'. Those are different facts from "no map" and the note says which. */
+    on(document, 'pv:run-map', function (e) {
+      var d = (e && e.detail) || {};
+      var frame = $('#fieldGraphFrame'), sec = $('#fieldGraphSection');
+      var h = $('#fieldGraphTitle'), note = $('#fieldGraphNote');
+      if (!frame || !sec) return;
+      try {
+        if (d.state === 'ready' && d.runId) {
+          frame.src = PV.api.compassRunMapUrl(d.runId, d.exportToken);
+          sec.hidden = false;
+          if (h && d.topic) h.textContent = 'The shape of ' + d.topic;
+          if (note) note.textContent = 'Your search, clustered by the scoring pipeline. ' +
+                                       'Drag to pan, scroll to zoom.';
+          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else if (d.state === 'building') {
+          sec.hidden = false;
+          if (note) note.textContent = 'Mapping this field for the first time — clustering and ' +
+                                       'naming its topics takes about an hour. Your needles are ' +
+                                       'ready below; the map appears on your next search here.';
+        }
+      } catch (err) { console.error('[pubverse] run map', err); }
+    });
+
     /* Every recent publication in the field. Loaded on click, never on page load: the export is a
        few megabytes, which is nothing to download deliberately and a lot to spend on a visitor who
        came to read three needles. Renders the first page and says plainly how many rows there are,
