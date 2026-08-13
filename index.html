@@ -209,11 +209,18 @@
         <span class="rail-label">Menu</span>
       </button>
 
+      <!-- Docs LEAVES the app, so it belongs with the other destinations in the top nav, where it
+           already was; having it here too was the same link in two places. What is true on every
+           screen is your own account, so this slot opens the SAME #configPanel the avatar at the
+           foot opens. Profile settings already exist and work -- display name, saved topics,
+           promoted papers -- they simply had no signpost that said "Profile", only an avatar
+           labelled with your own name. There is no second settings UI and there must not be one. -->
       <div class="rail-items">
-        <a class="rail-btn" href="docs.html">
-          <span class="rail-ico" aria-hidden="true">&#9635;</span>
-          <span class="rail-label">Docs</span>
-        </a>
+        <button class="rail-btn" id="railProfile" type="button"
+                aria-controls="configPanel" aria-expanded="false">
+          <span class="rail-ico" aria-hidden="true">&#9673;</span>
+          <span class="rail-label">Profile</span>
+        </button>
       </div>
 
       <div class="rail-foot">
@@ -1100,6 +1107,10 @@
       panel.hidden = !open;
       scrim.hidden = !open;
       acct.setAttribute('aria-expanded', open ? 'true' : 'false');
+      // Both openers advertise the same panel, so both must report its state; one left saying
+      // "collapsed" while the dialog is up is a lie to a screen reader.
+      var rp = document.getElementById('railProfile');
+      if (rp) rp.setAttribute('aria-expanded', open ? 'true' : 'false');
       // A fixed overlay that leaves the page behind it scrollable and tabbable is a modal in
       // appearance only. Lock the scroll, take the background out of the accessibility tree, and
       // collapse the rail so two overlays are never up at once.
@@ -1166,7 +1177,10 @@
       }).then(function () { btn.disabled = false; });
     });
 
+    // Both the rail's Profile entry and the account button at its foot open the one panel. Two
+    // affordances, one dialog -- a second settings surface is how they drift apart.
     on(acct, 'click', function () { setPanel(panel.hidden); });
+    on($('#railProfile'), 'click', function () { setPanel(panel.hidden); });
     on($('#configClose'), 'click', function () { setPanel(false); });
     on(scrim, 'click', function () { setPanel(false); });
     on(document, 'keydown', function (e) {
