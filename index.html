@@ -235,7 +235,10 @@
       <section class="wrap" id="fieldGraphSection" hidden>
         <div class="card graph-card">
           <div class="row between rwrap" style="margin-bottom:10px">
-            <h2 style="margin:0">The shape of the field</h2>
+            <!-- "the field" is a placeholder until the run's own subject is known; the loader
+                 replaces it with whatever was searched for. A heading that says "the field" on a
+                 page whose whole claim is that it read YOUR field is a wasted line. -->
+            <h2 style="margin:0" id="fieldGraphTitle">The shape of the field</h2>
             <span class="mini muted" id="fieldGraphNote"></span>
           </div>
           <!-- The map is the pipeline's own renderer, not a bespoke one. It is built by
@@ -1172,10 +1175,17 @@
       if (reduced) { anim.textContent = full; if (caret) caret.classList.add('done'); return; }
       if (caret) caret.classList.remove('done');
       var i = 0;
+      // 26ms a character put the whole greeting on screen in 1.4s, which measured as working and
+      // read as not happening at all: it was over before anyone looked, and the caret was hidden the
+      // instant it finished. Slower, and the cursor keeps blinking for a beat afterwards so the line
+      // is still visibly a line being written rather than one that was always there.
       (function step() {
         anim.textContent = full.slice(0, ++i);
-        if (i < full.length) typeTimer = setTimeout(step, 26);
-        else { typeTimer = null; if (caret) caret.classList.add('done'); }
+        if (i < full.length) { typeTimer = setTimeout(step, 48); return; }
+        typeTimer = null;
+        if (caret) typeTimer = setTimeout(function () {
+          caret.classList.add('done'); typeTimer = null;
+        }, 2600);
       })();
     }
 
@@ -1269,6 +1279,22 @@
             var note = $('#fieldGraphNote');
             if (note) note.textContent = 'Preprints from the last 12 months, clustered by the ' +
                                          'scoring pipeline. Drag to pan, scroll to zoom.';
+            // Name the subject in the heading and the note. The example payload is 16KB and is
+            // fetched by the compass tab anyway, so this is a cache hit rather than a second load.
+            // Failing to read it leaves the placeholder heading rather than breaking the map.
+            fetch('/examples/biomath.json', { cache: 'force-cache' })
+              .then(function (r) { return r.ok ? r.json() : null; })
+              .then(function (d) {
+                if (!d || !d.topic) return;
+                var h = $('#fieldGraphTitle');
+                if (h) h.textContent = 'The shape of ' + d.topic;
+                if (note && d.window) {
+                  var w = d.window.charAt(0).toUpperCase() + d.window.slice(1);
+                  note.textContent = w + ', clustered by the scoring pipeline. ' +
+                                     'Drag to pan, scroll to zoom.';
+                }
+              })
+              .catch(function () { /* heading keeps its placeholder */ });
           })
           .catch(function (err) { console.error('[pubverse] field map', err); });
       } catch (err) { console.error('[pubverse] field map', err); }
