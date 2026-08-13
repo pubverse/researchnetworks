@@ -27511,6 +27511,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const ZOOM_MAX_W = 1e4;
     const DEFAULT_VB = { x: 0, y: 0, w: 2e3, h: 1500 };
     const getZoomPercent = () => Math.round(DEFAULT_VB.w / viewBox.w * 100);
+    useEffect(() => {
+      const el = svgRef.current;
+      if (!el) return;
+      const onWheelNative = (e) => {
+        e.preventDefault();
+      };
+      el.addEventListener("wheel", onWheelNative, { passive: false });
+      return () => el.removeEventListener("wheel", onWheelNative);
+    }, []);
     const handleWheel = (e) => {
       e.preventDefault();
       const scale = e.deltaY > 0 ? 1.1 : 0.9;

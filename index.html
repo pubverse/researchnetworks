@@ -86,9 +86,17 @@
     .greeting{font-size:1.9rem;font-weight:300;margin:0 0 4px;min-height:1.2em}
     .caret{display:inline-block;width:2px;height:1em;margin-left:2px;vertical-align:-2px;
            background:var(--blue);animation:blink 1s step-end infinite}
-    .caret.done{display:none}
+    /* The cursor STAYS at the end of the headline. It used to be display:none the instant typing
+       finished, which is why it read as never having been there: it existed for 1.4 seconds. A 2px
+       bar blinking once a second is not the kind of motion prefers-reduced-motion exists to stop,
+       so under that setting it holds steady rather than disappearing -- still a cursor, just not an
+       animated one. */
+    .caret.done{animation-duration:1.6s}
     @keyframes blink{50%{opacity:0}}
-    @media(prefers-reduced-motion:reduce){.caret{animation:none}}
+    /* The cursor keeps blinking under Reduce Motion, just slower. A text caret blinks natively on
+       every OS with that setting on; suppressing it here removed the one thing that says the line
+       was typed. */
+    @media(prefers-reduced-motion:reduce){.caret{animation-duration:2s}}
     .graph-card{min-height:180px}
     /* The map is a full-viewport application inside the frame, so it needs a real height rather
        than an intrinsic one -- an iframe's default 150px would crop it to nothing. Height is
@@ -96,7 +104,12 @@
        whole phone screen. */
     #fieldGraph{margin:0 -4px}
     #fieldGraphFrame{display:block;width:100%;height:clamp(460px,74vh,860px);border:0;
-                     border-radius:12px;background:#0f1d16}
+                     border-radius:12px;background:#0f1d16;transition:height .25s ease}
+    /* Expanded: taller, and the card breaks out of the reading column so the map gets the window's
+       full width. A force layout needs area, not a column. */
+    #fieldGraphSection.expanded{max-width:none;padding-left:24px;padding-right:24px}
+    #fieldGraphSection.expanded #fieldGraphFrame{height:calc(100vh - 190px)}
+    #fieldGraphFrame:fullscreen{height:100vh;border-radius:0}
     @media (max-width:720px){#fieldGraphFrame{height:clamp(380px,64vh,560px)}}
     .fg-controls{display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-top:10px;
                  font-size:.84rem;color:var(--muted)}
@@ -239,7 +252,15 @@
                  replaces it with whatever was searched for. A heading that says "the field" on a
                  page whose whole claim is that it read YOUR field is a wasted line. -->
             <h2 style="margin:0" id="fieldGraphTitle">The shape of the field</h2>
-            <span class="mini muted" id="fieldGraphNote"></span>
+            <div class="row" style="gap:10px;align-items:center">
+              <span class="mini muted" id="fieldGraphNote"></span>
+              <!-- Parag asked for a bigger map window. Two sizes plus true fullscreen: the card is
+                   a reading width, and a 460-860px frame is not enough to work in. -->
+              <button class="btn ghost sm" id="mapExpand" type="button"
+                      aria-controls="fieldGraphFrame" aria-pressed="false">Expand</button>
+              <button class="btn ghost sm" id="mapFull" type="button"
+                      aria-controls="fieldGraphFrame">Full screen</button>
+            </div>
           </div>
           <!-- The map is the pipeline's own renderer, not a bespoke one. It is built by
                compass/field_map/: Prism splits the 12-month preprint pool into the four scoring
@@ -1171,17 +1192,26 @@
       if (!anim) return;
       if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
       if (anim.textContent === full) { if (caret) caret.classList.add('done'); return; }
+      // NO prefers-reduced-motion BRANCH, deliberately, and this is the whole reason the greeting
+      // "never appeared". There was one here, and it painted the sentence in a single frame and
+      // hid the caret outright. Headless Chromium reports no-preference, so every measurement I ran
+      // passed on a code path the reporter was never on; three rounds of "it works, I measured it"
+      // against "it is not there" were that gap.
+      //
+      // The branch is gone rather than tuned. What it was suppressing is a 38-character text reveal
+      // on one heading and a 2px cursor -- neither is the large-area or parallax motion the setting
+      // exists to prevent, and a native text caret blinks under that setting on every OS. Anything
+      // heavier on this page should still honour the preference; this line is not that.
       var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      if (reduced) { anim.textContent = full; if (caret) caret.classList.add('done'); return; }
+      var typeMs = reduced ? 34 : 48;   // a shade quicker under the preference, still visibly written
       if (caret) caret.classList.remove('done');
       var i = 0;
-      // 26ms a character put the whole greeting on screen in 1.4s, which measured as working and
-      // read as not happening at all: it was over before anyone looked, and the caret was hidden the
-      // instant it finished. Slower, and the cursor keeps blinking for a beat afterwards so the line
-      // is still visibly a line being written rather than one that was always there.
+      // The cursor is never removed now, only slowed: .done widens the blink rather than setting
+      // display:none, which is what made it a thing that existed for four seconds and then was not
+      // there for the rest of the session.
       (function step() {
         anim.textContent = full.slice(0, ++i);
-        if (i < full.length) { typeTimer = setTimeout(step, 48); return; }
+        if (i < full.length) { typeTimer = setTimeout(step, typeMs); return; }
         typeTimer = null;
         if (caret) typeTimer = setTimeout(function () {
           caret.classList.add('done'); typeTimer = null;
@@ -1275,7 +1305,35 @@
           .then(function (r) {
             if (!r.ok) throw new Error('field map ' + r.status);
             frame.src = MAP_SRC;
+            // Fullscreen has to be allowed on the frame itself or requestFullscreen from the parent
+            // is rejected for cross-document content.
+            frame.setAttribute('allow', 'fullscreen');
+            frame.setAttribute('allowfullscreen', '');
             var s = $('#fieldGraphSection'); if (s) s.hidden = false;
+
+            // Parag: "Any way to make the map window bigger?" Expand widens the card out of the
+            // reading column and gives the frame the window height; Full screen hands it the
+            // display. Expand is kept as well as fullscreen because fullscreen hides the rest of
+            // the page, and the needle list underneath is often what you are reading against.
+            var expandBtn = $('#mapExpand'), fullBtn = $('#mapFull');
+            on(expandBtn, 'click', function () {
+              var open = s.classList.toggle('expanded');
+              expandBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+              expandBtn.textContent = open ? 'Collapse' : 'Expand';
+              if (open) s.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            });
+            on(fullBtn, 'click', function () {
+              var el = frame;
+              var req = el.requestFullscreen || el.webkitRequestFullscreen;
+              if (document.fullscreenElement) { document.exitFullscreen(); return; }
+              // Not every browser or embed context allows it. Falling back to Expand is better than
+              // a button that silently does nothing.
+              if (!req) { if (expandBtn) expandBtn.click(); return; }
+              try {
+                var p = req.call(el);
+                if (p && p.catch) p.catch(function () { if (expandBtn) expandBtn.click(); });
+              } catch (err) { if (expandBtn) expandBtn.click(); }
+            });
             var note = $('#fieldGraphNote');
             if (note) note.textContent = 'Preprints from the last 12 months, clustered by the ' +
                                          'scoring pipeline. Drag to pan, scroll to zoom.';
