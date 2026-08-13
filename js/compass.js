@@ -522,9 +522,31 @@
     }
     // The reasoning cell: the model's raw novelty verdict up front, methods + impact in a details.
     // Falls back to the plain summary verdict when a grounded verdict is absent.
+
+    /* "Show me where this one is on the map." The needle list sits directly under the map, so this
+       is the obvious question while looking at both. The map is in an iframe -- possibly on another
+       host -- so this posts to it rather than reaching into it, and the map widens its own depth
+       filter if the paper is deeper than the current setting. Rendered only when a map is actually
+       on the page: a button that silently does nothing is worse than no button. */
+    function locateBtn(n) {
+      if (!n) return '';
+      // A needle record does not always carry an explicit id -- the worked example has only a url
+      // and a title -- so take whichever handle exists. The map matches on any of them.
+      var key = n.id || '';
+      if (!key && n.url) {
+        var m = String(n.url).match(/(?:abs|10\.\d{4,}\/[^\s]+|content\/)([^\/\s]+)$/);
+        key = (m && m[1]) || '';
+      }
+      if (!key) key = n.title || '';
+      if (!key) return '';
+      return '<button type="button" class="locate" data-pid="' + esc(String(key)) + '"' +
+             ' title="Show this paper on the map" aria-label="Show this paper on the map">i</button>';
+    }
+
     function reasonCell(n) {
       var r = n.reasoning || {}, nov = r.novelty || {}, meth = r.methods || {}, imp = r.impact || {};
-      var html = nov.text ? renderVerdict(nov.text, nov.works) : esc(scrub(n.verdict));
+      var html = '<div class="verdict-body clamped">' +
+                 (nov.text ? renderVerdict(nov.text, nov.works) : esc(scrub(n.verdict))) + '</div>';
       html += groundingReceipts(nov.works);
       if (meth.text || imp.text) {
         html += '<details style="margin-top:6px"><summary class="mini" style="cursor:pointer">methods &amp; impact</summary>';
@@ -646,14 +668,14 @@
         '<th>Title</th><th>Source</th><th>Date</th><th>Novelty</th><th>Methods</th><th>Impact</th><th>Why it stood out</th>' +
         '</tr></thead><tbody>';
       needles.forEach(function (n) {
-        html += '<tr class="needle-row">' +
+        html += '<tr class="needle-row" data-pid="' + esc(String(n.id || '')) + '">' +
           '<td>' + titleCell(n) + '</td>' +
           '<td class="nowrap">' + sourceCell(n) + '</td>' +
           '<td class="nowrap">' + esc(n.date) + '</td>' +
           '<td>' + scoreCell(n.novelty) + '</td>' +
           '<td>' + scoreCell(n.methods) + '</td>' +
           '<td>' + scoreCell(n.impact) + '</td>' +
-          '<td>' + reasonCell(n) + '</td>' +
+          '<td>' + reasonCell(n) + locateBtn(n) + '</td>' +
           '</tr>';
       });
       html += '</tbody></table></div>';
@@ -686,6 +708,40 @@
     dash.innerHTML = html;
     dash.hidden = false;
     dash.classList.add('fade-in');
+
+    /* Long verdicts are collapsed to a few lines with a "…" trail rather than cut. The judge's
+       reasoning against the retrieved prior work is the substance of the card, and a table of
+       twenty full paragraphs is unreadable, so it is folded here and opened on demand -- not
+       shortened, which is what the pipeline used to do to it at 400 characters. */
+    Array.prototype.forEach.call(dash.querySelectorAll('.needle-row td:last-child'), function (cell) {
+      var body = cell.querySelector('.verdict-body');
+      if (!body) return;
+      // Only fold what is actually overflowing; a two-line verdict needs no control.
+      if (body.scrollHeight - body.clientHeight < 8) { body.classList.remove('clamped'); return; }
+      var more = document.createElement('button');
+      more.type = 'button'; more.className = 'more'; more.textContent = 'Show more';
+      more.setAttribute('aria-expanded', 'false');
+      more.addEventListener('click', function () {
+        var open = body.classList.toggle('clamped') === false;
+        more.textContent = open ? 'Show less' : 'Show more';
+        more.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      body.parentNode.insertBefore(more, body.nextSibling);
+    });
+
+    /* The (i) on a row asks the map to fly to that paper. Delegated, so it survives re-render. */
+    dash.addEventListener('click', function (e) {
+      var b = e.target && e.target.closest && e.target.closest('button.locate');
+      if (!b) return;
+      e.preventDefault();
+      var frame = document.getElementById('fieldGraphFrame');
+      if (!frame || !frame.contentWindow || !frame.getAttribute('src')) return;
+      try {
+        frame.contentWindow.postMessage({ type: 'pv:focus-node', key: b.getAttribute('data-pid') }, '*');
+        var sec = document.getElementById('fieldGraphSection');
+        if (sec && !sec.hidden) sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (err) { console.error('[pubverse] locate', err); }
+    });
 
     if (opts.runId) {
       var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');

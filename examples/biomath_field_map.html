@@ -27649,6 +27649,38 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return () => clearTimeout(timer);
     }, [nodePositions]);
     useEffect(() => {
+      const onMsg = (ev) => {
+        const d = ev && ev.data;
+        if (!d || d.type !== "pv:focus-node" || !d.key) return;
+        const want = String(d.key);
+        const norm = (s) => String(s || "").trim().toLowerCase();
+        const w = norm(want);
+        const node = NODES.find((n) => n.id === "paper::" + want || n.id === want || n.arxiv_id && String(n.arxiv_id) === want) || NODES.find((n) => (n.type === "input_article" || n.type === "paper") && norm(n.title) === w) || NODES.find((n) => (n.type === "input_article" || n.type === "paper") && norm(n.title).indexOf(w.slice(0, 60)) === 0);
+        if (!node) return;
+        if ((node.bfs_degree || 0) > degreeFilter) setDegreeFilter(node.bfs_degree || 1);
+        setSelectedNode(node);
+        const go = () => {
+          const p = positionsRef.current[node.id];
+          if (!p) return false;
+          animateViewBox({
+            x: p.x - DEFAULT_VB.w / 4,
+            y: p.y - DEFAULT_VB.h / 4,
+            w: DEFAULT_VB.w / 2,
+            h: DEFAULT_VB.h / 2
+          }, 500);
+          return true;
+        };
+        if (!go()) {
+          let n = 0;
+          const iv = setInterval(() => {
+            if (go() || ++n > 40) clearInterval(iv);
+          }, 250);
+        }
+      };
+      window.addEventListener("message", onMsg);
+      return () => window.removeEventListener("message", onMsg);
+    }, [degreeFilter]);
+    useEffect(() => {
       if (!isFieldMap) return;
       hasAutoCentered.current = false;
     }, [degreeFilter, bandMin]);

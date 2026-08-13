@@ -167,3 +167,26 @@ footer .foot-links a:hover{color:var(--blue-d)}
   .stats-bar{gap:24px}
 }
 @media(max-width:460px){ .metric{min-width:100%} .brand{font-size:1.12rem} }
+
+/* ---- needle verdict: fold, do not cut ----------------------------------------------------- */
+/* The judge's reasoning is the substance of a needle row, so it is collapsed to a few lines with a
+   fade rather than shortened. The pipeline used to slice it at 400 characters, which removed the end
+   of the argument -- where the conclusion is. It is folded here and opened on demand instead. */
+.verdict-body{position:relative}
+.verdict-body.clamped{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;
+                      overflow:hidden}
+/* The fade IS the "..." trail: it says "there is more" without eating a line of text to say it. */
+.verdict-body.clamped::after{content:"";position:absolute;left:0;right:0;bottom:0;height:1.5em;
+  background:linear-gradient(to bottom,rgba(255,255,255,0),var(--card,#fff) 88%);pointer-events:none}
+tr:hover .verdict-body.clamped::after{background:linear-gradient(to bottom,rgba(255,255,255,0),var(--paper,#faf9f7) 88%)}
+button.more{background:none;border:0;padding:2px 0;margin-top:4px;cursor:pointer;
+  font:inherit;font-size:.82rem;color:var(--blue);text-decoration:underline}
+button.more:hover{opacity:.8}
+
+/* The (i) that flies the map to this paper. Deliberately quiet: it sits at the end of a dense cell
+   and should read as an affordance, not a call to action. */
+button.locate{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+  margin-left:6px;vertical-align:1px;border:1px solid var(--line);border-radius:50%;background:none;
+  cursor:pointer;font:600 11px/1 ui-serif,Georgia,serif;color:var(--muted);padding:0}
+button.locate:hover{color:var(--blue);border-color:var(--blue)}
+button.locate:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
