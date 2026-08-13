@@ -1364,6 +1364,10 @@
                   var w = d.window.charAt(0).toUpperCase() + d.window.slice(1);
                   note.textContent = w + ', clustered by the scoring pipeline. ' +
                                      'Drag to pan, scroll to zoom.';
+                  // The corpus line makes the heading checkable. Parag read "biomathematics" and
+                  // said it covers far more of physical biology than that -- he was right, and the
+                  // only way a reader can judge the label is to be told what is under it.
+                  if (d.corpus) note.title = d.corpus;
                 }
               })
               .catch(function () { /* heading keeps its placeholder */ });

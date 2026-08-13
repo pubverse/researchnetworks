@@ -1,5 +1,5 @@
 {
- "topic": "biomathematics",
+ "topic": "mathematical and physical biology",
  "window": "preprints, last 12 months",
  "haystack_count": 42100,
  "judged_count": 285,
@@ -259,5 +259,6 @@
    "impact": 8,
    "verdict": "The paper introduces a novel statistical framework (ROOT, GRO, GROOT) for longitudinal responder analysis in clinical trials, which reframes the problem beyond standard baseline-to-endpoint dichotomization. This is methodologically distinct from [N1], which focuses on placebo response rates and trial failure causes rather than longitudinal efficacy metrics."
   }
- ]
+ ],
+ "corpus": "42,100 preprints \u2014 bioRxiv 20,000, medRxiv 13,816, arXiv 8,284. Largest categories: neuroscience, q-bio.NC, q-bio.QM, microbiology, bioinformatics, population ecology, epidemiology."
 }
