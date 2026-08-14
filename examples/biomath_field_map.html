@@ -50386,6 +50386,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   function DeepThoughtVisualization() {
     const [selectedNode, setSelectedNode] = useState(null);
     const [hoveredNode, setHoveredNode] = useState(null);
+    const [openTip, setOpenTip] = useState(null);
     const [degreeFilter, setDegreeFilter] = useState(
       typeof BAND !== "undefined" && BAND && BAND.field ? 2 : 1
     );
@@ -50801,6 +50802,54 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return pts.join(" ");
     };
     const zoomFactor = viewBox.w / DEFAULT_VB.w;
+    const InfoTip = ({ id, text }) => {
+      const open = openTip === id;
+      return /* @__PURE__ */ React.createElement("span", { style: { position: "relative", display: "inline-block" } }, /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          type: "button",
+          onClick: (e) => {
+            e.stopPropagation();
+            setOpenTip(open ? null : id);
+          },
+          "aria-expanded": open,
+          title: text,
+          style: {
+            marginLeft: "6px",
+            width: "15px",
+            height: "15px",
+            lineHeight: "13px",
+            borderRadius: "50%",
+            border: `1px solid ${theme.border}`,
+            background: "none",
+            color: theme.textMuted,
+            cursor: "pointer",
+            fontSize: "10px",
+            fontFamily: "Georgia, serif",
+            padding: 0,
+            verticalAlign: "middle"
+          }
+        },
+        "i"
+      ), open && /* @__PURE__ */ React.createElement("span", { style: {
+        position: "absolute",
+        bottom: "22px",
+        left: "-8px",
+        zIndex: 40,
+        width: "270px",
+        padding: "10px 12px",
+        borderRadius: "8px",
+        background: theme.panelBg,
+        border: `1px solid ${theme.border}`,
+        color: theme.text,
+        fontSize: "11.5px",
+        lineHeight: 1.5,
+        textTransform: "none",
+        letterSpacing: 0,
+        fontWeight: 400,
+        boxShadow: "0 6px 20px rgba(0,0,0,0.35)"
+      } }, text));
+    };
     const renderNode = (node) => {
       const pos = nodePositions[node.id];
       if (!pos) return null;
@@ -51100,7 +51149,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       padding: isMobile ? "10px 14px" : "16px",
       minWidth: isMobile ? "auto" : "300px",
       transition: "background 0.3s"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "8px" } }, isMobile ? "Depth" : "Network Depth"), /* @__PURE__ */ React.createElement(
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "8px" } }, isMobile ? "Depth" : "Network Depth", /* @__PURE__ */ React.createElement(InfoTip, { id: "depth", text: "How far out from the needles to draw. 1 shows only the needles and the clusters they belong to; each step adds the clusters those connect to. Higher is more of the field and more crowding, not more information." })), /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "range",
@@ -51110,7 +51159,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         onChange: (e) => setDegreeFilter(parseInt(e.target.value)),
         style: { width: "100%", cursor: "pointer" }
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "10px", color: theme.textMuted, marginTop: "4px" } }, /* @__PURE__ */ React.createElement("span", null, "1\xB0"), /* @__PURE__ */ React.createElement("span", null, "Full")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "13px" } }, "Showing: ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#6366f1" } }, degreeFilter, "\xB0"), " (", filteredNodes.length, " nodes)"), BAND && BAND.field ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "14px", paddingTop: "12px", borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "6px" } }, isMobile ? "Band (\u03C3)" : "Field fit \u2014 band (\u03C3)"), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "10px", color: theme.textMuted, marginTop: "4px" } }, /* @__PURE__ */ React.createElement("span", null, "1\xB0"), /* @__PURE__ */ React.createElement("span", null, "Full")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "13px" } }, "Showing: ", /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#6366f1" } }, degreeFilter, "\xB0"), " (", filteredNodes.length, " nodes)"), BAND && BAND.field ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "14px", paddingTop: "12px", borderTop: `1px solid ${theme.border}` } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "6px" } }, isMobile ? "Band (\u03C3)" : "Field fit band (\u03C3)", /* @__PURE__ */ React.createElement(InfoTip, { id: "band", text: "How well a paper sits inside the established structure of the field, in standard deviations. A paper is compared to its nearest cluster, and that score is measured against what a random paper of this field scores against the same cluster. Needles are always drawn, so this only thins the above-average papers. It is a geometric measure of position in the field, not a model score and not a novelty judgement." })), /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "range",
@@ -51121,7 +51170,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         onChange: (e) => setBandMin(parseFloat(e.target.value)),
         style: { width: "100%", cursor: "pointer", accentColor: "#e0a458" }
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "10px", color: theme.textMuted, marginTop: "4px" } }, /* @__PURE__ */ React.createElement("span", null, Number(BAND.min).toFixed(1), "\u03C3"), /* @__PURE__ */ React.createElement("span", null, Number(BAND.max).toFixed(1), "\u03C3")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "6px", fontSize: "12px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#e0a458" } }, "\u2265 ", Number(bandMin).toFixed(2), "\u03C3"), " \u2014 ", filteredNodes.filter((n) => n.type === "paper").length, " of ", BAND.ordinary_total, " ordinary papers,", " ", "all ", NODES.filter((n) => n.is_needle).length, " needles")) : null), /* @__PURE__ */ React.createElement("div", { style: {
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "10px", color: theme.textMuted, marginTop: "4px" } }, /* @__PURE__ */ React.createElement("span", null, Number(BAND.min).toFixed(1), "\u03C3"), /* @__PURE__ */ React.createElement("span", null, Number(BAND.max).toFixed(1), "\u03C3")), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "6px", fontSize: "12px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#e0a458" } }, "\u2265 ", Number(bandMin).toFixed(2), "\u03C3"), ": ", filteredNodes.filter((n) => n.type === "paper").length, " of ", BAND.ordinary_total, " above-average papers,", " ", "all ", NODES.filter((n) => n.is_needle).length, " needles")) : null), /* @__PURE__ */ React.createElement("div", { style: {
       position: "absolute",
       bottom: isMobile ? "8px" : "16px",
       right: isMobile ? "8px" : "auto",
@@ -51242,7 +51291,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       borderRadius: "10px",
       padding: "12px",
       textAlign: "center"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", color: theme.textMuted, marginBottom: "6px" } }, item.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "24px", fontWeight: 700, color: item.color, fontFamily: "JetBrains Mono" } }, item.score === void 0 || item.score === null ? "\u2014" : item.score), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", color: theme.textMuted, marginTop: "2px" } }, isFieldMap ? "/ 10" : "/ 100")))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13px", color: theme.textMuted, display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Network Connections"), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, selectedNode.degree))), selectedNode.type === "publication" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4C4} Publication Details"), selectedNode.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, opacity: 0.8, lineHeight: 1.6, marginBottom: "16px" } }, selectedNode.abstract.substring(0, 300), selectedNode.abstract.length > 300 ? "..." : ""), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "12px" } }, /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: selectedNode.authors_detail, authorsFallback: selectedNode.authors, theme, darkMode })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "12px", alignItems: "center" } }, (() => {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", color: theme.textMuted, marginBottom: "6px" } }, item.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "24px", fontWeight: 700, color: item.color, fontFamily: "JetBrains Mono" } }, item.score === void 0 || item.score === null ? "n/a" : item.score), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", color: theme.textMuted, marginTop: "2px" } }, isFieldMap ? "/ 10" : "/ 100")))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13px", color: theme.textMuted, display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Network Connections"), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, selectedNode.degree))), selectedNode.type === "publication" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4C4} Publication Details"), selectedNode.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, opacity: 0.8, lineHeight: 1.6, marginBottom: "16px" } }, selectedNode.abstract.substring(0, 300), selectedNode.abstract.length > 300 ? "..." : ""), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "12px" } }, /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: selectedNode.authors_detail, authorsFallback: selectedNode.authors, theme, darkMode })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "12px", alignItems: "center" } }, (() => {
       const pmid = String(selectedNode.id || "").replace("ID: ", "").replace(".0", "");
       return /* @__PURE__ */ React.createElement("a", { href: `https://pubmed.ncbi.nlm.nih.gov/${pmid}`, target: "_blank", style: {
         fontSize: "12px",

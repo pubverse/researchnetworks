@@ -35,7 +35,7 @@
       var opts = ['<option value="">Your past searches (' + rows.length + ')…</option>'];
       rows.forEach(function (r) {
         var d = r.ts ? new Date(r.ts * 1000).toLocaleDateString() : '';
-        opts.push('<option value="' + esc(r.run_id) + '">' + esc(r.topic || 'search') + (d ? ' — ' + esc(d) : '') + '</option>');
+        opts.push('<option value="' + esc(r.run_id) + '">' + esc(r.topic || 'search') + (d ? ' (' + esc(d) + ')' : '') + '</option>');
       });
       sel.innerHTML = opts.join('');
       wrap.hidden = false;
@@ -621,7 +621,7 @@
       };
       var html = '<details style="margin-top:8px"><summary class="mini" style="cursor:pointer">' +
         'contribution breakdown (' + claims.length + ' claim' + (claims.length !== 1 ? 's' : '') + ')' +
-        (tier ? ' &mdash; <span style="color:' + tierColor + ';font-weight:600">' + esc(tier) + '</span>' : '') +
+        (tier ? ' <span style="color:' + tierColor + ';font-weight:600">' + esc(tier) + '</span>' : '') +
         '</summary>';
       html += '<div style="margin-top:6px">';
       claims.forEach(function (c, i) {

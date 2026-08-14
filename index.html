@@ -467,7 +467,7 @@
             </div>
             <div class="err" id="historyErr"></div>
             <div class="compass-load" id="historySpin"></div>
-            <p class="muted" id="historyEmpty" hidden style="margin:16px 0">You have not scored any abstracts yet. Open the Score tab to start.</p>
+            <p class="muted" id="historyEmpty" hidden style="margin:16px 0">You have not scored any abstracts yet. Open the Course Plot tab to start.</p>
             <div class="stack" id="historyList" style="margin-top:16px"></div>
           </div>
         </section>
@@ -1200,7 +1200,7 @@
     // Declared, not assigned to a var, so it is hoisted and the sign-out handler above can call it.
     function stopGreeting() { if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; } }
     function typeGreeting(name) {
-      var full = (name || 'Guest') + ', here is how your field is today';
+      var full = (name || 'Guest') + ', here is how your field is today.';
       var sr = $('#greetingText'), anim = $('#greetingAnim'), caret = $('#greetingCaret');
       if (sr) sr.textContent = full;
       if (!anim) return;
@@ -1395,7 +1395,7 @@
           sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
         } else if (d.state === 'building') {
           sec.hidden = false;
-          if (note) note.textContent = 'Mapping this field for the first time — clustering and ' +
+          if (note) note.textContent = 'Mapping this field for the first time. Clustering and ' +
                                        'naming its topics takes about an hour. Your needles are ' +
                                        'ready below; the map appears on your next search here.';
         }

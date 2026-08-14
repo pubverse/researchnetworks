@@ -64,6 +64,7 @@
         <a href="#score">Scoring an abstract</a>
         <a href="#compass">The Compass</a>
         <a href="#needle">What a needle is</a>
+        <a href="#map">Reading the map</a>
         <a href="#faq">Questions</a>
         <a href="#affiliation">Affiliation</a>
       </div>
@@ -121,6 +122,25 @@
         <p>A needle is a result that is both genuinely new and genuinely sound, found while it is still easy to miss.</p>
         <p>Most research, by its nature, extends what is already known. That work is valuable, but it is not a needle. A needle breaks new ground, and it holds up when you look at it closely. The hard part is that these two qualities rarely announce themselves early. A truly new result often has few citations, sits in an unfashionable corner, or comes from a group no one is watching yet. By the time the wider field agrees it mattered, the moment to have acted on it early is gone.</p>
         <p>The Compass exists to catch needles in that early window, when recognizing them is worth the most. When PubVerse calls something a needle, the verdict says in plain words why: what is new about it, and why the work looks trustworthy rather than merely surprising.</p>
+      </div>
+    </section>
+
+    <section id="map">
+      <div class="wrap prose">
+        <h2>Reading the map</h2>
+        <p>Above the needles is a map of the field itself. It is not a picture of the papers PubVerse judged. It is a picture of what the field has been working on, built from every preprint posted in the window you chose, with your needles placed on it.</p>
+        <p>Each shape is a cluster: a group of papers that talk about the same thing. The clusters are found by the same code that groups papers inside the scoring pipeline, so a cluster here means what a cluster means everywhere else in PubVerse. Every cluster is named by reading its own papers. Clicking one lists the papers that sit closest to its centre, which is the quickest way to check whether a name is fair. Hexagons are methods, triangles are impact, diamonds are open problems, and the small dots are terms that two clusters share, which is how one part of a field connects to another. Your needles are the red stars, and papers that scored above the run average are amber triangles.</p>
+
+        <h3>The field fit band</h3>
+        <p>The band asks how far inside the established structure of the field a paper sits, and answers in standard deviations.</p>
+        <p>Every paper is compared to the cluster it most resembles, which gives a similarity score. That number alone means very little, because clusters differ: some are tight and specific, others broad and loose, so the same score means different things in different parts of the field. So the score is measured against a reference. When the landscape is built, PubVerse records what a random paper from that field scores against each cluster, and how much that varies. A paper's band value is how far above that reference it falls, counted in standard deviations of the reference itself.</p>
+        <p>A value near zero means a paper looks about as related to its nearest cluster as any paper picked at random would. Two standard deviations means it sits squarely inside recognised work. The slider hides above-average papers below whatever value you choose, so dragging it right leaves the papers most firmly inside the field's existing structure, and dragging it left brings back the ones sitting further out.</p>
+        <p>Three things the band is not. It is not a model output: no scoring head is involved, and nothing here comes from the novelty model that judges your abstracts. It is arithmetic on where a paper sits relative to its neighbours, and nothing more. It is not a quality score, and it is not novelty. A paper can fit the field closely and be dull, or sit at the edge because it is unusual or because it is simply off topic, and the band cannot tell those apart. We measured the relationship between the band and the judged novelty of a paper and found it weak but real, so it is a soft ordering rather than a test. Treat it as a way to change what the map emphasises, not as a verdict.</p>
+        <p>Needles are drawn at every setting of the slider. That is a deliberate choice and it is worth understanding, because it means the fact that your needles survive a high cut says nothing at all. They would survive any cut, since the slider never removes them. What the readout tells you instead is how many of the above-average papers are hidden at that setting, which is a real number.</p>
+
+        <h3>Network depth</h3>
+        <p>The depth slider controls how far out from your needles the map is drawn. At one degree you see only the needles and the clusters they belong to. Each step outward adds the clusters that those clusters resemble, until at the last position the whole field is on screen. Turning it up shows more of the field and makes the picture busier without adding information about your own papers, so it is best used to get a sense of where your results sit rather than to read individual names.</p>
+        <p>The map opens two degrees out, which is usually enough to show the needles with the structure around them. Drag to move, scroll to zoom while the cursor is over the map, and use Expand or Full screen when you want room to work. Cluster names appear as you zoom in, and the small (i) beside each needle in the list below flies the map to that paper.</p>
       </div>
     </section>
 
