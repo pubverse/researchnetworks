@@ -51192,28 +51192,27 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)",
             strokeWidth: isSelected ? 3 : 1
           }
-        ) : node.subtype === "problems" ? /* @__PURE__ */ React.createElement(
-          "polygon",
-          {
-            points: `0,${-size} ${size},0 0,${size} ${-size},0`,
-            fill: color,
-            stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)",
-            strokeWidth: isSelected ? 3 : 1
-          }
-        ) : node.subtype === "results" ? /* @__PURE__ */ React.createElement(
-          "polygon",
-          {
-            points: (() => {
-              const a = [0, 1, 2, 3, 4].map((i) => {
-                const ang = i * 2 * Math.PI / 5 - Math.PI / 2;
-                return `${size * Math.cos(ang)},${size * Math.sin(ang)}`;
-              });
-              return a.join(" ");
-            })(),
-            fill: color,
-            stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)",
-            strokeWidth: isSelected ? 3 : 1
-          }
+        ) : node.subtype === "problems" ? (
+          // Pentagon, not the diamond the pipeline uses. A field map has no `results`
+          // context -- parse_impact returns none for a preprint corpus and the pipeline's
+          // own artifact carries no results nodes either -- so the pentagon it reserved is
+          // free, and the diamond goes to the nominated papers, which need to be
+          // unmistakable against the impact triangles.
+          /* @__PURE__ */ React.createElement(
+            "polygon",
+            {
+              points: (() => {
+                const a = [0, 1, 2, 3, 4].map((i) => {
+                  const ang = i * 2 * Math.PI / 5 - Math.PI / 2;
+                  return `${size * Math.cos(ang)},${size * Math.sin(ang)}`;
+                });
+                return a.join(" ");
+              })(),
+              fill: color,
+              stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)",
+              strokeWidth: isSelected ? 3 : 1
+            }
+          )
         ) : /* @__PURE__ */ React.createElement("circle", { r: size, fill: color, stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)", strokeWidth: isSelected ? 3 : 1 }) : node.type === "paper" ? (
           // COMPASS ADDITION. A paper that scored above the run's average but did not clear
           // the needle bar.
@@ -51225,13 +51224,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           // palette: polygons are topics, a square is one paper, a star is a needle, a dot
           // is a shared term.
           /* @__PURE__ */ React.createElement(
-            "rect",
+            "polygon",
             {
-              x: -size * 0.78,
-              y: -size * 0.78,
-              width: size * 1.56,
-              height: size * 1.56,
-              rx: 2.5,
+              points: `0,${-size} ${size},0 0,${size} ${-size},0`,
               fill: color,
               opacity: 0.92,
               stroke: isSelected ? "#fff" : "rgba(255,255,255,0.35)",
@@ -51427,11 +51422,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       zIndex: isMobile ? 60 : 10
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "10px" } }, "Node Types"), [
       { key: "input_article", type: BAND && BAND.field ? "Needle" : "Input Article", color: COLORS.input_article, shape: "\u2605" },
-      ...BAND && BAND.field ? [{ key: "paper", type: "Above average", color: COLORS.paper, shape: "sq" }] : [],
+      ...BAND && BAND.field ? [{ key: "paper", type: "Nominated papers", color: COLORS.paper, shape: "\u25C6" }] : [],
       { key: "methods", type: "Methods", color: COLORS.methods, shape: "hex" },
       { key: "impact", type: "Impact", color: COLORS.impact, shape: "\u25B2" },
-      { key: "problems", type: "Pains", color: COLORS.problems, shape: "\u25C6" },
-      { key: "results", type: "Results", color: COLORS.results, shape: "\u2B20" },
+      { key: "problems", type: "Pains", color: COLORS.problems, shape: "\u2B20" },
       { key: "subtheme", type: "Sub-themes", color: COLORS.subtheme, shape: "\u2022" }
     ].map((item) => {
       const off = hidden.indexOf(item.key) >= 0;
@@ -51463,12 +51457,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.type)
       );
     }), HAS_BRIDGE_EDGES && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginTop: "12px", marginBottom: "6px", paddingTop: "8px", borderTop: `1px solid ${theme.border}` } }, "Bridge Edges"), [
+      // Only the three pairings that can actually occur. A field map has no
+      // `results` context, so the three Results rows described edges that could
+      // never exist -- the same fault as the bridge legend before bridges were
+      // built, which is a legend making a claim about the picture that is not true.
       { label: "Method \u2194 Impact", color: "#f59e0b" },
       { label: "Method \u2194 Problem", color: "#ef4444" },
-      { label: "Impact \u2194 Problem", color: "#a855f7" },
-      { label: "Method \u2194 Results", color: "#5bb5c5" },
-      { label: "Impact \u2194 Results", color: "#2db5a0" },
-      { label: "Problem \u2194 Results", color: "#9b8ec4" }
+      { label: "Impact \u2194 Problem", color: "#a855f7" }
     ].map((item) => /* @__PURE__ */ React.createElement("div", { key: item.label, style: { display: "flex", alignItems: "center", gap: "8px", padding: "2px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: "16px", height: "2px", background: item.color } }), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.label)))), isMobile && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${theme.border}`, fontSize: "11px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("div", null, "Nodes: ", filteredNodes.length, " | Edges: ", filteredEdges.length))), /* @__PURE__ */ React.createElement("div", { style: {
       position: "absolute",
       // MODIFIED FOR COMPASS. Sitting this panel to the right of the zoom controls put
