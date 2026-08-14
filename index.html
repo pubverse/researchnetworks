@@ -1199,8 +1199,35 @@
     var typeTimer = null;
     // Declared, not assigned to a var, so it is hoisted and the sign-out handler above can call it.
     function stopGreeting() { if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; } }
+    /* One of these is written out each time the page loads. They are deliberately claims we can
+       stand behind: the harvesters run nightly, so "updated daily" is true of the corpus. Nothing
+       here promises the map is redrawn overnight, because it is not; a field's landscape is rebuilt
+       when its corpus changes, not on a clock. */
+    var GREETINGS = [
+      ', here is what your field looks like today.',
+      ', your knowledge space, mapped and updated daily.',
+      ', your daily constellation of topics defining your field.',
+      ', the shape of your field, as it reads today.',
+      ', your corner of the literature, freshly read.',
+      ', here is what your field is working on.',
+      ', today\'s map of the work you follow.',
+      ', your field, and what is new in it.',
+      ', the ground your field is standing on today.',
+      ', what your field has been busy with.'
+    ];
+    var lastGreeting = null;
+
+    function pickGreeting() {
+      // Avoid repeating the line the visitor just saw; a "random" greeting that lands on the same
+      // sentence twice in a row reads as broken rather than random.
+      var i = Math.floor(Math.random() * GREETINGS.length);
+      if (GREETINGS.length > 1 && i === lastGreeting) i = (i + 1) % GREETINGS.length;
+      lastGreeting = i;
+      return GREETINGS[i];
+    }
+
     function typeGreeting(name) {
-      var full = (name || 'Guest') + ', here is how your field is today.';
+      var full = (name || 'Guest') + pickGreeting();
       var sr = $('#greetingText'), anim = $('#greetingAnim'), caret = $('#greetingCaret');
       if (sr) sr.textContent = full;
       if (!anim) return;
@@ -1217,7 +1244,10 @@
       // exists to prevent, and a native text caret blinks under that setting on every OS. Anything
       // heavier on this page should still honour the preference; this line is not that.
       var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      var typeMs = reduced ? 34 : 48;   // a shade quicker under the preference, still visibly written
+      // Pace to a roughly constant DURATION rather than a constant per-character delay: the
+      // variants differ by twenty characters and a fixed 48ms made the long ones crawl.
+      var target = reduced ? 1500 : 1950;
+      var typeMs = Math.max(24, Math.min(55, Math.round(target / Math.max(1, full.length))));
       if (caret) caret.classList.remove('done');
       var i = 0;
       // The cursor is never removed now, only slowed: .done widens the blink rather than setting
