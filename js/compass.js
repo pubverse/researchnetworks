@@ -377,8 +377,16 @@
     var x = Number(n);
     return isNaN(x) ? esc(n) : x.toLocaleString('en-US');
   }
-  function tile(v, k) {
-    return '<div class="metric"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + '</div></div>';
+  /* A tile can carry an (i). The two numbers on this row are the ones people ask about: where the
+     papers came from, and what earns the word "needle". Both answers are short, so they belong on
+     the number rather than in a paragraph somewhere else. Click, not hover, so it works on touch. */
+  function tile(v, k, tip) {
+    var info = tip
+      ? '<button type="button" class="tipdot" aria-label="What this means"' +
+        ' data-tip="' + esc(tip) + '">i</button>'
+      : '';
+    return '<div class="metric"><div class="v">' + esc(v) + '</div>' +
+           '<div class="k">' + esc(k) + info + '</div></div>';
   }
   function scoreClass(x) {
     var n = Number(x);
@@ -415,8 +423,16 @@
     if (data.window) html += '<p class="muted" style="margin:.3em 0 0">Looking back over ' + esc(data.window) + '.</p>';
 
     html += '<div class="scorebar" style="margin-top:16px">';
-    html += tile(fmt(data.haystack_count), 'papers gathered');
-    html += tile(String(needles.length), needles.length === 1 ? 'needle found' : 'needles found');
+    html += tile(fmt(data.haystack_count), 'papers gathered',
+      'Every preprint posted in this subject over the window you chose, pulled from arXiv, bioRxiv ' +
+      'and medRxiv. This is the haystack: the full set PubVerse read before picking anything out. ' +
+      'It is not a sample.');
+    html += tile(String(needles.length), needles.length === 1 ? 'needle found' : 'needles found',
+      'A needle is a paper PubVerse judges to be genuinely new and soundly done. Every paper is ' +
+      'read against the prior work actually retrieved for it, then scored out of ten for novelty, ' +
+      'methods and impact. A needle has to score at least 8 for novelty and at least 8 overall, ' +
+      'and the novelty judgement has to be backed by prior work close enough to compare against. ' +
+      'Papers that clear the bar on a thin comparison are not counted.');
     html += '</div>';
 
     if (data.notes) html += '<div class="verdict">' + esc(scrub(data.notes)) + '</div>';
@@ -727,6 +743,21 @@
         more.setAttribute('aria-expanded', open ? 'true' : 'false');
       });
       body.parentNode.insertBefore(more, body.nextSibling);
+    });
+
+    /* The (i) on a stat tile opens its explanation. Delegated so it survives a re-render, and
+       toggling: a second click closes it, and opening one closes any other. */
+    dash.addEventListener('click', function (e) {
+      var d = e.target && e.target.closest && e.target.closest('.tipdot');
+      var open = dash.querySelector('.tipbubble');
+      if (open) open.remove();
+      if (!d || (open && open.dataset.owner === d.dataset.tip)) return;
+      e.preventDefault();
+      var bub = document.createElement('div');
+      bub.className = 'tipbubble';
+      bub.dataset.owner = d.dataset.tip;
+      bub.textContent = d.dataset.tip;
+      d.parentNode.appendChild(bub);
     });
 
     /* The (i) on a row asks the map to fly to that paper. Delegated, so it survives re-render. */

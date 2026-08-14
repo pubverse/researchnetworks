@@ -190,3 +190,23 @@ button.locate{display:inline-flex;align-items:center;justify-content:center;widt
   cursor:pointer;font:600 11px/1 ui-serif,Georgia,serif;color:var(--muted);padding:0}
 button.locate:hover{color:var(--blue);border-color:var(--blue)}
 button.locate:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+
+/* ---- the (i) on a stat tile ---------------------------------------------------------------- */
+/* "Papers gathered" and "needles found" are the two numbers people ask about, so the answer sits on
+   the number. Click rather than hover, so it works on touch as well as with a mouse. */
+.metric .k{position:relative}
+button.tipdot{
+  display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;
+  margin-left:5px;vertical-align:1px;padding:0;cursor:pointer;
+  border:1px solid var(--line);border-radius:50%;background:none;color:var(--muted);
+  font:600 10px/1 ui-serif,Georgia,serif;
+}
+button.tipdot:hover{color:var(--blue);border-color:var(--blue)}
+button.tipdot:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.tipbubble{
+  position:absolute;left:0;top:calc(100% + 8px);z-index:30;width:min(21rem,72vw);
+  padding:11px 13px;border:1px solid var(--line);border-radius:8px;
+  background:var(--card,#fff);color:var(--ink);
+  font:400 12.5px/1.55 inherit;text-transform:none;letter-spacing:normal;
+  box-shadow:0 8px 24px rgba(0,0,0,.12);
+}
