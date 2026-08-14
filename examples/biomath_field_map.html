@@ -50682,6 +50682,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const [hoveredNode, setHoveredNode] = useState(null);
     const [openTip, setOpenTip] = useState(null);
     const [bandDir, setBandDir] = useState("inside");
+    const [hidden, setHidden] = useState([]);
     const [degreeFilter, setDegreeFilter] = useState(
       typeof BAND !== "undefined" && BAND && BAND.field ? 2 : 1
     );
@@ -50753,8 +50754,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       }
     };
     const filteredNodes = useMemo(() => {
-      return NODES.filter((n) => (n.bfs_degree || 0) <= degreeFilter).filter((n) => n.type !== "paper" || n.band_z === void 0 || (bandDir === "inside" ? n.band_z >= bandMin : n.band_z <= bandMin));
-    }, [degreeFilter, bandMin, bandDir]);
+      return NODES.filter((n) => (n.bfs_degree || 0) <= degreeFilter).filter((n) => n.type !== "paper" || n.band_z === void 0 || (bandDir === "inside" ? n.band_z >= bandMin : n.band_z <= bandMin)).filter((n) => {
+        if (!hidden.length) return true;
+        const cls = n.type === "cluster" ? n.subtype === "computational" || n.subtype === "experimental" ? "methods" : n.subtype : n.type;
+        return hidden.indexOf(cls) < 0;
+      });
+    }, [degreeFilter, bandMin, bandDir, hidden]);
     const filteredNodeIds = useMemo(() => new Set(filteredNodes.map((n) => n.id)), [filteredNodes]);
     const filteredEdges = useMemo(() => {
       return EDGES.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
@@ -51211,14 +51216,24 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           }
         ) : /* @__PURE__ */ React.createElement("circle", { r: size, fill: color, stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)", strokeWidth: isSelected ? 3 : 1 }) : node.type === "paper" ? (
           // COMPASS ADDITION. A paper that scored above the run's average but did not clear
-          // the needle bar. Amber triangle, smaller than a cluster, so the field still reads
-          // as the background it is.
+          // the needle bar.
+          //
+          // It was an amber TRIANGLE, which differed from an impact cluster only by colour
+          // and a few pixels of size, and at fit-to-view zoom the two were genuinely hard to
+          // tell apart. A square instead, which is the shape this renderer already uses for
+          // an individual publication. That gives the map a shape language instead of a
+          // palette: polygons are topics, a square is one paper, a star is a needle, a dot
+          // is a shared term.
           /* @__PURE__ */ React.createElement(
-            "polygon",
+            "rect",
             {
-              points: `0,${-size} ${size * 0.866},${size * 0.5} ${-size * 0.866},${size * 0.5}`,
+              x: -size * 0.78,
+              y: -size * 0.78,
+              width: size * 1.56,
+              height: size * 1.56,
+              rx: 2.5,
               fill: color,
-              opacity: 0.9,
+              opacity: 0.92,
               stroke: isSelected ? "#fff" : "rgba(255,255,255,0.35)",
               strokeWidth: isSelected ? 3 : 1
             }
@@ -51411,14 +51426,43 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       transition: "background 0.3s",
       zIndex: isMobile ? 60 : 10
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "10px" } }, "Node Types"), [
-      { type: BAND && BAND.field ? "Needle" : "Input Article", color: COLORS.input_article, shape: "\u2605" },
-      ...BAND && BAND.field ? [{ type: "Above average", color: COLORS.paper, shape: "\u25B2" }] : [],
-      { type: "Methods", color: COLORS.methods, shape: "hex" },
-      { type: "Impact", color: COLORS.impact, shape: "\u25B2" },
-      { type: "Pains", color: COLORS.problems, shape: "\u25C6" },
-      { type: "Results", color: COLORS.results, shape: "\u2B20" },
-      { type: "Sub-themes", color: COLORS.subtheme, shape: "\u2022" }
-    ].map((item) => /* @__PURE__ */ React.createElement("div", { key: item.type, style: { display: "flex", alignItems: "center", gap: "8px", padding: "3px 0" } }, item.shape === "hex" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("polygon", { points: "8,0 4,6.93 -4,6.93 -8,0 -4,-6.93 4,-6.93", fill: item.color })) : /* @__PURE__ */ React.createElement("span", { style: { color: item.color, fontSize: "14px" } }, item.shape), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.type))), HAS_BRIDGE_EDGES && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginTop: "12px", marginBottom: "6px", paddingTop: "8px", borderTop: `1px solid ${theme.border}` } }, "Bridge Edges"), [
+      { key: "input_article", type: BAND && BAND.field ? "Needle" : "Input Article", color: COLORS.input_article, shape: "\u2605" },
+      ...BAND && BAND.field ? [{ key: "paper", type: "Above average", color: COLORS.paper, shape: "sq" }] : [],
+      { key: "methods", type: "Methods", color: COLORS.methods, shape: "hex" },
+      { key: "impact", type: "Impact", color: COLORS.impact, shape: "\u25B2" },
+      { key: "problems", type: "Pains", color: COLORS.problems, shape: "\u25C6" },
+      { key: "results", type: "Results", color: COLORS.results, shape: "\u2B20" },
+      { key: "subtheme", type: "Sub-themes", color: COLORS.subtheme, shape: "\u2022" }
+    ].map((item) => {
+      const off = hidden.indexOf(item.key) >= 0;
+      return /* @__PURE__ */ React.createElement(
+        "button",
+        {
+          key: item.type,
+          type: "button",
+          "aria-pressed": !off,
+          onClick: () => setHidden(off ? hidden.filter((k) => k !== item.key) : hidden.concat([item.key])),
+          title: off ? "Show " + item.type : "Hide " + item.type,
+          style: {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "3px 4px",
+            width: "100%",
+            border: 0,
+            borderRadius: "5px",
+            cursor: "pointer",
+            background: "transparent",
+            font: "inherit",
+            textAlign: "left",
+            opacity: off ? 0.32 : 1,
+            textDecoration: off ? "line-through" : "none"
+          }
+        },
+        item.shape === "hex" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("polygon", { points: "8,0 4,6.93 -4,6.93 -8,0 -4,-6.93 4,-6.93", fill: item.color })) : item.shape === "sq" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("rect", { x: "-7", y: "-7", width: "14", height: "14", rx: "2.5", fill: item.color })) : /* @__PURE__ */ React.createElement("span", { style: { color: item.color, fontSize: "14px", width: "16px", textAlign: "center" } }, item.shape),
+        /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.type)
+      );
+    }), HAS_BRIDGE_EDGES && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginTop: "12px", marginBottom: "6px", paddingTop: "8px", borderTop: `1px solid ${theme.border}` } }, "Bridge Edges"), [
       { label: "Method \u2194 Impact", color: "#f59e0b" },
       { label: "Method \u2194 Problem", color: "#ef4444" },
       { label: "Impact \u2194 Problem", color: "#a855f7" },
