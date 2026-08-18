@@ -50714,16 +50714,24 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const svgRef = useRef(null);
     const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 2e3, h: 1500 });
     const [isDragging, setIsDragging] = useState(false);
+    const pressRef = useRef({ x: 0, y: 0, moved: false });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [darkMode, setDarkMode] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
+    const [headerH, setHeaderH] = useState(56);
     useEffect(() => {
+      const measureHeader = () => {
+        const hd = document.querySelector("header");
+        if (hd) setHeaderH(Math.round(hd.getBoundingClientRect().height));
+      };
       const handleResize = () => {
         setIsMobile(window.innerWidth < 768);
+        measureHeader();
       };
+      measureHeader();
       window.addEventListener("resize", handleResize);
       return () => window.removeEventListener("resize", handleResize);
     }, []);
@@ -50891,6 +50899,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, [filteredNodes.length, degreeFilter, bandMin]);
     const handleMouseMove = (e) => {
       setMousePos({ x: e.clientX, y: e.clientY });
+      if (e.buttons & 1) {
+        const p = pressRef.current;
+        if (Math.abs(e.clientX - p.x) > 4 || Math.abs(e.clientY - p.y) > 4) p.moved = true;
+      }
       if (isDragging) {
         const dx = (e.clientX - dragStart.x) * (viewBox.w / window.innerWidth);
         const dy = (e.clientY - dragStart.y) * (viewBox.h / window.innerHeight);
@@ -51117,10 +51129,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const InfoTip = ({ id, text }) => {
       const open = openTip === id;
       const tipRef = useRef(null);
-      const [nudge, setNudge] = useState({ dx: 0, below: false });
+      const [nudge, setNudge] = useState({ dx: 0, dy: 0 });
       useLayoutEffect(() => {
         if (!open) {
-          setNudge({ dx: 0, below: false });
+          setNudge({ dx: 0, dy: 0 });
           return;
         }
         const el = tipRef.current;
@@ -51130,7 +51142,20 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         let dx = 0;
         if (r.right > window.innerWidth - pad) dx = window.innerWidth - pad - r.right;
         if (r.left + dx < pad) dx = pad - r.left;
-        setNudge({ dx, below: r.top < pad });
+        let dy = 0;
+        const minTop = headerH + pad, maxBot = window.innerHeight - pad;
+        if (r.bottom > maxBot) dy = maxBot - r.bottom;
+        if (r.top + dy < minTop) dy = minTop - r.top;
+        setNudge({ dx, dy });
+      }, [open]);
+      useEffect(() => {
+        if (!open) return;
+        const onDocClick = (ev) => {
+          if (tipRef.current && tipRef.current.contains(ev.target)) return;
+          setOpenTip(null);
+        };
+        document.addEventListener("click", onDocClick);
+        return () => document.removeEventListener("click", onDocClick);
       }, [open]);
       return /* @__PURE__ */ React.createElement("span", { style: { position: "relative", display: "inline-block" } }, /* @__PURE__ */ React.createElement(
         "button",
@@ -51161,11 +51186,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         "i"
       ), open && /* @__PURE__ */ React.createElement("span", { ref: tipRef, style: {
         position: "absolute",
-        bottom: nudge.below ? "auto" : "22px",
-        top: nudge.below ? "22px" : "auto",
+        bottom: "22px",
+        top: "auto",
         left: "-8px",
-        transform: `translateX(${nudge.dx}px)`,
-        zIndex: 40,
+        transform: `translate(${nudge.dx}px, ${nudge.dy}px)`,
+        zIndex: 60,
         width: "270px",
         padding: "10px 12px",
         borderRadius: "8px",
@@ -51193,7 +51218,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           key: node.id,
           transform: `translate(${pos.x}, ${pos.y})`,
           style: { cursor: "pointer" },
-          onClick: () => setSelectedNode(node),
+          onClick: (e) => {
+            e.stopPropagation();
+            setSelectedNode(node);
+          },
           onMouseEnter: () => setHoveredNode(node),
           onMouseLeave: () => setHoveredNode(null)
         },
@@ -51407,11 +51435,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         style: { width: "100%", height: "calc(100vh - 56px)", cursor: isDragging ? "grabbing" : "grab" },
         viewBox: `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`,
         onMouseDown: (e) => {
+          pressRef.current = { x: e.clientX, y: e.clientY, moved: false };
           setIsDragging(true);
           setDragStart({ x: e.clientX, y: e.clientY });
         },
         onMouseUp: () => setIsDragging(false),
         onMouseLeave: () => setIsDragging(false),
+        onClick: () => {
+          if (pressRef.current.moved) return;
+          setSelectedNode(null);
+          setOpenTip(null);
+        },
         onWheel: handleWheel
       },
       filteredEdges.map((edge, i) => {
@@ -51587,7 +51621,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       // MODIFIED FOR COMPASS -- see visBand above. Desktop hangs off the top of the
       // visible band, mobile off its bottom; with no band both fall back to the frame
       // edges, which is the old behaviour exactly.
-      top: isMobile ? "auto" : (visBand ? visBand.top : 0) + 16 + "px",
+      top: isMobile ? "auto" : Math.max(headerH, visBand ? visBand.top : 0) + 16 + "px",
       right: isMobile ? "0" : "16px",
       bottom: isMobile ? (visBand ? Math.max(0, window.innerHeight - visBand.bottom) : 0) + "px" : "auto",
       left: isMobile ? "0" : "auto",
@@ -51604,7 +51638,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       // mobile 60vh with the desktop value.
       transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-      maxHeight: visBand ? Math.max(160, visBand.bottom - visBand.top - 32) + "px" : isMobile ? "60vh" : "calc(100vh - 100px)",
+      maxHeight: isMobile ? visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "60vh" : visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "calc(100vh - " + (headerH + 32) + "px)",
       overflowY: "auto"
     } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "cluster" ? "Cluster" : selectedNode.type === "subtheme" ? "Bridging Sub-theme" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : "Needle"), selectedNode.subtype && /* @__PURE__ */ React.createElement("span", { style: {
       fontSize: "10px",
