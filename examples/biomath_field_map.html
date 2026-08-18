@@ -350,7 +350,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     
     <script>
 (() => {
-  const { useState, useEffect, useRef, useMemo } = React;
+  const { useState, useEffect, useLayoutEffect, useRef, useMemo } = React;
   const NODES = [
     {
       "id": "Computational Cluster 0",
@@ -50681,6 +50681,18 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const [selectedNode, setSelectedNode] = useState(null);
     const [hoveredNode, setHoveredNode] = useState(null);
     const [openTip, setOpenTip] = useState(null);
+    const [visBand, setVisBand] = useState(null);
+    useEffect(() => {
+      const onMsg = (e) => {
+        const d = e.data;
+        if (!d || d.type !== "pv:viewport") return;
+        const top = Number(d.top), bottom = Number(d.bottom);
+        if (!isFinite(top) || !isFinite(bottom) || bottom - top < 120) return;
+        setVisBand((prev) => prev && prev.top === top && prev.bottom === bottom ? prev : { top, bottom });
+      };
+      window.addEventListener("message", onMsg);
+      return () => window.removeEventListener("message", onMsg);
+    }, []);
     const [bandDir, setBandDir] = useState("inside");
     const [hidden, setHidden] = useState([]);
     const [degreeFilter, setDegreeFilter] = useState(
@@ -51104,6 +51116,22 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const zoomFactor = viewBox.w / DEFAULT_VB.w;
     const InfoTip = ({ id, text }) => {
       const open = openTip === id;
+      const tipRef = useRef(null);
+      const [nudge, setNudge] = useState({ dx: 0, below: false });
+      useLayoutEffect(() => {
+        if (!open) {
+          setNudge({ dx: 0, below: false });
+          return;
+        }
+        const el = tipRef.current;
+        if (!el) return;
+        const r = el.getBoundingClientRect();
+        const pad = 10;
+        let dx = 0;
+        if (r.right > window.innerWidth - pad) dx = window.innerWidth - pad - r.right;
+        if (r.left + dx < pad) dx = pad - r.left;
+        setNudge({ dx, below: r.top < pad });
+      }, [open]);
       return /* @__PURE__ */ React.createElement("span", { style: { position: "relative", display: "inline-block" } }, /* @__PURE__ */ React.createElement(
         "button",
         {
@@ -51131,10 +51159,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           }
         },
         "i"
-      ), open && /* @__PURE__ */ React.createElement("span", { style: {
+      ), open && /* @__PURE__ */ React.createElement("span", { ref: tipRef, style: {
         position: "absolute",
-        bottom: "22px",
+        bottom: nudge.below ? "auto" : "22px",
+        top: nudge.below ? "22px" : "auto",
         left: "-8px",
+        transform: `translateX(${nudge.dx}px)`,
         zIndex: 40,
         width: "270px",
         padding: "10px 12px",
@@ -51554,21 +51584,27 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: zoomIn, style: btnStyle, title: "Zoom in" }, "+"), /* @__PURE__ */ React.createElement("button", { onClick: zoomOut, style: btnStyle, title: "Zoom out" }, "\u2212"), !isMobile && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", fontFamily: "JetBrains Mono", color: theme.textMuted, minWidth: "36px", textAlign: "center" } }, getZoomPercent(), "%"), /* @__PURE__ */ React.createElement("button", { onClick: fitToView, style: btnStyle, title: "Fit all nodes" }, "\u229E"), /* @__PURE__ */ React.createElement("button", { onClick: centerOnInput, style: { ...btnStyle, color: "#ef4444" }, title: "Center on input article" }, "\u2605"), /* @__PURE__ */ React.createElement("button", { onClick: resetView, style: btnStyle, title: "Reset view" }, "\u27F2"));
     })()), /* @__PURE__ */ React.createElement("div", { style: {
       position: "absolute",
-      top: isMobile ? "auto" : "16px",
+      // MODIFIED FOR COMPASS -- see visBand above. Desktop hangs off the top of the
+      // visible band, mobile off its bottom; with no band both fall back to the frame
+      // edges, which is the old behaviour exactly.
+      top: isMobile ? "auto" : (visBand ? visBand.top : 0) + 16 + "px",
       right: isMobile ? "0" : "16px",
-      bottom: isMobile ? "0" : "auto",
+      bottom: isMobile ? (visBand ? Math.max(0, window.innerHeight - visBand.bottom) : 0) + "px" : "auto",
       left: isMobile ? "0" : "auto",
       width: isMobile ? "100%" : "400px",
-      maxHeight: isMobile ? "60vh" : "calc(100vh - 100px)",
       background: theme.panelBg,
       border: `1px solid ${theme.border}`,
       borderRadius: isMobile ? "16px 16px 0 0" : "16px",
       overflow: "hidden",
       transform: selectedNode ? isMobile ? "translateY(0)" : "translateX(0)" : isMobile ? "translateY(100%)" : "translateX(440px)",
       opacity: selectedNode ? 1 : 0,
-      transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      // Animate only what slides in. This used to be `all`, which put `top` on a 300ms
+      // curve -- harmless when top never changed, visibly laggy now that it tracks the
+      // scroll. It also carried a SECOND maxHeight below that silently overrode the
+      // mobile 60vh with the desktop value.
+      transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-      maxHeight: "calc(100vh - 100px)",
+      maxHeight: visBand ? Math.max(160, visBand.bottom - visBand.top - 32) + "px" : isMobile ? "60vh" : "calc(100vh - 100px)",
       overflowY: "auto"
     } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "cluster" ? "Cluster" : selectedNode.type === "subtheme" ? "Bridging Sub-theme" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : "Needle"), selectedNode.subtype && /* @__PURE__ */ React.createElement("span", { style: {
       fontSize: "10px",

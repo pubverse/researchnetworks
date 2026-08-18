@@ -1340,6 +1340,52 @@
       try {
         var frame = $('#fieldGraphFrame');
         if (!frame) return;
+
+        // The map's detail panel and its tooltips are position:absolute against the map document,
+        // so they pin to the top of the FRAME, which is not the top of what anyone can see. The
+        // frame is up to 860px tall inside a scrolling page under a 64px sticky nav, so scrolling
+        // down to read the lower half of the map slid the panel header up behind the nav: measured
+        // at scrollY 1100 the close button sat at page y -103..-71, entirely off screen. Only the
+        // parent knows how much of the frame is on screen, so the parent is what tells it.
+        // Frame-local coordinates, rAF-throttled. This is bound to the FRAME, not to the worked
+        // example, so a map from the user's own run gets it too; the map ignores the message if it
+        // never arrives, which is the right answer standalone and for an older cached map.
+        var vpQueued = false;
+        function postViewport() {
+          vpQueued = false;
+          if (!frame.contentWindow) return;
+          var r = frame.getBoundingClientRect();
+          if (!r.height) return;
+          var top, bottom;
+          if (document.fullscreenElement === frame) {
+            // Fullscreen hides the rest of the page, nav included: the frame IS the viewport.
+            top = 0; bottom = r.height;
+          } else {
+            var nav = document.querySelector('.nav');
+            var navBottom = 0;
+            if (nav) {
+              var nr = nav.getBoundingClientRect();
+              if (nr.top <= 0) navBottom = nr.bottom;   // only a nav pinned at the top covers anything
+            }
+            top = Math.max(0, Math.min(r.height, navBottom - r.top));
+            bottom = Math.max(0, Math.min(r.height, window.innerHeight - r.top));
+          }
+          if (bottom - top < 120) return;   // barely on screen; leave the last good band in place
+          frame.contentWindow.postMessage(
+            { type: 'pv:viewport', top: Math.round(top), bottom: Math.round(bottom) }, '*');
+        }
+        function queueViewport() {
+          if (vpQueued) return;
+          vpQueued = true;
+          requestAnimationFrame(postViewport);
+        }
+        frame.addEventListener('load', postViewport);
+        // Expand animates the frame's height over 250ms and fires no resize event.
+        frame.addEventListener('transitionend', queueViewport);
+        addEventListener('scroll', queueViewport, { passive: true });
+        addEventListener('resize', queueViewport);
+        document.addEventListener('fullscreenchange', queueViewport);
+
         var MAP_SRC = '/examples/biomath_field_map.html';
         // Ask whether the map is actually there before pointing an iframe at it. An iframe fires
         // `load` for a 404 page just as happily as for the real thing, so binding to that event
