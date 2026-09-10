@@ -331,15 +331,59 @@
     }, 2500);
   }
 
-  /* ---------- worked example on first visit ---------- */
-  function loadExample() {
-    fetch('/examples/biomath.json', { cache: 'no-cache' }).then(function (res) {
+  /* ---------- worked examples, one per covered field ---------- */
+  /* Every subject PubVerse has already searched, so a reader can look at another one without
+     starting a run of their own. The list is here rather than fetched because it is two entries and
+     a request to discover them would be slower than the payloads themselves. Adding a field is one
+     line plus its examples/<slug>.json. */
+  var FIELDS = [
+    { slug: 'biomath', label: 'Mathematical and physical biology' },
+    { slug: 'cancer',  label: 'Oncology' }
+  ];
+  var FIELD_KEY = 'pv.exampleField';
+
+  function currentField() {
+    var want = null;
+    try { want = localStorage.getItem(FIELD_KEY); } catch (e) {}
+    for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].slug === want) return FIELDS[i];
+    return FIELDS[0];
+  }
+
+  function loadExample(slug) {
+    var f = slug ? null : currentField();
+    if (slug) for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].slug === slug) f = FIELDS[i];
+    if (!f) f = FIELDS[0];
+    try { localStorage.setItem(FIELD_KEY, f.slug); } catch (e) {}
+    fetch('/examples/' + f.slug + '.json', { cache: 'no-cache' }).then(function (res) {
       if (!res.ok) return null;
       return res.json();
     }).then(function (data) {
-      if (data) renderDashboard(data, { example: true });
+      if (data) renderDashboard(data, { example: true, field: f.slug });
     }).catch(function () { /* the example is a convenience, never block the page on it */ });
   }
+
+  /* The switcher itself. Rendered inside the dashboard card so it sits with the result it changes,
+     and only when there is more than one field to move between -- a control offering a single
+     choice is furniture, not a control. */
+  function fieldSwitcher(active) {
+    if (FIELDS.length < 2) return '';
+    var h = '<div class="row rwrap" style="gap:8px;align-items:center;margin-top:14px">';
+    h += '<span class="mini muted">Check in on your other fields:</span>';
+    for (var i = 0; i < FIELDS.length; i++) {
+      var f = FIELDS[i], on = f.slug === active;
+      h += '<button type="button" class="btn ' + (on ? 'ghost sm' : 'sm') + ' pv-field"' +
+           ' data-field="' + esc(f.slug) + '"' + (on ? ' aria-current="true" disabled' : '') +
+           '>' + esc(f.label) + '</button>';
+    }
+    return h + '</div>';
+  }
+
+  document.addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('.pv-field') : null;
+    if (!b || b.disabled) return;
+    ev.preventDefault();
+    loadExample(b.getAttribute('data-field'));
+  });
 
 
   /* The field map belongs to the run, not to this module: the landing page owns the frame and the
@@ -421,6 +465,7 @@
     if (opts.example) html += '<span class="tag">worked example</span>';
     html += '</div>';
     if (data.window) html += '<p class="muted" style="margin:.3em 0 0">Looking back over ' + esc(data.window) + '.</p>';
+    if (opts.example) html += fieldSwitcher(opts.field || currentField().slug);
 
     html += '<div class="scorebar" style="margin-top:16px">';
     html += tile(fmt(data.haystack_count), 'papers gathered',
