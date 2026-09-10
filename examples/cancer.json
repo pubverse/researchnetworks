@@ -3,7 +3,7 @@
  "window": "preprints, last 12 months",
  "haystack_count": 36173,
  "judged_count": 320,
- "generated": "2026-09-09",
+ "generated": "2026-09-10",
  "note": "Machine-flagged, unreviewed. Ordered by date.",
  "corpus": "36,173 recent preprints screened for relevance; the 320 most central were judged against the full publication corpus. Largest areas: cancer biology, oncology, bioinformatics, immunology, cell biology, q-bio.QM, molecular biology.",
  "needles": [
@@ -19,11 +19,11 @@
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
-   "title": "Modulating AP-1 enables CAR-T cells to establish an intratumoral PD-1+Tcf1+ stem-like reservoir and overcomes resistance to PD-1 axis blockade",
-   "date": "2025-12-16",
+   "title": "The cytosolic PRMT5-CDK4 complex impairs cell cycle kinase signaling",
+   "date": "2025-12-14",
    "source": "biorxiv",
-   "doi": "10.1101/2025.04.10.648245",
-   "url": "https://doi.org/10.1101/2025.04.10.648245",
+   "doi": "10.64898/2025.12.11.693714",
+   "url": "https://doi.org/10.64898/2025.12.11.693714",
    "novelty": 8,
    "methods": 9,
    "impact": 8,
@@ -35,6 +35,17 @@
    "source": "biorxiv",
    "doi": "10.64898/2025.12.09.693285",
    "url": "https://doi.org/10.64898/2025.12.09.693285",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 8,
+   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
+  },
+  {
+   "title": "LARP1 integrates MYC and mTOR signaling to enable anabolic growth during tumor initiation",
+   "date": "2025-12-05",
+   "source": "biorxiv",
+   "doi": "10.64898/2025.12.05.689906",
+   "url": "https://doi.org/10.64898/2025.12.05.689906",
    "novelty": 8,
    "methods": 9,
    "impact": 8,
@@ -63,44 +74,22 @@
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
-   "title": "Arterial vascular patterning: a crosstalk between angiogenic and shear stress signaling.",
-   "date": "2025-11-21",
+   "title": "The subclonal footprint of pervasive early dissemination in pancreatic cancer",
+   "date": "2025-12-01",
    "source": "biorxiv",
-   "doi": "10.1101/2024.01.23.576920",
-   "url": "https://doi.org/10.1101/2024.01.23.576920",
+   "doi": "10.1101/2025.11.27.690823",
+   "url": "https://doi.org/10.1101/2025.11.27.690823",
    "novelty": 8,
    "methods": 9,
-   "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
+   "impact": 6,
+   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is moderate."
   },
   {
-   "title": "Lymphotoxin-driven cancer cell eradication by tumoricidal CD8+ tumor-infiltrating lymphocytes",
-   "date": "2025-11-19",
+   "title": "Sodium Aurothiomalate Induces Ferroptosis by Targeting GPX4 via Gold-Dependent Thiomalate Covalent Modification",
+   "date": "2025-11-13",
    "source": "biorxiv",
-   "doi": "10.1101/2025.11.19.689204",
-   "url": "https://doi.org/10.1101/2025.11.19.689204",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "Postnatal Abrogation of VEGFR2 Blocks Terminal Cap2 Differentiation by Preventing the Developmental Progression from a Capillary Intermediate Cell State",
-   "date": "2025-11-10",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.07.23.666389",
-   "url": "https://doi.org/10.1101/2025.07.23.666389",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "Bronsted-basic small molecules activate GTP hydrolysis in Ras Q61 mutants",
-   "date": "2025-11-06",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.11.04.686643",
-   "url": "https://doi.org/10.1101/2025.11.04.686643",
+   "doi": "10.1101/2025.11.13.687868",
+   "url": "https://doi.org/10.1101/2025.11.13.687868",
    "novelty": 8,
    "methods": 9,
    "impact": 8,
@@ -118,6 +107,17 @@
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
+   "title": "Chimeric Antigen Receptors Transmit Co-stimulatory Domain Dependent Piconewton Forces to their Target",
+   "date": "2025-10-23",
+   "source": "biorxiv",
+   "doi": "10.1101/2025.10.22.683904",
+   "url": "https://doi.org/10.1101/2025.10.22.683904",
+   "novelty": 8,
+   "methods": 9,
+   "impact": 8,
+   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
+  },
+  {
    "title": "APOBEC3A-Induced DNA Damage Drives Polymerase Theta Dependency and Synthetic Lethality in Cancer",
    "date": "2025-10-22",
    "source": "biorxiv",
@@ -125,8 +125,8 @@
    "url": "https://doi.org/10.1101/2025.10.21.682588",
    "novelty": 8,
    "methods": 9,
-   "impact": 7,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is moderate."
+   "impact": 8,
+   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
    "title": "ATR promotes genome instability via CENP-A eviction from centromeres under replication stress",
@@ -148,17 +148,6 @@
    "novelty": 8,
    "methods": 9,
    "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "Gene-specific endothelial programs drive AVM pathogenesis in SMAD4 and ALK1 loss-of-function",
-   "date": "2025-10-18",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.01.03.631070",
-   "url": "https://doi.org/10.1101/2025.01.03.631070",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 9,
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
@@ -184,69 +173,25 @@
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
-   "title": "The 9-1-1 complex protects ssDNA gaps in BRCA2-deficient cancer",
-   "date": "2025-10-07",
+   "title": "Fork Reversal Safeguards Epigenetic Inheritance during DNA Replication Under Stress",
+   "date": "2025-09-21",
    "source": "biorxiv",
-   "doi": "10.1101/2025.10.07.680950",
-   "url": "https://doi.org/10.1101/2025.10.07.680950",
+   "doi": "10.1101/2025.09.21.677631",
+   "url": "https://doi.org/10.1101/2025.09.21.677631",
    "novelty": 8,
    "methods": 8,
    "impact": 8,
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
-   "title": "Cell competition confers anchorage plasticity of disseminated tumor cells",
-   "date": "2025-09-28",
+   "title": "Loss of the tumor suppressor PTEN activates cell-intrinsic interferon signaling to drive immune resistance",
+   "date": "2025-09-20",
    "source": "biorxiv",
-   "doi": "10.1101/2024.11.25.625320",
-   "url": "https://doi.org/10.1101/2024.11.25.625320",
+   "doi": "10.1101/2025.09.17.676669",
+   "url": "https://doi.org/10.1101/2025.09.17.676669",
    "novelty": 8,
    "methods": 9,
    "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "CIP2A Mediates the Recruitment of the SLX4-MUS81-XPF Tri-Nuclease Complex in Mitosis and Protects Against Replication Stress",
-   "date": "2025-09-21",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.09.19.677284",
-   "url": "https://doi.org/10.1101/2025.09.19.677284",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "Myofibroblastic CAFs arising from bone-resident osteoblast precursors retain an osteolineage signature and support breast cancer progression via Osterix-mediated signaling.",
-   "date": "2025-09-21",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.09.18.677154",
-   "url": "https://doi.org/10.1101/2025.09.18.677154",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 8,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "Gliomas phenocopy an inborn error of metabolism to drive neuronal activity and tumor growth",
-   "date": "2025-09-18",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.09.15.676412",
-   "url": "https://doi.org/10.1101/2025.09.15.676412",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 9,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "Disrupted astrocyte-endothelial crosstalk drives hemangioblastoma lesions in VHL disease",
-   "date": "2025-09-18",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.09.15.675862",
-   "url": "https://doi.org/10.1101/2025.09.15.675862",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 9,
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
   },
   {
@@ -270,17 +215,6 @@
    "methods": 9,
    "impact": 8,
    "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is high."
-  },
-  {
-   "title": "RNA splicing dynamics in CD8 T cells uncovers isoforms that impact T cell-mediated cancer immunotherapy",
-   "date": "2025-09-11",
-   "source": "biorxiv",
-   "doi": "10.1101/2025.09.07.674706",
-   "url": "https://doi.org/10.1101/2025.09.07.674706",
-   "novelty": 8,
-   "methods": 9,
-   "impact": 7,
-   "verdict": "This work is genuinely new against the prior work it was checked against. The methods are rigorous and hold up well. The likely impact is moderate."
   }
  ]
 }
