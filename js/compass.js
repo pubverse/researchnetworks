@@ -25,21 +25,23 @@
   var started = false;
 
   // ---- run switcher: load + switch between the user's completed needle searches ----
+  // A person's own finished searches, folded into the one field switcher. This existed and was
+  // never called -- the call lived in onAuthed, which was dropped when compass became a tab -- so
+  // a user who ran a search had no way back to it. Two of them hit exactly that.
   function loadPastRuns() {
-    if (!api.compassRuns) return;
-    api.compassRuns().then(function (rows) {
-      var sel = $('#pastRuns'), wrap = $('#pastRunsWrap');
-      if (!sel || !wrap) return;
-      rows = (rows || []).filter(function (r) { return r && r.status === 'done'; });
-      if (!rows.length) { wrap.hidden = true; return; }
-      var opts = ['<option value="">Your past searches (' + rows.length + ')…</option>'];
-      rows.forEach(function (r) {
-        var d = r.ts ? new Date(r.ts * 1000).toLocaleDateString() : '';
-        opts.push('<option value="' + esc(r.run_id) + '">' + esc(r.topic || 'search') + (d ? ' (' + esc(d) + ')' : '') + '</option>');
-      });
-      sel.innerHTML = opts.join('');
-      wrap.hidden = false;
-    });
+    if (!api.compassRuns) return Promise.resolve();
+    return api.compassRuns().then(function (res) {
+      // api.request() RESOLVES with an error object rather than rejecting, so an unauthenticated
+      // or failed call arrives here as {ok:false,...} and .filter on it would throw. Accept only a
+      // real array; anything else means "no runs to show", which is not an error worth surfacing.
+      var rows = Array.isArray(res) ? res : (res && Array.isArray(res.runs) ? res.runs : []);
+      userRuns = rows.filter(function (r) { return r && r.status === 'done'; });
+      var sel = $('#pvFieldSel');
+      if (sel && userRuns.length) {
+        var keep = sel.value, host = sel.closest('.pv-fieldbar');
+        if (host) host.outerHTML = fieldSwitcher(keep);
+      }
+    }).catch(function () { /* the switcher still works with the published fields alone */ });
   }
   on($('#pastRuns'), 'change', function () {
     var rid = this.value;
@@ -86,6 +88,7 @@
     loadCovered();
     prefillTopicFromQuery();
     loadExample();
+    loadPastRuns();
   }
 
   // Preselect the offered window closest to a field's default, so a covered
@@ -282,7 +285,7 @@
 
     ui.clearError('#topicErr');
     $('#findBtn').disabled = true;
-    ui.showCompass('#spinner', 'Reading the recent literature. This can take a few minutes.');
+    ui.showCompass('#spinner', 'Starting the search...');
 
     api.compassRun(topic, months, email || undefined).then(function (r) {
       if (!r || r.ok === false || !r.run_id) {
@@ -291,44 +294,76 @@
         ui.showError('#topicErr', (r && r.message) || 'Could not start the run. Please try again.');
         return;
       }
+      // The backend computes how long this will take from the field's candidate count and the
+      // per-candidate rate measured on the model that is actually loaded, and returns it on the
+      // POST. Use it. The page used to promise "a few minutes" for work that takes hours.
+      lastEstimate = (r && r.estimate) || null;
       pollRun(r.run_id);
     });
   }
 
+  var lastEstimate = null;
+
   function statusCaption(s) {
-    if (s === 'queued') return 'Queued. Waiting for a free slot...';
-    if (s === 'running') return 'Reading the recent literature. This can take a few minutes.';
+    if (s === 'queued') return 'Queued. Waiting for a free slot' + (lastEstimate
+      ? ' \u2014 then about ' + lastEstimate + ' of reading.' : '...');
+    if (s === 'running') {
+      // Say the real number, and say the page need not stay open. Every search reads each candidate
+      // paper against the prior work it would have to improve on, which is the slow part and is the
+      // product; pretending otherwise just makes people close the tab and think it broke.
+      return lastEstimate
+        ? ('Reading the recent literature. This takes ' + lastEstimate + '. You can close this page '
+           + '\u2014 if you left an email we will write when it is ready.')
+        : ('Reading the recent literature. This takes hours, not minutes. You can close this page '
+           + '\u2014 if you left an email we will write when it is ready.');
+    }
     return 'Working...';
   }
 
   function pollRun(runId) {
     polling = true;
-    var tries = 0, MAX = 480;
-    var iv = setInterval(function () {
+    // 2.5s x 480 was 20 minutes, after which the page declared the run "longer than expected" --
+    // on work that routinely takes three hours or more. Poll briskly while a fast failure is still
+    // possible, then back off hard: the email is the real delivery channel and this is only so a
+    // page left open eventually fills in. 24 quick plus the rest at 30s covers about four hours.
+    var tries = 0, QUICK = 24, MAX = 500, iv = null;
+
+    function stop() { if (iv) clearInterval(iv); iv = null; polling = false; }
+
+    function tick() {
       tries++;
+      // Back off once a fast failure is no longer the likely outcome. Re-arming inside the handler
+      // rather than at the top of tick() keeps exactly one timer alive at any moment.
+      if (tries === QUICK && iv) { clearInterval(iv); iv = setInterval(tick, 30000); }
       api.compassPoll(runId).then(function (r) {
         if (r && r.status === 'done' && r.dashboard) {
-          clearInterval(iv); polling = false;
+          stop();
           ui.hideCompass('#spinner');
           $('#findBtn').disabled = false;
           renderDashboard(r.dashboard, { live: true, runId: runId, exportToken: r.export_token });
           announceMap(r, runId);
+          loadPastRuns();          // the run just finished: make it selectable immediately
           $('#dash').scrollIntoView({ behavior: 'smooth' });
         } else if (r && (r.status === 'error' || r.ok === false)) {
-          clearInterval(iv); polling = false;
+          stop();
           ui.hideCompass('#spinner');
           $('#findBtn').disabled = false;
           ui.showError('#topicErr', (r && r.message) || 'The run did not finish. Please try again.');
         } else if (tries >= MAX) {
-          clearInterval(iv); polling = false;
+          // Not an error. The run is still going; this page simply stopped watching.
+          stop();
           ui.hideCompass('#spinner');
           $('#findBtn').disabled = false;
-          ui.showError('#topicErr', 'This run is taking longer than expected. If you left an email, we will alert you when it finishes.');
+          ui.showCompass('#spinner', 'Still running. This page has stopped checking, but the search '
+            + 'has not stopped \u2014 it will appear in your list of searches when it finishes, and '
+            + 'we will email you if you left an address.');
         } else {
           ui.showCompass('#spinner', statusCaption(r && r.status));
         }
       });
-    }, 2500);
+    }
+
+    iv = setInterval(tick, 2500);
   }
 
   /* ---------- worked examples, one per covered field ---------- */
@@ -365,24 +400,59 @@
   /* The switcher itself. Rendered inside the dashboard card so it sits with the result it changes,
      and only when there is more than one field to move between -- a control offering a single
      choice is furniture, not a control. */
-  function fieldSwitcher(active) {
-    if (FIELDS.length < 2) return '';
-    var h = '<div class="row rwrap" style="gap:8px;align-items:center;margin-top:14px">';
-    h += '<span class="mini muted">Check in on your other fields:</span>';
-    for (var i = 0; i < FIELDS.length; i++) {
-      var f = FIELDS[i], on = f.slug === active;
-      h += '<button type="button" class="btn ' + (on ? 'ghost sm' : 'sm') + ' pv-field"' +
-           ' data-field="' + esc(f.slug) + '"' + (on ? ' aria-current="true" disabled' : '') +
-           '>' + esc(f.label) + '</button>';
-    }
-    return h + '</div>';
+  // Every field a person can look at, in ONE control: the published examples plus their own
+  // finished searches. Buttons were wrong for this -- the list grows with every search someone
+  // runs, and a row of buttons that grows without bound is not a control. A select also states
+  // plainly which one you are on, which buttons only imply.
+  var userRuns = [];          // filled by loadPastRuns(); [] until it answers or if it fails
+
+  function fieldSwitcher(activeKey) {
+    var pub = FIELDS.map(function (f) {
+      return '<option value="field:' + esc(f.slug) + '"' +
+             (activeKey === 'field:' + f.slug ? ' selected' : '') + '>' + esc(f.label) + '</option>';
+    });
+    var mine = userRuns.map(function (r) {
+      var d = r.ts ? new Date(r.ts * 1000).toLocaleDateString() : '';
+      // Say what each one HAS. A search with no map is a different thing from one still building
+      // its map, and the backend already distinguishes them -- passing that through stops the
+      // switcher offering a map that will 404.
+      var tag = r.map === 'ready' ? ' \u00b7 map' : (r.map === 'building' ? ' \u00b7 map building' : '');
+      var n = (typeof r.needles === 'number') ? (' \u00b7 ' + r.needles + ' needle' + (r.needles === 1 ? '' : 's')) : '';
+      return '<option value="run:' + esc(r.run_id) + '"' +
+             (activeKey === 'run:' + r.run_id ? ' selected' : '') + '>' +
+             esc(r.topic || 'search') + (d ? ' (' + esc(d) + ')' : '') + n + tag + '</option>';
+    });
+    if (pub.length + mine.length < 2) return '';
+    var h = '<div class="row rwrap pv-fieldbar" style="gap:8px;align-items:center;margin:0 0 14px">';
+    h += '<label class="mini muted" for="pvFieldSel">Field</label>';
+    h += '<select id="pvFieldSel" class="pv-field-select">';
+    if (pub.length) h += '<optgroup label="Published fields">' + pub.join('') + '</optgroup>';
+    if (mine.length) h += '<optgroup label="Your searches">' + mine.join('') + '</optgroup>';
+    h += '</select></div>';
+    return h;
   }
 
-  document.addEventListener('click', function (ev) {
-    var b = ev.target && ev.target.closest ? ev.target.closest('.pv-field') : null;
-    if (!b || b.disabled) return;
-    ev.preventDefault();
-    loadExample(b.getAttribute('data-field'));
+  document.addEventListener('change', function (ev) {
+    var sel = ev.target;
+    if (!sel || sel.id !== 'pvFieldSel') return;
+    var v = sel.value || '';
+    if (v.indexOf('field:') === 0) { loadExample(v.slice(6)); return; }
+    if (v.indexOf('run:') === 0) {
+      var runId = v.slice(4);
+      sel.disabled = true;
+      api.compassPoll(runId).then(function (r) {
+        sel.disabled = false;
+        if (!r || r.ok === false || !r.dashboard) {
+          ui.showError('#topicErr', (r && r.message) || 'That search could not be loaded.');
+          return;
+        }
+        // The map follows the field. announceMap posts pv:run-map, which the landing page listens
+        // for; without it the needles would swap underneath a map of a different subject, which is
+        // worse than showing no map at all.
+        renderDashboard(r.dashboard, { runId: runId, exportToken: r.export_token });
+        announceMap(r, runId);
+      });
+    }
   });
 
 
@@ -460,12 +530,16 @@
 
     var html = '<div class="card">';
 
+    // The switcher sits at the TOP of the card, above the heading, because it selects what the
+    // whole card and the map below it are showing -- not a footnote to a result already read.
+    html += fieldSwitcher(opts.runId ? ('run:' + opts.runId)
+                                     : ('field:' + (opts.field || currentField().slug)));
+
     html += '<div class="row">';
     html += '<h2 style="margin:0">' + esc(data.topic || 'Results') + '</h2>';
     if (opts.example) html += '<span class="tag">worked example</span>';
     html += '</div>';
     if (data.window) html += '<p class="muted" style="margin:.3em 0 0">Looking back over ' + esc(data.window) + '.</p>';
-    if (opts.example) html += fieldSwitcher(opts.field || currentField().slug);
 
     html += '<div class="scorebar" style="margin-top:16px">';
     html += tile(fmt(data.haystack_count), 'papers gathered',
