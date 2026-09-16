@@ -831,6 +831,11 @@
     html += '<div class="row" style="margin-top:20px">';
     if (opts.runId) {
       html += '<button class="btn ghost sm" id="saveTopicBtn">Save topic to my profile</button>';
+      // .xlsx first and named plainly: it is the workbook the finder actually wrote, with the
+      // needles, every scored candidate, and a Legend for the columns. The .tsv exports stay for
+      // scripts, but a tab-delimited file has no escaping standard and is the wrong default for a
+      // person opening a result.
+      html += '<a class="btn ghost sm" id="expXlsx">Download workbook (.xlsx)</a>';
       html += '<a class="btn ghost sm" id="expNeedles">Export needles (.tsv)</a>';
       html += '<a class="btn ghost sm" id="expHaystack">Export full scope (.tsv)</a>';
       if (cited.length) html += '<a class="btn ghost sm" id="expBib">Cited works (.bib)</a>';
@@ -895,6 +900,11 @@
 
     if (opts.runId) {
       var en = $('#expNeedles'), eh = $('#expHaystack'), sb = $('#saveTopicBtn');
+      var ex = $('#expXlsx');
+      if (ex && api.compassExportXlsxUrl) {
+        ex.href = api.compassExportXlsxUrl(opts.runId, opts.exportToken);
+        ex.setAttribute('download', '');
+      } else if (ex) { ex.remove(); }
       if (en) { en.href = api.compassExportUrl(opts.runId, 'needles', 'id,source,date,title,novelty,methods,impact', opts.exportToken); en.setAttribute('download', ''); }
       if (eh) { eh.href = api.compassExportUrl(opts.runId, 'haystack', 'id,source,date,title', opts.exportToken); eh.setAttribute('download', ''); }
       var eb = $('#expBib');

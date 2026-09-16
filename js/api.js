@@ -136,6 +136,14 @@
   // scoped to this one run (minted server-side and returned with the run's poll
   // result), so a leaked export URL cannot be replayed as the account. runId,
   // scope, and cols are encoded; cols may be an array or a comma string.
+  // The workbook: needles ranked, every candidate scored, and a Legend defining the columns. No
+  // scope or cols -- the file is what the finder wrote, and slicing it here would recreate the very
+  // mismatch that made "why aren't all the needles True" hard to answer.
+  function compassExportXlsxUrl(runId, exportToken) {
+    var qs = exportToken ? ('?pv_token=' + encodeURIComponent(exportToken)) : '';
+    return window.PV.API_BASE + '/api/compass/export/' + encodeURIComponent(runId) + '.xlsx' + qs;
+  }
+
   function compassExportUrl(runId, scope, cols, exportToken) {
     var params = new URLSearchParams();
     if (scope) params.set('scope', scope);
@@ -220,6 +228,7 @@
       return request('/api/compass/runs');
     },
     compassExportUrl: compassExportUrl,
+    compassExportXlsxUrl: compassExportXlsxUrl,
     // A run's own field map, as a document for the iframe. Same-origin rules do not apply here --
     // the API is a different host from the site -- but the map is self-contained (React, D3 and the
     // compiled app are inlined at build time), so it needs no credentials of its own to render.
