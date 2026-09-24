@@ -74,7 +74,7 @@
                   display:flex;flex-direction:column}
     /* An author display rule outranks the UA stylesheet's [hidden]{display:none}, so without
        this the panel is permanently on screen no matter what the attribute says. */
-    .config-panel[hidden],.scrim[hidden]{display:none}
+    .config-panel[hidden],.scrim[hidden],#fieldGraphFrame[hidden]{display:none}
     .config-head{padding:18px 22px;border-bottom:1px solid var(--line)}
     .config-body{padding:22px;overflow:auto}
     .scrim{position:fixed;inset:0;z-index:55;background:rgba(27,31,36,.18)}
@@ -252,6 +252,19 @@
         </h1>
       </section>
 
+      <!-- The field selector sits ABOVE the map because it chooses what the map, its heading, the
+           recent-publications row and the needle card below all show. It lived inside the needle
+           card, underneath the map it was supposed to control, and only ever moved the needles. -->
+      <section class="wrap" id="fieldBar" hidden>
+        <div class="card fieldbar-card">
+          <div class="row rwrap" style="gap:10px;align-items:center">
+            <label for="pvFieldSel" style="font-weight:600">Field</label>
+            <select id="pvFieldSel" class="pv-field-select" style="min-width:18rem;max-width:100%"></select>
+            <span class="mini muted" id="fieldBarNote"></span>
+          </div>
+        </div>
+      </section>
+
       <section class="wrap" id="fieldGraphSection" hidden>
         <div class="card graph-card">
           <div class="row between rwrap" style="margin-bottom:10px">
@@ -300,8 +313,8 @@
                who would rather sort them than look at them. -->
         <p class="mini muted" style="margin-top:12px">
             The map shows a sample. <a href="#" id="allRecent">See every recent publication in this field</a>
-            &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.xlsx" download>Download the table (.xlsx)</a>
-            &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.tsv" download>.tsv</a>
+            &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.xlsx" id="recentXlsx" download>Download the table (.xlsx)</a>
+            &nbsp;·&nbsp; <a href="/examples/arxiv_biomath_12mo.tsv" id="recentTsv" download>.tsv</a>
           </p>
           <div id="allRecentPanel" hidden style="margin-top:12px"></div>
       </section>
@@ -540,7 +553,7 @@
   <script src="js/config.js?v=5"></script>
   <script src="js/api.js?v=6"></script>
   <script src="js/ui.js?v=5"></script>
-  <script src="js/compass.js?v=8"></script>
+  <script src="js/compass.js?v=9"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires elements to those helpers. */
@@ -1386,69 +1399,42 @@
         addEventListener('resize', queueViewport);
         document.addEventListener('fullscreenchange', queueViewport);
 
-        var MAP_SRC = '/examples/biomath_field_map.html';
-        // Ask whether the map is actually there before pointing an iframe at it. An iframe fires
-        // `load` for a 404 page just as happily as for the real thing, so binding to that event
-        // would hand a visitor a framed error page inside a card headed "The shape of the field".
-        // A HEAD costs nothing and lets a missing map stay invisible instead.
-        fetch(MAP_SRC, { method: 'HEAD', cache: 'no-cache' })
-          .then(function (r) {
-            if (!r.ok) throw new Error('field map ' + r.status);
-            frame.src = MAP_SRC;
-            // Fullscreen has to be allowed on the frame itself or requestFullscreen from the parent
-            // is rejected for cross-document content.
-            frame.setAttribute('allow', 'fullscreen');
-            frame.setAttribute('allowfullscreen', '');
-            var s = $('#fieldGraphSection'); if (s) s.hidden = false;
+        // The map no longer boots itself onto one hardcoded file. MAP_SRC was
+        // '/examples/biomath_field_map.html', so the map showed biomathematics whatever field was
+        // chosen below it. Whichever field is selected now announces pv:field-map (published
+        // fields) or pv:run-map (a person's own search), and the listeners below point the frame.
+        frame.setAttribute('allow', 'fullscreen');
+        frame.setAttribute('allowfullscreen', '');
+        var s = $('#fieldGraphSection');
 
-            // Parag: "Any way to make the map window bigger?" Expand widens the card out of the
-            // reading column and gives the frame the window height; Full screen hands it the
-            // display. Expand is kept as well as fullscreen because fullscreen hides the rest of
-            // the page, and the needle list underneath is often what you are reading against.
-            var expandBtn = $('#mapExpand'), fullBtn = $('#mapFull');
-            on(expandBtn, 'click', function () {
-              var open = s.classList.toggle('expanded');
-              expandBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
-              expandBtn.textContent = open ? 'Collapse' : 'Expand';
-              if (open) s.scrollIntoView({ block: 'start', behavior: 'smooth' });
-            });
-            on(fullBtn, 'click', function () {
-              var el = frame;
-              var req = el.requestFullscreen || el.webkitRequestFullscreen;
-              if (document.fullscreenElement) { document.exitFullscreen(); return; }
-              // Not every browser or embed context allows it. Falling back to Expand is better than
-              // a button that silently does nothing.
-              if (!req) { if (expandBtn) expandBtn.click(); return; }
-              try {
-                var p = req.call(el);
-                if (p && p.catch) p.catch(function () { if (expandBtn) expandBtn.click(); });
-              } catch (err) { if (expandBtn) expandBtn.click(); }
-            });
-            var note = $('#fieldGraphNote');
-            if (note) note.textContent = 'Preprints from the last 12 months, clustered by the ' +
-                                         'scoring pipeline. Drag to pan, scroll to zoom.';
-            // Name the subject in the heading and the note. The example payload is 16KB and is
-            // fetched by the compass tab anyway, so this is a cache hit rather than a second load.
-            // Failing to read it leaves the placeholder heading rather than breaking the map.
-            fetch('/examples/biomath.json', { cache: 'force-cache' })
-              .then(function (r) { return r.ok ? r.json() : null; })
-              .then(function (d) {
-                if (!d || !d.topic) return;
-                var h = $('#fieldGraphTitle');
-                if (h) h.textContent = 'The shape of ' + d.topic;
-                if (note && d.window) {
-                  var w = d.window.charAt(0).toUpperCase() + d.window.slice(1);
-                  note.textContent = w + ', clustered by the scoring pipeline. ' +
-                                     'Drag to pan, scroll to zoom.';
-                  // The corpus line makes the heading checkable. Parag read "biomathematics" and
-                  // said it covers far more of physical biology than that -- he was right, and the
-                  // only way a reader can judge the label is to be told what is under it.
-                  if (d.corpus) note.title = d.corpus;
-                }
-              })
-              .catch(function () { /* heading keeps its placeholder */ });
-          })
-          .catch(function (err) { console.error('[pubverse] field map', err); });
+        // Parag: "Any way to make the map window bigger?" Expand widens the card out of the reading
+        // column and gives the frame the window height; Full screen hands it the display. Bound
+        // once here, not inside a per-map load, so switching fields never stacks duplicate handlers.
+        var expandBtn = $('#mapExpand'), fullBtn = $('#mapFull');
+        on(expandBtn, 'click', function () {
+          var open = s.classList.toggle('expanded');
+          expandBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+          expandBtn.textContent = open ? 'Collapse' : 'Expand';
+          if (open) s.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        });
+        on(fullBtn, 'click', function () {
+          var el = frame;
+          var req = el.requestFullscreen || el.webkitRequestFullscreen;
+          if (document.fullscreenElement) { document.exitFullscreen(); return; }
+          if (!req) { if (expandBtn) expandBtn.click(); return; }
+          try {
+            var p = req.call(el);
+            if (p && p.catch) p.catch(function () { if (expandBtn) expandBtn.click(); });
+          } catch (err) { if (expandBtn) expandBtn.click(); }
+        });
+
+        // If the compass module failed to load nothing will announce a field, so fall back to the
+        // default one rather than leave the landing page without its map.
+        if (!(window.PV && PV.compass && typeof PV.compass.selectField === 'function')) {
+          document.dispatchEvent(new CustomEvent('pv:field-map', { detail: {
+            map: '/examples/biomath_field_map.html', label: 'Mathematical and physical biology',
+            topic: 'mathematical and physical biology' } }));
+        }
       } catch (err) { console.error('[pubverse] field map', err); }
     });
 
@@ -1456,24 +1442,106 @@
        The landscape behind a map takes about an hour to cluster and name, so it is built once per
        field and cached; the first run in a NEW field therefore finishes without one and reports
        map:'building'. Those are different facts from "no map" and the note says which. */
+    // Every map switch bumps this. A HEAD check for an earlier choice that answers late must not
+    // repoint the frame after the reader has already moved on to another field.
+    var mapToken = 0;
+    var recentSlim = '/examples/arxiv_biomath_12mo.slim.json';
+
+    function mapParts() {
+      return { frame: $('#fieldGraphFrame'), sec: $('#fieldGraphSection'),
+               h: $('#fieldGraphTitle'), note: $('#fieldGraphNote') };
+    }
+    function headingFor(d) {
+      return 'The shape of ' + (d.topic || d.label || 'the field');
+    }
+    // A field without a published map shows the card with a plain statement and an EMPTY frame. The
+    // old behavior left the previous field's map on screen under the new field's heading, which is
+    // worse than no map: it is a wrong map with a right-looking label.
+    function blankMap(d, msg) {
+      var m = mapParts();
+      if (!m.frame || !m.sec) return;
+      m.frame.src = 'about:blank';
+      m.frame.hidden = true;
+      m.sec.hidden = false;
+      if (m.h) m.h.textContent = headingFor(d);
+      if (m.note) m.note.textContent = msg;
+    }
+    // The recent-publications row is a per-field export. Hidden for a field that has none, instead
+    // of offering biomathematics' arXiv table under an oncology heading.
+    function setRecent(t) {
+      var row = $('#recentPubs'), panel = $('#allRecentPanel');
+      if (!row) return;
+      allLoaded = false;
+      if (panel) { panel.hidden = true; panel.innerHTML = ''; }
+      if (!t || !t.slim) { row.hidden = true; return; }
+      recentSlim = t.slim;
+      var x = $('#recentXlsx'), v = $('#recentTsv');
+      if (x) { if (t.xlsx) { x.href = t.xlsx; x.hidden = false; } else x.hidden = true; }
+      if (v) { if (t.tsv) { v.href = t.tsv; v.hidden = false; } else v.hidden = true; }
+      row.hidden = false;
+    }
+
+    /* A published field: its map, its heading, its note and its export row, all at once. */
+    on(document, 'pv:field-map', function (e) {
+      var d = (e && e.detail) || {};
+      var m = mapParts();
+      if (!m.frame || !m.sec) return;
+      var my = ++mapToken;
+      try { setRecent(d.table); } catch (err) { console.error('[pubverse] recent', err); }
+      if (!d.map) { blankMap(d, 'No map has been built for this field yet.'); return; }
+      // Ask whether the map is actually there before pointing the frame at it. An iframe fires
+      // `load` for a 404 page just as happily as for the real thing.
+      fetch(d.map, { method: 'HEAD', cache: 'no-cache' })
+        .then(function (r) {
+          if (my !== mapToken) return;
+          if (!r.ok) { blankMap(d, 'The map for this field is not published yet.'); return; }
+          m.frame.hidden = false;
+          m.frame.src = d.map;
+          m.frame.title = 'Interactive map of ' + (d.label || 'this field') + ' preprints';
+          m.sec.hidden = false;
+          if (m.h) m.h.textContent = headingFor(d);
+          if (m.note) {
+            var w = d.window ? d.window.charAt(0).toUpperCase() + d.window.slice(1)
+                             : 'Preprints from the last 12 months';
+            m.note.textContent = w + ', clustered by the scoring pipeline. Drag to pan, scroll to zoom.';
+            // The corpus line makes the heading checkable. Parag read "biomathematics" and said it
+            // covers far more of physical biology than that; a reader can only judge a label if they
+            // are told what is under it.
+            m.note.title = d.corpus || '';
+          }
+        })
+        .catch(function (err) {
+          if (my === mapToken) blankMap(d, 'The map for this field could not be loaded.');
+          console.error('[pubverse] field map', err);
+        });
+    });
+
+    /* A person's own search: the map of the field it actually searched. The landscape behind a map
+       is built once per field and cached; the first search in a NEW field finishes before its map
+       and reports map:'building'. A search with no map at all says so and clears the frame, rather
+       than leaving another field's map under this search's heading. */
     on(document, 'pv:run-map', function (e) {
       var d = (e && e.detail) || {};
-      var frame = $('#fieldGraphFrame'), sec = $('#fieldGraphSection');
-      var h = $('#fieldGraphTitle'), note = $('#fieldGraphNote');
-      if (!frame || !sec) return;
+      var m = mapParts();
+      if (!m.frame || !m.sec) return;
+      var my = ++mapToken;
       try {
+        setRecent(null);
         if (d.state === 'ready' && d.runId) {
-          frame.src = PV.api.compassRunMapUrl(d.runId, d.exportToken);
-          sec.hidden = false;
-          if (h && d.topic) h.textContent = 'The shape of ' + d.topic;
-          if (note) note.textContent = 'Your search, clustered by the scoring pipeline. ' +
-                                       'Drag to pan, scroll to zoom.';
-          sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (my !== mapToken) return;
+          m.frame.hidden = false;
+          m.frame.src = PV.api.compassRunMapUrl(d.runId, d.exportToken);
+          m.frame.title = 'Interactive map for your search: ' + (d.topic || '');
+          m.sec.hidden = false;
+          if (m.h && d.topic) m.h.textContent = 'The shape of ' + d.topic;
+          if (m.note) { m.note.textContent = 'Your search, clustered by the scoring pipeline. ' +
+                                             'Drag to pan, scroll to zoom.'; m.note.title = ''; }
         } else if (d.state === 'building') {
-          sec.hidden = false;
-          if (note) note.textContent = 'Mapping this field for the first time. Clustering and ' +
-                                       'naming its topics takes about an hour. Your needles are ' +
-                                       'ready below; the map appears on your next search here.';
+          blankMap(d, 'Mapping this field for the first time. Clustering and naming its topics ' +
+                      'takes about an hour. Your needles are ready below; the map appears when it ' +
+                      'is done.');
+        } else {
+          blankMap(d, 'This search has no field map.');
         }
       } catch (err) { console.error('[pubverse] run map', err); }
     });
@@ -1490,7 +1558,7 @@
       if (allLoaded) { panel.hidden = !panel.hidden; return; }
       panel.hidden = false;
       panel.innerHTML = '<p class="mini muted">Loading the full window...</p>';
-      fetch('/examples/arxiv_biomath_12mo.slim.json', { cache: 'no-cache' })
+      fetch(recentSlim, { cache: 'no-cache' })
         .then(function (r) { if (!r.ok) throw new Error('table ' + r.status); return r.json(); })
         .then(function (d) {
           allLoaded = true;

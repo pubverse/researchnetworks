@@ -36,10 +36,11 @@
       // real array; anything else means "no runs to show", which is not an error worth surfacing.
       var rows = Array.isArray(res) ? res : (res && Array.isArray(res.runs) ? res.runs : []);
       userRuns = rows.filter(function (r) { return r && r.status === 'done'; });
-      var sel = $('#pvFieldSel');
-      if (sel && userRuns.length) {
-        var keep = sel.value, host = sel.closest('.pv-fieldbar');
-        if (host) host.outerHTML = fieldSwitcher(keep);
+      renderFieldBar();
+      var k = storedKey();
+      if (k && k.indexOf('run:') === 0 && activeKey !== k &&
+          userRuns.some(function (r) { return 'run:' + r.run_id === k; })) {
+        selectField(k);
       }
     }).catch(function () { /* the switcher still works with the published fields alone */ });
   }
@@ -366,104 +367,133 @@
     iv = setInterval(tick, 2500);
   }
 
-  /* ---------- worked examples, one per covered field ---------- */
-  /* Every subject PubVerse has already searched, so a reader can look at another one without
-     starting a run of their own. The list is here rather than fetched because it is two entries and
-     a request to discover them would be slower than the payloads themselves. Adding a field is one
-     line plus its examples/<slug>.json. */
+  /* ---------- the field selector: one control for the map AND the needles ---------- */
+  /* Every field a person can look at: the published fields plus their own finished searches. The
+     control lives in #fieldBar ABOVE the map, because it chooses what the map, its heading, the
+     recent-publications row and the needle card all show. It used to be drawn inside the needle
+     card, under the map it was meant to control, and it only ever swapped the needles.
+
+     The published list is DATA (/examples/fields.json), so adding a field is a manifest entry plus
+     its files, not a code change. The built-in list is only a fallback for a missing manifest. */
   var FIELDS = [
-    { slug: 'biomath', label: 'Mathematical and physical biology' },
-    { slug: 'cancer',  label: 'Oncology' }
+    { slug: 'biomath', label: 'Mathematical and physical biology',
+      needles: '/examples/biomath.json', map: '/examples/biomath_field_map.html' },
+    { slug: 'cancer', label: 'Oncology',
+      needles: '/examples/cancer.json', map: '/examples/cancer_field_map.html' }
   ];
-  var FIELD_KEY = 'pv.exampleField';
-
-  function currentField() {
-    var want = null;
-    try { want = localStorage.getItem(FIELD_KEY); } catch (e) {}
-    for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].slug === want) return FIELDS[i];
-    return FIELDS[0];
-  }
-
-  function loadExample(slug) {
-    var f = slug ? null : currentField();
-    if (slug) for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].slug === slug) f = FIELDS[i];
-    if (!f) f = FIELDS[0];
-    try { localStorage.setItem(FIELD_KEY, f.slug); } catch (e) {}
-    fetch('/examples/' + f.slug + '.json', { cache: 'no-cache' }).then(function (res) {
-      if (!res.ok) return null;
-      return res.json();
-    }).then(function (data) {
-      if (data) renderDashboard(data, { example: true, field: f.slug });
-    }).catch(function () { /* the example is a convenience, never block the page on it */ });
-  }
-
-  /* The switcher itself. Rendered inside the dashboard card so it sits with the result it changes,
-     and only when there is more than one field to move between -- a control offering a single
-     choice is furniture, not a control. */
-  // Every field a person can look at, in ONE control: the published examples plus their own
-  // finished searches. Buttons were wrong for this -- the list grows with every search someone
-  // runs, and a row of buttons that grows without bound is not a control. A select also states
-  // plainly which one you are on, which buttons only imply.
+  var FIELD_KEY = 'pv.fieldKey';
   var userRuns = [];          // filled by loadPastRuns(); [] until it answers or if it fails
+  var activeKey = null;
 
-  function fieldSwitcher(activeKey) {
+  function fieldBySlug(slug) {
+    for (var i = 0; i < FIELDS.length; i++) if (FIELDS[i].slug === slug) return FIELDS[i];
+    return null;
+  }
+  function storedKey() {
+    try { return localStorage.getItem(FIELD_KEY); } catch (e) { return null; }
+  }
+  function loadManifest() {
+    return fetch('/examples/fields.json', { cache: 'no-cache' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (m) {
+        if (m && Array.isArray(m.fields) && m.fields.length) FIELDS = m.fields;
+      })
+      .catch(function () { /* keep the built-in list */ });
+  }
+
+  function renderFieldBar() {
+    var sel = $('#pvFieldSel'), bar = $('#fieldBar');
+    if (!sel || !bar) return;
     var pub = FIELDS.map(function (f) {
-      return '<option value="field:' + esc(f.slug) + '"' +
-             (activeKey === 'field:' + f.slug ? ' selected' : '') + '>' + esc(f.label) + '</option>';
+      return '<option value="field:' + esc(f.slug) + '">' + esc(f.label) + '</option>';
     });
     var mine = userRuns.map(function (r) {
       var d = r.ts ? new Date(r.ts * 1000).toLocaleDateString() : '';
-      // Say what each one HAS. A search with no map is a different thing from one still building
-      // its map, and the backend already distinguishes them -- passing that through stops the
-      // switcher offering a map that will 404.
+      // Say what each one HAS. A search whose map is still being built is a different fact from one
+      // that has none, and the backend already distinguishes them.
       var tag = r.map === 'ready' ? ' \u00b7 map' : (r.map === 'building' ? ' \u00b7 map building' : '');
       var n = (typeof r.needles === 'number') ? (' \u00b7 ' + r.needles + ' needle' + (r.needles === 1 ? '' : 's')) : '';
-      return '<option value="run:' + esc(r.run_id) + '"' +
-             (activeKey === 'run:' + r.run_id ? ' selected' : '') + '>' +
+      return '<option value="run:' + esc(r.run_id) + '">' +
              esc(r.topic || 'search') + (d ? ' (' + esc(d) + ')' : '') + n + tag + '</option>';
     });
-    if (pub.length + mine.length < 2) return '';
-    var h = '<div class="row rwrap pv-fieldbar" style="gap:8px;align-items:center;margin:0 0 14px">';
-    h += '<label class="mini muted" for="pvFieldSel">Field</label>';
-    h += '<select id="pvFieldSel" class="pv-field-select">';
+    var h = '';
     if (pub.length) h += '<optgroup label="Published fields">' + pub.join('') + '</optgroup>';
     if (mine.length) h += '<optgroup label="Your searches">' + mine.join('') + '</optgroup>';
-    h += '</select></div>';
-    return h;
+    sel.innerHTML = h;
+    if (activeKey) sel.value = activeKey;
+    bar.hidden = (pub.length + mine.length) === 0;
+  }
+
+  /* Point everything at one field. `key` is "field:<slug>" or "run:<run_id>". */
+  function selectField(key) {
+    if (!key) key = 'field:' + (FIELDS[0] && FIELDS[0].slug);
+    activeKey = key;
+    try { localStorage.setItem(FIELD_KEY, key); } catch (e) {}
+    var sel = $('#pvFieldSel'); if (sel && sel.value !== key) sel.value = key;
+
+    if (key.indexOf('run:') === 0) {
+      var runId = key.slice(4);
+      if (sel) sel.disabled = true;
+      return api.compassPoll(runId).then(function (r) {
+        if (sel) sel.disabled = false;
+        if (activeKey !== key) return;
+        if (!r || r.ok === false || !r.dashboard) {
+          ui.showError('#topicErr', (r && r.message) || 'That search could not be loaded.');
+          return;
+        }
+        renderDashboard(r.dashboard, { runId: runId, exportToken: r.export_token });
+        announceMap(r, runId);
+      });
+    }
+
+    var f = fieldBySlug(key.slice(6)) || FIELDS[0];
+    if (!f) return Promise.resolve();
+    // The needles file is read once and feeds BOTH halves: the card below, and the heading, note
+    // and corpus line on the map above. One source means the two cannot name different subjects.
+    return fetch(f.needles || ('/examples/' + f.slug + '.json'), { cache: 'no-cache' })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .catch(function () { return null; })
+      .then(function (data) {
+        if (activeKey !== key) return;
+        if (data) renderDashboard(data, { example: true, field: f.slug });
+        try {
+          document.dispatchEvent(new CustomEvent('pv:field-map', { detail: {
+            slug: f.slug, label: f.label, map: f.map, table: f.table || null,
+            topic: (data && data.topic) || f.label, window: data && data.window,
+            corpus: data && data.corpus } }));
+        } catch (e) {}
+      });
+  }
+
+  // The worked example on first visit: the reader's last choice if it still exists, else the first
+  // published field. A remembered search is restored once loadPastRuns() knows it exists.
+  function loadExample() {
+    return loadManifest().then(function () {
+      var k = storedKey();
+      var first = 'field:' + (FIELDS[0] && FIELDS[0].slug);
+      if (!k || (k.indexOf('field:') === 0 && !fieldBySlug(k.slice(6)))) k = first;
+      if (k.indexOf('run:') === 0) k = first;       // wait for the runs list before restoring one
+      renderFieldBar();
+      return selectField(k);
+    });
   }
 
   document.addEventListener('change', function (ev) {
     var sel = ev.target;
     if (!sel || sel.id !== 'pvFieldSel') return;
-    var v = sel.value || '';
-    if (v.indexOf('field:') === 0) { loadExample(v.slice(6)); return; }
-    if (v.indexOf('run:') === 0) {
-      var runId = v.slice(4);
-      sel.disabled = true;
-      api.compassPoll(runId).then(function (r) {
-        sel.disabled = false;
-        if (!r || r.ok === false || !r.dashboard) {
-          ui.showError('#topicErr', (r && r.message) || 'That search could not be loaded.');
-          return;
-        }
-        // The map follows the field. announceMap posts pv:run-map, which the landing page listens
-        // for; without it the needles would swap underneath a map of a different subject, which is
-        // worse than showing no map at all.
-        renderDashboard(r.dashboard, { runId: runId, exportToken: r.export_token });
-        announceMap(r, runId);
-      });
-    }
+    selectField(sel.value);
   });
-
 
   /* The field map belongs to the run, not to this module: the landing page owns the frame and the
      compass page does not have one. So this announces and lets whoever is listening decide, which
      also means a page without a map listener is simply unaffected rather than broken. */
   function announceMap(r, runId) {
-    if (!r || !r.map) return;
+    if (!r) return;
+    // Announce even when the run has no map. Returning early here left the PREVIOUS field's map on
+    // screen under this search's heading.
     try {
       document.dispatchEvent(new CustomEvent('pv:run-map', { detail: {
-        state: r.map, runId: runId, topic: r.topic, exportToken: r.export_token
+        state: r.map || 'none', runId: runId, topic: r.topic, exportToken: r.export_token
       }}));
     } catch (e) {}
   }
@@ -529,11 +559,6 @@
     }
 
     var html = '<div class="card">';
-
-    // The switcher sits at the TOP of the card, above the heading, because it selects what the
-    // whole card and the map below it are showing -- not a footnote to a result already read.
-    html += fieldSwitcher(opts.runId ? ('run:' + opts.runId)
-                                     : ('field:' + (opts.field || currentField().slug)));
 
     html += '<div class="row">';
     html += '<h2 style="margin:0">' + esc(data.topic || 'Results') + '</h2>';
@@ -929,5 +954,5 @@
       }
     });
   }
-  PV.compass = { init: initPage };
+  PV.compass = { init: initPage, selectField: selectField };
 })();

@@ -1,0 +1,22 @@
+{
+  "_comment": "Published fields for the landing page's field selector. Adding a field means adding an entry here plus its needles JSON and field map HTML. map is optional: a field without one shows an empty frame and says so, rather than keeping another field's map on screen. table is optional: without it the recent-publications row is hidden for that field.",
+  "fields": [
+    {
+      "slug": "biomath",
+      "label": "Mathematical and physical biology",
+      "needles": "/examples/biomath.json",
+      "map": "/examples/biomath_field_map.html",
+      "table": {
+        "slim": "/examples/arxiv_biomath_12mo.slim.json",
+        "xlsx": "/examples/arxiv_biomath_12mo.xlsx",
+        "tsv": "/examples/arxiv_biomath_12mo.tsv"
+      }
+    },
+    {
+      "slug": "cancer",
+      "label": "Oncology",
+      "needles": "/examples/cancer.json",
+      "map": "/examples/cancer_field_map.html"
+    }
+  ]
+}
