@@ -369,9 +369,12 @@
 
   /* ---------- the field selector: one control for the map AND the needles ---------- */
   /* Every field a person can look at: the published fields plus their own finished searches. The
-     control lives in #fieldBar ABOVE the map, because it chooses what the map, its heading, the
-     recent-publications row and the needle card all show. It used to be drawn inside the needle
-     card, under the map it was meant to control, and it only ever swapped the needles.
+     control is the field named in the greeting at the top of the page ("today's map of oncology"),
+     because it chooses what the map, its heading, the recent-publications row and the needle card
+     all show. It used to be drawn inside the needle card, under the map it was meant to control,
+     and it only ever swapped the needles. #pvFieldSel is kept as a hidden native select and stays
+     the single source of truth: the greeting's picker is drawn from pv:fields and writes back to
+     it with a change event.
 
      The published list is DATA (/examples/fields.json), so adding a field is a manifest entry plus
      its files, not a code change. The built-in list is only a fallback for a missing manifest. */
@@ -402,10 +405,13 @@
   }
 
   function renderFieldBar() {
-    var sel = $('#pvFieldSel'), bar = $('#fieldBar');
-    if (!sel || !bar) return;
+    var sel = $('#pvFieldSel');
+    if (!sel) return;
     var pub = FIELDS.map(function (f) {
       return '<option value="field:' + esc(f.slug) + '">' + esc(f.label) + '</option>';
+    });
+    var items = FIELDS.map(function (f) {
+      return { key: 'field:' + f.slug, label: f.label, group: 'Published fields', meta: '' };
     });
     var mine = userRuns.map(function (r) {
       var d = r.ts ? new Date(r.ts * 1000).toLocaleDateString() : '';
@@ -413,6 +419,8 @@
       // that has none, and the backend already distinguishes them.
       var tag = r.map === 'ready' ? ' \u00b7 map' : (r.map === 'building' ? ' \u00b7 map building' : '');
       var n = (typeof r.needles === 'number') ? (' \u00b7 ' + r.needles + ' needle' + (r.needles === 1 ? '' : 's')) : '';
+      items.push({ key: 'run:' + r.run_id, label: r.topic || 'search', group: 'Your searches',
+                   meta: (d + n + tag).replace(/^ \u00b7 /, '') });
       return '<option value="run:' + esc(r.run_id) + '">' +
              esc(r.topic || 'search') + (d ? ' (' + esc(d) + ')' : '') + n + tag + '</option>';
     });
@@ -421,7 +429,9 @@
     if (mine.length) h += '<optgroup label="Your searches">' + mine.join('') + '</optgroup>';
     sel.innerHTML = h;
     if (activeKey) sel.value = activeKey;
-    bar.hidden = (pub.length + mine.length) === 0;
+    try {
+      document.dispatchEvent(new CustomEvent('pv:fields', { detail: { items: items, active: activeKey } }));
+    } catch (e) {}
   }
 
   /* Point everything at one field. `key` is "field:<slug>" or "run:<run_id>". */
@@ -430,6 +440,7 @@
     activeKey = key;
     try { localStorage.setItem(FIELD_KEY, key); } catch (e) {}
     var sel = $('#pvFieldSel'); if (sel && sel.value !== key) sel.value = key;
+    try { document.dispatchEvent(new CustomEvent('pv:field-selected', { detail: { key: key } })); } catch (e) {}
 
     if (key.indexOf('run:') === 0) {
       var runId = key.slice(4);

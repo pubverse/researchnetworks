@@ -98,6 +98,44 @@
        was typed. */
     @media(prefers-reduced-motion:reduce){.caret{animation-duration:2s}}
     .graph-card{min-height:180px}
+
+    /* ---- field picker, inside the greeting ---- */
+    /* It reads as part of the sentence: same face, same size, a quiet underline and a chevron that
+       turns down while the list is open. Nothing about it looks like a form control until hovered. */
+    /* An inline span, not a <button>: a button is an atomic inline box, so a long search name
+       ("postural orthostatic tachycardia syndrome") could not wrap and pushed a phone-width page
+       sideways. The span wraps like the words around it; role, tabindex and key handling make it a
+       button to assistive tech and the keyboard. */
+    .fpick{cursor:pointer;color:var(--ink);border-radius:2px;
+           text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:.18em;
+           text-decoration-color:color-mix(in srgb,var(--blue) 45%,transparent);
+           -webkit-box-decoration-break:clone;box-decoration-break:clone;
+           transition:text-decoration-color .15s,background-color .15s}
+    .fpick:hover,.fpick[aria-expanded="true"]{text-decoration-color:var(--blue);background:var(--blue-l)}
+    .fpick:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+    .fpick-chev{display:inline-block;margin-left:.18em;color:var(--blue);font-weight:400;
+                transition:transform .18s ease,opacity .3s;transform-origin:50% 55%}
+    .fpick[aria-expanded="true"] .fpick-chev{transform:rotate(90deg)}
+    .fpick.typing .fpick-chev{opacity:0}
+    .fpick-menu{position:fixed;z-index:70;display:block;min-width:17rem;max-width:min(28rem,calc(100vw - 32px));
+                max-height:min(26rem,70vh);overflow:auto;padding:6px;background:var(--panel);
+                border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow-lg);
+                font-family:var(--font);font-size:.95rem;font-weight:400;
+                animation:fpickIn .14s ease-out}
+    .fpick-menu[hidden]{display:none}
+    @keyframes fpickIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+    .fpick-group{display:block;padding:10px 10px 4px;font-size:.7rem;letter-spacing:.08em;
+                 text-transform:uppercase;color:var(--muted)}
+    .fpick-opt{display:flex;justify-content:space-between;align-items:baseline;gap:14px;
+               padding:8px 10px;border-radius:var(--r-s);cursor:pointer;color:var(--ink);
+               border-left:2px solid transparent}
+    .fpick-opt:hover,.fpick-opt.active{background:var(--paper)}
+    .fpick-opt[aria-selected="true"]{border-left-color:var(--blue);color:var(--blue-d)}
+    .fpick-meta{font-size:.78rem;color:var(--muted);white-space:nowrap}
+    @media(prefers-reduced-motion:reduce){.fpick-menu{animation:none}.fpick-chev{transition:none}}
+    /* At phone width the menu spans the page between the 16px gutters instead of hanging off the
+       field name, which can sit anywhere on a wrapped line. */
+    @media(max-width:600px){.fpick-menu{left:16px!important;right:16px;min-width:0;max-width:none}}
     /* The map is a full-viewport application inside the frame, so it needs a real height rather
        than an intrinsic one -- an iframe's default 150px would crop it to nothing. Height is
        viewport-relative with a floor and a ceiling so it stays usable on a laptop without eating a
@@ -246,24 +284,17 @@
            pitch about the product. The greeting types in, the map draws, the needles list
            beneath it, and only then do the tabs offer somewhere else to go. -->
       <section class="wrap greeting-wrap">
+        <!-- The field is chosen IN the sentence: "Admin, today's map of oncology >". The name is a
+             button; it opens a short list of published fields and the visitor's own searches, and
+             choosing one switches the map, its heading, the exports and the needles below. -->
         <h1 class="greeting">
           <span class="sr-only" id="greetingText"></span>
-          <span id="greetingAnim" aria-hidden="true"></span><span class="caret" id="greetingCaret" aria-hidden="true"></span>
+          <span id="greetingAnim"><span id="gPre" aria-hidden="true"></span><span class="fpick-wrap" id="fpickWrap" hidden><span class="fpick" id="fpick" role="button" tabindex="0" aria-haspopup="listbox" aria-expanded="false" aria-controls="fpickMenu"><span id="fpickLabel"></span><span class="fpick-chev" aria-hidden="true">&rsaquo;</span></span></span><span id="gSuf" aria-hidden="true"></span></span><span class="caret" id="greetingCaret" aria-hidden="true"></span>
         </h1>
+        <span class="fpick-menu" id="fpickMenu" role="listbox" aria-label="Choose a field" hidden></span>
+        <select id="pvFieldSel" hidden aria-hidden="true" tabindex="-1"></select>
       </section>
 
-      <!-- The field selector sits ABOVE the map because it chooses what the map, its heading, the
-           recent-publications row and the needle card below all show. It lived inside the needle
-           card, underneath the map it was supposed to control, and only ever moved the needles. -->
-      <section class="wrap" id="fieldBar" hidden>
-        <div class="card fieldbar-card">
-          <div class="row rwrap" style="gap:10px;align-items:center">
-            <label for="pvFieldSel" style="font-weight:600">Field</label>
-            <select id="pvFieldSel" class="pv-field-select" style="min-width:18rem;max-width:100%"></select>
-            <span class="mini muted" id="fieldBarNote"></span>
-          </div>
-        </div>
-      </section>
 
       <section class="wrap" id="fieldGraphSection" hidden>
         <div class="card graph-card">
@@ -553,7 +584,7 @@
   <script src="js/config.js?v=5"></script>
   <script src="js/api.js?v=6"></script>
   <script src="js/ui.js?v=5"></script>
-  <script src="js/compass.js?v=9"></script>
+  <script src="js/compass.js?v=10"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires elements to those helpers. */
@@ -1216,17 +1247,17 @@
        stand behind: the harvesters run nightly, so "updated daily" is true of the corpus. Nothing
        here promises the map is redrawn overnight, because it is not; a field's landscape is rebuilt
        when its corpus changes, not on a clock. */
+    /* Every line names the field, and the name IS the field picker ({F}). Each has to read with any
+       noun phrase in that slot, a published field ("oncology") or someone's own search ("viral
+       ecology"), so lines that only work for "your field" were dropped. Claims stay ones we can
+       stand behind: the harvesters run nightly, so "updated daily" is true of the corpus. */
     var GREETINGS = [
-      ', here is what your field looks like today.',
-      ', your knowledge space, mapped and updated daily.',
-      ', your daily constellation of topics defining your field.',
-      ', the shape of your field, as it reads today.',
-      ', your corner of the literature, freshly read.',
-      ', here is what your field is working on.',
-      ', today\'s map of the work you follow.',
-      ', your field, and what is new in it.',
-      ', the ground your field is standing on today.',
-      ', what your field has been busy with.'
+      ', here is what {F} looks like today.',
+      ', today\'s map of {F}.',
+      ', the shape of {F}, as it reads today.',
+      ', your corner of {F}, freshly read.',
+      ', {F}, mapped and updated daily.',
+      ', what is new in {F} today.'
     ];
     var lastGreeting = null;
 
@@ -1239,36 +1270,177 @@
       return GREETINGS[i];
     }
 
+    /* ---------- the field picker in the greeting ---------- */
+    // Mid-sentence, a field reads in lower case: "today's map of oncology", not "of Oncology". Only
+    // words that are merely capitalized are lowered, so RNA, mRNA and COVID keep their case.
+    function inSentence(label) {
+      return String(label || '').split(' ').map(function (w) {
+        return /^[A-Z][a-z]+$/.test(w) ? w.toLowerCase() : w;
+      }).join(' ');
+    }
+    var FIELD_LABEL_KEY = 'pv.fieldLabel';
+    var pick = { items: [], key: null, label: null, typed: false, open: false, idx: -1 };
+    try { pick.label = localStorage.getItem(FIELD_LABEL_KEY); } catch (e) {}
+
+    function pickLabel() { return pick.label || 'your field'; }
+    function greetingSentence() {
+      return (greetState.name || 'Guest') + greetState.pre + pickLabel() + greetState.suf;
+    }
+    function paintPickLabel() {
+      var l = $('#fpickLabel'), b = $('#fpick'), sr = $('#greetingText');
+      if (pick.typed && l) l.textContent = pickLabel();
+      if (b) b.setAttribute('aria-label', 'Field: ' + pickLabel() + '. Choose another field');
+      if (sr && greetState.name !== null) sr.textContent = greetingSentence();
+    }
+    function setPickKey(key) {
+      pick.key = key;
+      for (var i = 0; i < pick.items.length; i++) {
+        if (pick.items[i].key === key) {
+          pick.label = inSentence(pick.items[i].label);
+          try { localStorage.setItem(FIELD_LABEL_KEY, pick.label); } catch (e) {}
+          break;
+        }
+      }
+      paintPickLabel();
+      if (pick.open) renderPickMenu();
+    }
+    on(document, 'pv:fields', function (e) {
+      var d = (e && e.detail) || {};
+      pick.items = d.items || [];
+      setPickKey(d.active || pick.key);
+    });
+    on(document, 'pv:field-selected', function (e) { setPickKey(e && e.detail && e.detail.key); });
+
+    function renderPickMenu() {
+      var m = $('#fpickMenu'); if (!m) return;
+      var h = '', group = null;
+      pick.items.forEach(function (it, i) {
+        if (it.group !== group) { group = it.group; h += '<span class="fpick-group" role="presentation">' + escG(group) + '</span>'; }
+        h += '<span class="fpick-opt' + (i === pick.idx ? ' active' : '') + '" role="option" id="fpickOpt' + i +
+             '" data-i="' + i + '" aria-selected="' + (it.key === pick.key) + '">' +
+             '<span>' + escG(it.label) + '</span>' +
+             (it.meta ? '<span class="fpick-meta">' + escG(it.meta) + '</span>' : '') + '</span>';
+      });
+      m.innerHTML = h || '<span class="fpick-group">No fields yet</span>';
+      if (pick.idx >= 0) m.setAttribute('aria-activedescendant', 'fpickOpt' + pick.idx);
+      var act = m.querySelector('.fpick-opt.active');
+      if (act && act.scrollIntoView) act.scrollIntoView({ block: 'nearest' });
+    }
+    // Fixed, not absolute: the greeting's card clips nothing, but the menu has to stay on screen at
+    // phone width, so it is placed from the button's rect and pulled back inside a 16px gutter.
+    function placePickMenu() {
+      var b = $('#fpick'), m = $('#fpickMenu'); if (!b || !m) return;
+      var r = b.getBoundingClientRect(), w = m.offsetWidth, vw = document.documentElement.clientWidth;
+      m.style.top = Math.round(r.bottom + 8) + 'px';
+      m.style.left = Math.round(Math.max(16, Math.min(r.left, vw - w - 16))) + 'px';
+    }
+    function openPick() {
+      var b = $('#fpick'), m = $('#fpickMenu'); if (!b || !m) return;
+      pick.open = true;
+      pick.idx = -1;
+      for (var i = 0; i < pick.items.length; i++) if (pick.items[i].key === pick.key) pick.idx = i;
+      if (pick.idx < 0 && pick.items.length) pick.idx = 0;
+      renderPickMenu();
+      m.hidden = false;
+      b.setAttribute('aria-expanded', 'true');
+      placePickMenu();
+      m.focus && m.setAttribute('tabindex', '-1');
+      m.focus();
+    }
+    function closePick(refocus) {
+      var b = $('#fpick'), m = $('#fpickMenu');
+      pick.open = false;
+      if (m) m.hidden = true;
+      if (b) { b.setAttribute('aria-expanded', 'false'); if (refocus) b.focus(); }
+    }
+    // Focus goes back to the field name only for a keyboard choice. After a mouse choice it would draw
+    // a focus ring around the new field that nobody asked for.
+    function choosePick(i, byKey) {
+      var it = pick.items[i], sel = $('#pvFieldSel');
+      closePick(!!byKey);
+      if (!byKey && document.activeElement && document.activeElement.blur) document.activeElement.blur();
+      if (!it || !sel || it.key === pick.key) return;
+      sel.value = it.key;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    on($('#fpick'), 'click', function () { pick.open ? closePick(false) : openPick(); });
+    on($('#fpick'), 'keydown', function (e) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault(); pick.open ? closePick(true) : openPick();
+      }
+    });
+    on($('#fpickMenu'), 'click', function (e) {
+      var o = e.target.closest && e.target.closest('.fpick-opt');
+      if (o) choosePick(+o.getAttribute('data-i'), false);
+    });
+    on($('#fpickMenu'), 'mousemove', function (e) {
+      var o = e.target.closest && e.target.closest('.fpick-opt');
+      if (o && +o.getAttribute('data-i') !== pick.idx) { pick.idx = +o.getAttribute('data-i'); renderPickMenu(); }
+    });
+    on($('#fpickMenu'), 'keydown', function (e) {
+      var n = pick.items.length;
+      if (e.key === 'Escape') { e.preventDefault(); closePick(true); return; }
+      if (e.key === 'Tab') { closePick(false); return; }
+      if (!n) return;
+      if (e.key === 'ArrowDown') pick.idx = (pick.idx + 1) % n;
+      else if (e.key === 'ArrowUp') pick.idx = (pick.idx - 1 + n) % n;
+      else if (e.key === 'Home') pick.idx = 0;
+      else if (e.key === 'End') pick.idx = n - 1;
+      else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choosePick(pick.idx, true); return; }
+      else return;
+      e.preventDefault();
+      renderPickMenu();
+    });
+    on(document, 'mousedown', function (e) {
+      if (!pick.open) return;
+      var m = $('#fpickMenu'), b = $('#fpick');
+      if ((m && m.contains(e.target)) || (b && b.contains(e.target))) return;
+      closePick(false);
+    });
+    on(window, 'resize', function () { if (pick.open) placePickMenu(); });
+    on(window, 'scroll', function () { if (pick.open) placePickMenu(); }, true);
+
+    var greetState = { name: null, pre: '', suf: '' };
+
+    // Types the sentence in three runs: the words before the field, the field name (inside the
+    // picker button, chevron held back until it is complete), then the rest. The field's name is
+    // read when its turn comes, so a selection restored while the greeting types is the one shown.
     function typeGreeting(name) {
-      var full = (name || 'Guest') + pickGreeting();
-      var sr = $('#greetingText'), anim = $('#greetingAnim'), caret = $('#greetingCaret');
-      if (sr) sr.textContent = full;
-      if (!anim) return;
+      var t = pickGreeting().split('{F}');
+      greetState = { name: name || 'Guest', pre: t[0], suf: t[1] || '' };
+      var sr = $('#greetingText'), pre = $('#gPre'), wrap = $('#fpickWrap'), lab = $('#fpickLabel'),
+          suf = $('#gSuf'), btn = $('#fpick'), caret = $('#greetingCaret');
+      if (sr) sr.textContent = greetingSentence();
+      paintPickLabel();
+      if (!pre || !wrap || !lab || !suf) return;
       if (typeTimer) { clearTimeout(typeTimer); typeTimer = null; }
-      if (anim.textContent === full) { if (caret) caret.classList.add('done'); return; }
       // NO prefers-reduced-motion BRANCH, deliberately, and this is the whole reason the greeting
       // "never appeared". There was one here, and it painted the sentence in a single frame and
       // hid the caret outright. Headless Chromium reports no-preference, so every measurement I ran
       // passed on a code path the reporter was never on; three rounds of "it works, I measured it"
-      // against "it is not there" were that gap.
-      //
-      // The branch is gone rather than tuned. What it was suppressing is a 38-character text reveal
-      // on one heading and a 2px cursor -- neither is the large-area or parallax motion the setting
-      // exists to prevent, and a native text caret blinks under that setting on every OS. Anything
-      // heavier on this page should still honour the preference; this line is not that.
+      // against "it is not there" were that gap. What is animated is a short text reveal on one
+      // heading and a 2px cursor, not the large-area motion the setting exists to prevent.
       var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      // Pace to a roughly constant DURATION rather than a constant per-character delay: the
-      // variants differ by twenty characters and a fixed 48ms made the long ones crawl.
+      // Pace to a roughly constant DURATION rather than a constant per-character delay.
       var target = reduced ? 1500 : 1950;
-      var typeMs = Math.max(24, Math.min(55, Math.round(target / Math.max(1, full.length))));
+      var typeMs = Math.max(24, Math.min(55, Math.round(target / Math.max(1, greetingSentence().length))));
+      pick.typed = false;
+      pre.textContent = ''; lab.textContent = ''; suf.textContent = '';
+      wrap.hidden = true;
+      if (btn) btn.classList.add('typing');
       if (caret) caret.classList.remove('done');
-      var i = 0;
-      // The cursor is never removed now, only slowed: .done widens the blink rather than setting
-      // display:none, which is what made it a thing that existed for four seconds and then was not
-      // there for the rest of the session.
+      var head = greetState.name + greetState.pre, i = 0, j = 0, k = 0, label = null;
       (function step() {
-        anim.textContent = full.slice(0, ++i);
-        if (i < full.length) { typeTimer = setTimeout(step, typeMs); return; }
+        if (i < head.length) { pre.textContent = head.slice(0, ++i); }
+        else if (label === null || j < label.length) {
+          if (label === null) { label = pickLabel(); wrap.hidden = false; }
+          lab.textContent = label.slice(0, ++j);
+          if (j >= label.length) { pick.typed = true; if (btn) btn.classList.remove('typing'); paintPickLabel(); }
+        }
+        else if (k < greetState.suf.length) { suf.textContent = greetState.suf.slice(0, ++k); }
+        if (i < head.length || label === null || j < label.length || k < greetState.suf.length) {
+          typeTimer = setTimeout(step, typeMs); return;
+        }
         typeTimer = null;
         if (caret) typeTimer = setTimeout(function () {
           caret.classList.add('done'); typeTimer = null;
