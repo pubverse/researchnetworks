@@ -339,7 +339,7 @@
 
   function statusCaption(s) {
     if (s === 'queued') return 'Queued. Waiting for a free slot' + (lastEstimate
-      ? ' \u2014 then about ' + lastEstimate + ' of reading.' : '...');
+      ? '. After that, about ' + lastEstimate + ' of reading.' : '...');
     if (s === 'running') {
       // Say the real number, and say the page need not stay open. Every search reads each candidate
       // paper against the prior work it would have to improve on, which is the slow part and is the
