@@ -26,7 +26,8 @@
 
     // Compass page: how far back to look, in months. The selector is built from
     // this list and starts on TIMEFRAME_DEFAULT (the third option, 3 months).
-    TIMEFRAMES: [1, 3, 6, 9, 12, 15, 18, 21, 24],
+    // Capped at 12: the classified recent pool Compass fields are cut from holds 12 months.
+    TIMEFRAMES: [1, 3, 6, 9, 12],
     TIMEFRAME_DEFAULT: 3
   };
 })();

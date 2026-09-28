@@ -266,6 +266,7 @@
         checkedTopic = topic;
         $('#validOk').textContent = r.message || 'This topic is covered. Choose how far back to look and find the needles.';
         $('#validOk').hidden = false;
+        renderFieldChoices(r.choices || [], r.default_subfield);
         $('#runControls').hidden = false;
         hideRequest();
         if (r.default_months != null) selectTimeframe(r.default_months);
@@ -273,6 +274,30 @@
         ui.showError('#topicErr', (r && r.message) || 'That topic is not covered yet. Try a broader or nearby subject.');
         showRequest(topic);
       }
+    });
+  }
+
+  /* The fields a topic can run in, from the classifier router: the chosen one decides where the
+     needles are hunted and which field map the results sit on. Fields with too few recent preprints
+     are shown but cannot be picked, so the person sees why their first guess is not offered. */
+  var chosenSubfield = null;
+  function renderFieldChoices(choices, def) {
+    var box = $('#fieldChoices'), list = $('#fieldChoiceList');
+    if (!box || !list) return;
+    chosenSubfield = def || null;
+    if (!choices.length) { box.hidden = true; list.innerHTML = ''; return; }
+    list.innerHTML = choices.map(function (c) {
+      var meta = esc(c.field) + ' \u00b7 ' + (c.pool_papers || 0).toLocaleString() + ' recent preprints' +
+                 (c.published ? ' \u00b7 published field' : '') +
+                 (c.enough ? '' : ' \u00b7 too few to search');
+      return '<label class="fc-opt' + (c.enough ? '' : ' thin') + '">' +
+        '<input type="radio" name="fieldChoice" value="' + c.subfield_id + '"' +
+        (c.subfield_id === def ? ' checked' : '') + (c.enough ? '' : ' disabled') + '>' +
+        '<span><span class="fc-name">' + esc(c.label) + '</span><br><span class="fc-meta">' + meta + '</span></span></label>';
+    }).join('');
+    box.hidden = false;
+    Array.prototype.forEach.call(list.querySelectorAll('input[name="fieldChoice"]'), function (el) {
+      el.addEventListener('change', function () { if (el.checked) chosenSubfield = parseInt(el.value, 10); });
     });
   }
 
@@ -288,7 +313,7 @@
     $('#findBtn').disabled = true;
     ui.showCompass('#spinner', 'Starting the search...');
 
-    api.compassRun(topic, months, email || undefined).then(function (r) {
+    api.compassRun(topic, months, email || undefined, chosenSubfield || undefined).then(function (r) {
       if (!r || r.ok === false || !r.run_id) {
         ui.hideCompass('#spinner');
         $('#findBtn').disabled = false;

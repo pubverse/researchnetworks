@@ -98,6 +98,14 @@
        was typed. */
     @media(prefers-reduced-motion:reduce){.caret{animation-duration:2s}}
     .graph-card{min-height:180px}
+    .field-choices{border:0;margin:12px 0 0;padding:0}
+    .field-choices legend{padding:0;margin-bottom:6px}
+    .fc-opt{display:flex;gap:10px;align-items:baseline;padding:7px 10px;border:1px solid var(--line);
+            border-radius:var(--r-s);margin-bottom:6px;cursor:pointer;background:var(--panel)}
+    .fc-opt:has(input:checked){border-color:var(--blue);background:var(--blue-l)}
+    .fc-opt.thin{opacity:.55;cursor:not-allowed}
+    .fc-name{font-weight:500}
+    .fc-meta{font-size:.8rem;color:var(--muted)}
 
     /* ---- field picker, inside the greeting ---- */
     /* It reads as part of the sentence: same face, same size, a quiet underline and a chevron that
@@ -411,6 +419,13 @@
               </div>
 
               <div id="runControls" hidden>
+                <!-- Which field the search runs in. The router offers the subfields our classifiers
+                     place the topic in; the needles are found inside the chosen field and the map is
+                     that field's map. -->
+                <fieldset class="field-choices" id="fieldChoices" hidden>
+                  <legend class="mini muted">Search in</legend>
+                  <div id="fieldChoiceList"></div>
+                </fieldset>
                 <div class="row rwrap" style="gap:10px;margin-top:12px">
                   <input id="email" type="email" placeholder="Email me when it finishes (optional)" style="flex:1;min-width:0">
                   <button class="btn" id="findBtn" type="button">Find the needles</button>

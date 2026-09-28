@@ -216,9 +216,10 @@
       if (email) body.email = email;
       return request('/api/compass/request-topic', { method: 'POST', body: body });
     },
-    compassRun: function (topic, monthsBack, email) {
+    compassRun: function (topic, monthsBack, email, subfieldId) {
       var body = { topic: topic, months_back: monthsBack };
       if (email) body.email = email;
+      if (subfieldId) body.subfield_id = subfieldId;
       return request('/api/compass/run', { method: 'POST', body: body });
     },
     compassPoll: function (runId) {
