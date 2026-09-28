@@ -334,7 +334,9 @@
                let its global CSS reset loose on the site. The iframe is same-origin, so nothing is
                sandboxed away that the map needs. -->
           <div id="fieldGraph">
-            <iframe id="fieldGraphFrame" loading="lazy"
+            <!-- Not lazy: a search's map URL carries a 30-minute token, and a lazy frame scrolled to
+                 later fetched it after it had expired (a raw 401 in the frame). -->
+            <iframe id="fieldGraphFrame"
                     title="Interactive map of biomathematics preprints from the last 12 months"></iframe>
           </div>
 
