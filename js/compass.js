@@ -37,6 +37,13 @@
       var rows = Array.isArray(res) ? res : (res && Array.isArray(res.runs) ? res.runs : []);
       userRuns = rows.filter(function (r) { return r && r.status === 'done'; });
       renderFieldBar();
+      // A search still in flight is picked back up after a reload or on another visit. It used to
+      // be invisible until it finished (only 'done' rows are listed), so people resubmitted.
+      var live = rows.filter(function (r) { return r && (r.status === 'running' || r.status === 'queued'); });
+      if (live.length && !polling) {
+        ui.showCompass('#spinner', statusCaption(live[0].status));
+        pollRun(live[0].run_id);
+      }
       var k = storedKey();
       if (k && k.indexOf('run:') === 0 && activeKey !== k &&
           userRuns.some(function (r) { return 'run:' + r.run_id === k; })) {
@@ -338,21 +345,20 @@
       // paper against the prior work it would have to improve on, which is the slow part and is the
       // product; pretending otherwise just makes people close the tab and think it broke.
       return lastEstimate
-        ? ('Reading the recent literature. This takes ' + lastEstimate + '. You can close this page '
-           + '\u2014 if you left an email we will write when it is ready.')
-        : ('Reading the recent literature. This takes hours, not minutes. You can close this page '
-           + '\u2014 if you left an email we will write when it is ready.');
+        ? ('Reading the recent literature. This takes ' + lastEstimate + '. You can close this page. '
+           + 'If you left an email we will write when it is ready.')
+        : ('Reading the recent literature. This takes hours, not minutes. You can close this page. '
+           + 'If you left an email we will write when it is ready.');
     }
     return 'Working...';
   }
 
   function pollRun(runId) {
     polling = true;
-    // 2.5s x 480 was 20 minutes, after which the page declared the run "longer than expected" --
-    // on work that routinely takes three hours or more. Poll briskly while a fast failure is still
-    // possible, then back off hard: the email is the real delivery channel and this is only so a
-    // page left open eventually fills in. 24 quick plus the rest at 30s covers about four hours.
-    var tries = 0, QUICK = 24, MAX = 500, iv = null;
+    // Poll briskly while a fast failure is still possible, then every 30 s for as long as the page
+    // is open. It used to stop after about four hours, which is shorter than a first search in a
+    // field takes, so a page left open never showed the finished run.
+    var tries = 0, QUICK = 24, iv = null;
 
     function stop() { if (iv) clearInterval(iv); iv = null; polling = false; }
 
@@ -375,14 +381,6 @@
           ui.hideCompass('#spinner');
           $('#findBtn').disabled = false;
           ui.showError('#topicErr', (r && r.message) || 'The run did not finish. Please try again.');
-        } else if (tries >= MAX) {
-          // Not an error. The run is still going; this page simply stopped watching.
-          stop();
-          ui.hideCompass('#spinner');
-          $('#findBtn').disabled = false;
-          ui.showCompass('#spinner', 'Still running. This page has stopped checking, but the search '
-            + 'has not stopped \u2014 it will appear in your list of searches when it finishes, and '
-            + 'we will email you if you left an address.');
         } else {
           ui.showCompass('#spinner', statusCaption(r && r.status));
         }
