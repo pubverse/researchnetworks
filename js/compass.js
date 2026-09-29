@@ -304,7 +304,13 @@
     }).join('');
     box.hidden = false;
     Array.prototype.forEach.call(list.querySelectorAll('input[name="fieldChoice"]'), function (el) {
-      el.addEventListener('change', function () { if (el.checked) chosenSubfield = parseInt(el.value, 10); });
+      el.addEventListener('change', function () {
+        if (!el.checked) return;
+        chosenSubfield = parseInt(el.value, 10);
+        var c = choices.filter(function (x) { return x.subfield_id === chosenSubfield; })[0];
+        if (c) $('#validOk').textContent = 'Your search will run in ' + c.label + ' (' + c.field + '), ' +
+          (c.pool_papers || 0).toLocaleString() + " preprints from the last 12 months, and show that field's map.";
+      });
     });
   }
 
