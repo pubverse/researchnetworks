@@ -533,7 +533,8 @@
     // screen under this search's heading.
     try {
       document.dispatchEvent(new CustomEvent('pv:run-map', { detail: {
-        state: r.map || 'none', runId: runId, topic: r.topic, exportToken: r.export_token
+        state: r.map || 'none', runId: runId, topic: r.topic, field: r.field || null,
+        exportToken: r.export_token
       }}));
     } catch (e) {}
   }

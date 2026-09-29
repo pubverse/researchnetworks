@@ -601,7 +601,7 @@
   <script src="js/config.js?v=6"></script>
   <script src="js/api.js?v=7"></script>
   <script src="js/ui.js?v=5"></script>
-  <script src="js/compass.js?v=11"></script>
+  <script src="js/compass.js?v=12"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires elements to those helpers. */
@@ -1720,11 +1720,18 @@
           if (my !== mapToken) return;
           m.frame.hidden = false;
           m.frame.src = PV.api.compassRunMapUrl(d.runId, d.exportToken);
-          m.frame.title = 'Interactive map for your search: ' + (d.topic || '');
+          m.frame.title = 'Interactive map of ' + (d.field || 'the field') + ' with the needles for ' + (d.topic || 'your search');
           m.sec.hidden = false;
-          if (m.h && d.topic) m.h.textContent = 'The shape of ' + d.topic;
-          if (m.note) { m.note.textContent = 'Your search, clustered by the scoring pipeline. ' +
-                                             'Drag to pan, scroll to zoom.'; m.note.title = ''; }
+          // The map is the FIELD's (shared by every search in it); the search contributes its needles.
+          // Saying "the shape of CAR-T therapy" over Oncology's map told the person the opposite.
+          if (m.h) m.h.textContent = 'The shape of ' + (d.field || d.topic || 'the field');
+          if (m.note) {
+            m.note.textContent = (d.field
+              ? d.field + ', preprints from the last 12 months, with the needles from your search for ' +
+                (d.topic || 'this topic') + '. '
+              : 'Your search, clustered by the scoring pipeline. ') + 'Drag to pan, scroll to zoom.';
+            m.note.title = '';
+          }
         } else if (d.state === 'building') {
           blankMap(d, 'Mapping this field for the first time. Clustering and naming its topics ' +
                       'takes about an hour. Your needles are ready below; the map appears when it ' +
