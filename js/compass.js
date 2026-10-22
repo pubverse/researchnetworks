@@ -726,8 +726,8 @@
 
     /* "Show me where this one is on the map." The needle list sits directly under the map, so this
        is the obvious question while looking at both. The map is in an iframe -- possibly on another
-       host -- so this posts to it rather than reaching into it, and the map widens its own depth
-       filter if the paper is deeper than the current setting. Rendered only when a map is actually
+       host -- so this posts to it rather than reaching into it, and the map opens the paper's
+       theme if it is folded away. Rendered only when a map is actually
        on the page: a button that silently does nothing is worse than no button. */
     function locateBtn(n) {
       if (!n) return '';
