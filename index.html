@@ -371,7 +371,7 @@
         <div class="tabs">
           <button data-tab="compass" class="active">Compass</button>
           <button data-tab="score" aria-describedby="coursePlotHint"
-                  title="Ranks a pasted abstract or idea against prior work.">Course Plot</button>
+                  title="Ranks a pasted abstract or idea against prior work.">Course Plot (your abstract)</button>
           <button data-tab="history">History</button>
         </div>
         <span class="sr-only" id="coursePlotHint">Ranks a pasted abstract or idea against prior work.</span>
@@ -448,7 +448,7 @@
         <section class="tabpane" data-tab="score">
           <div class="card">
             <div class="section-intro">
-              <h2>Course Plot
+              <h2>Course Plot (your abstract)
                 <span class="tiphost"><button type="button" class="info" id="abstractInfo" aria-describedby="abstractInfoTip"
                         aria-label="What to include">i</button><span class="tip" id="abstractInfoTip" role="tooltip">Include a hypothesis, the methods, and an impact statement. Abstracts that state all three are read more accurately, because each is scored separately.</span></span>
               </h2>
@@ -785,10 +785,23 @@
       if (/^10\./.test(u)) return 'https://doi.org/' + u;
       return '';
     }
-    function renderGrounding(res) {
-      var box = $('#scoreGrounding');
-      if (!box) return;
+    // The server numbers the sources 1..n in the order the text first cites them, so "[k]" in a
+    // paragraph is entry k of the list under it. pre keeps ids unique when several results are on the page.
+    function groundingHtml(res, pre) {
       var r = res.reasoning || {}, works = res.cited_works || [], html = '';
+      var byN = {};
+      works.forEach(function (w, i) { byN[w.n || (i + 1)] = w; });
+      function cite(text) {
+        return escG(text).replace(/\[(\d+(?:, \d+)*)\]/g, function (whole, inner) {
+          var links = inner.split(', ').map(function (k) {
+            var w = byN[k];
+            if (!w) return k;
+            return '<a href="#' + pre + k + '" data-cp-ref="' + pre + k + '" title="' +
+              escG((w.title || '') + (w.year ? ' (' + w.year + ')' : '')) + '">' + k + '</a>';
+          });
+          return '<sup>[' + links.join(', ') + ']</sup>';
+        });
+      }
       var dims = [['novelty', 'Novelty'], ['methods', 'Methods'], ['impact', 'Impact']];
       if (dims.some(function (d) { return r[d[0]] && r[d[0]].text; })) {
         html += '<div class="mini strong" style="margin-bottom:6px">Why these scores</div>';
@@ -796,25 +809,44 @@
           var rr = r[d[0]];
           if (!rr || !rr.text) return;
           html += '<p style="margin:0 0 8px"><b>' + d[1] +
-            (rr.score != null ? ' (' + rr.score + '/10)' : '') + ':</b> ' + escG(rr.text) + '</p>';
+            (rr.score != null ? ' (' + rr.score + '/10)' : '') + ':</b> ' + cite(rr.text) + '</p>';
         });
       }
       if (works.length) {
         html += '<div class="mini strong" style="margin:12px 0 6px">Prior work this was judged against (' +
-          works.length + ')</div>';
-        works.forEach(function (w) {
-          var u = citeUrl(w), t = escG(w.title || w.source_id || 'source');
-          html += '<div style="margin:0 0 8px">' +
+          works.length + ')</div><ol style="margin:0;padding:0;list-style:none">';
+        works.forEach(function (w, i) {
+          var u = citeUrl(w), t = escG(w.title || w.source_id || 'source'), n = w.n || (i + 1);
+          html += '<li id="' + pre + n + '" value="' + n + '" style="margin:0 0 8px;padding-left:2em;position:relative">' +
+            '<span style="position:absolute;left:0">[' + n + ']</span>' +
             (u ? '<a href="' + escG(u) + '" target="_blank" rel="noopener">' + t + '</a>' : t) +
             (w.year ? ' (' + escG(w.year) + ')' : '') +
             (w.sim != null ? ' <span class="mini">cosine ' + (Math.round(w.sim * 100) / 100) + '</span>' : '');
           if (w.did) html += '<div class="mini" style="color:var(--muted)">' + escG(String(w.did).slice(0, 240)) + '</div>';
-          html += '</div>';
+          html += '</li>';
         });
-        html += '<button class="btn ghost sm" id="scoreBibBtn" type="button">Download references (BibTeX)</button>';
+        html += '</ol>';
       }
+      return html;
+    }
+    // [k] links jump to the numbered entry (an anchor hash would fight the tab switching).
+    function wireCiteLinks(box) {
+      Array.prototype.forEach.call(box.querySelectorAll('a[data-cp-ref]'), function (a) {
+        on(a, 'click', function (e) {
+          e.preventDefault();
+          var t = document.getElementById(a.getAttribute('data-cp-ref'));
+          if (t) t.scrollIntoView({ block: 'center' });
+        });
+      });
+    }
+    function renderGrounding(res) {
+      var box = $('#scoreGrounding');
+      if (!box) return;
+      var works = res.cited_works || [], html = groundingHtml(res, 'cp-ref-');
+      if (works.length) html += '<button class="btn ghost sm" id="scoreBibBtn" type="button">Download references (BibTeX)</button>';
       box.innerHTML = html;
       box.hidden = !html;
+      wireCiteLinks(box);
       var b = $('#scoreBibBtn');
       if (b) on(b, 'click', function () { downloadScoreBib(works); });
     }
@@ -1027,6 +1059,21 @@
         a.textContent = it.doi ? ('DOI: ' + it.doi) : 'View paper';
         doiLine.appendChild(a);
         panel.appendChild(doiLine);
+      }
+      // Results saved since sources were kept re-open with their numbered sources.
+      if (it.cited_works && it.cited_works.length) {
+        var det = document.createElement('details');
+        det.style.marginTop = '8px';
+        var sm = document.createElement('summary');
+        sm.className = 'mini';
+        sm.textContent = 'Why these scores, and the sources';
+        det.appendChild(sm);
+        var body = document.createElement('div');
+        body.style.marginTop = '8px';
+        body.innerHTML = groundingHtml(it, 'cp-h' + id + '-ref-');
+        wireCiteLinks(body);
+        det.appendChild(body);
+        panel.appendChild(det);
       }
       panel.appendChild(actions);
       return panel;
