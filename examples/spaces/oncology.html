@@ -696,7 +696,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "id": "Computational Cluster 0",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M0: Spatial Tumor Microenvironment\u2026",
+      "label": "Spatial Tumor Microenvironment Analysis",
       "title": "Spatial Tumor Microenvironment Analysis",
       "overview": "This cluster focuses on advanced computational pipelines for analyzing multiplexed imaging and spatial transcriptomics data to characterize tumor microenvironment (TME) dynamics. It integrates self-supervised learning, cellular social network analysis, and high-content phenotyping to identify spatial biomarkers and cell-cell interactions across diverse cancer types",
       "abstract": "These studies introduce robust computational methods for extracting quantitative insights from complex spatial omics datasets, including multiplex immunofluorescence (mIF) and imaging mass cytometry (IMC). Key contributions include the development of self-supervised learning frameworks for hypothesis-agnostic biomarker discovery and the application of cellular social network analysis (SNA) to uncover tumor microenvironment patterns associated with clinical outcomes like microsatellite instability. The cluster also features tools for label-free cell type identification and the quantification of spatial expression gradients, enabling the characterization of cell-cell interactions and tissue states. By addressing challenges such as batch effects and high-dimensional data integration, these pipelines facilitate the identification of prognostic spatial architectures and stromal interactions in various malignancies",
@@ -755,13 +755,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Spatial Tumor Microenvironment Analysis"
     },
     {
       "id": "Computational Cluster 1",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M1: Machine Learning Prognostic Ri\u2026",
+      "label": "Machine Learning Prognostic Ri\u2026",
       "title": "Machine Learning Prognostic Risk Models",
       "overview": "This cluster focuses on the development of computational frameworks, including random survival forests and LASSO regression, to derive prognostic risk scores from multi-omics and clinical data. These models aim to enhance clinical applicability by integrating biological signatures with patient-specific factors for individualized survival prediction",
       "abstract": "The research presented in this cluster centers on the construction of robust, interpretable machine learning models designed to predict patient survival outcomes and disease progression across various cancer types. Key methodologies include Random Survival Forests, LASSO-based regression, and ensemble learning techniques that process high-dimensional genomic, transcriptomic, and clinical datasets. By integrating specific biological signatures, such as autophagy-dependent transcriptional profiles or glioma stem cell markers, with demographic and treatment variables, these algorithms generate individualized risk scores. The resulting prognostic classifiers are validated against established clinical parameters to demonstrate their ability to stratify patients into distinct risk groups independently of traditional staging. Furthermore, the emphasis on model interpretability ensures that these computational tools can be effectively translated into clinical practice for personalized treatment planning and survival prediction",
@@ -820,13 +821,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Machine Learning Prognostic Risk Models"
     },
     {
       "id": "Computational Cluster 2",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M2: Computational Drug Response Pr\u2026",
+      "label": "Computational Drug Response Pr\u2026",
       "title": "Computational Drug Response Prediction",
       "overview": "This cluster focuses on computational frameworks that predict cancer treatment outcomes by integrating large-scale drug combination data, transcriptomic profiles, and mechanistic models. It addresses challenges in quantifying drug synergy and identifying non-oncogene dependencies to improve therapeutic stratification",
       "abstract": "These studies develop robust statistical and machine learning methodologies to predict drug responses and identify synergistic combinations in cancer. Key contributions include the establishment of reference null distributions for synergy metrics across pan-cancer cell lines and the creation of mutation-agnostic network-based approaches to target master regulators. The cluster also features deep learning architectures, such as transformers and feedforward neural networks, trained on DNA mutation and expression data to predict binary drug responses in specific sarcomas. Furthermore, it presents supervised machine learning frameworks like EXPRESSO that integrate drug targets and context-specific biomarkers from pre-treatment transcriptomes. By combining active learning with mechanistic logic-ODE models, these methods guide perturbation screenings to uncover regulatory networks, thereby enhancing the precision of therapeutic repurposing and combination design",
@@ -885,13 +887,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Computational Drug Response Prediction"
     },
     {
       "id": "Computational Cluster 3",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M3: Mathematical Tumor Growth Mode\u2026",
+      "label": "Mathematical Tumor Growth Mode\u2026",
       "title": "Mathematical Tumor Growth Modeling",
       "overview": "This cluster develops mathematical frameworks, including ordinary differential equations and agent-based simulations, to characterize tumor dynamics. The models integrate biophysical factors like hypoxia and drug penetration with genetic regulatory networks to predict therapeutic responses",
       "abstract": "The research focuses on constructing mechanistic mathematical models to simulate tumor initiation, growth, and response to therapy. By coupling ordinary differential equations with biophysical constraints such as oxygen diffusion and energy conservation, these models capture complex phenomena like hypoxic memory and necrosis formation. Additionally, gene regulatory network simulations elucidate the interplay between resistance mechanisms and immune escape in specific cancer subtypes. The approach enables the inference of tumor-initiating cell parameters and the optimization of treatment scheduling, such as periodic drug-on/drug-off regimes, to exploit metabolic plasticity. These computational tools provide a unified framework for understanding the selective advantages of initiating clones and improving the statistical power of preclinical studies",
@@ -950,13 +953,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T6"
+      "theme": "T6",
+      "unique_title": "Mathematical Tumor Growth Modeling"
     },
     {
       "id": "Computational Cluster 4",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M4: Interpretable Machine Learning\u2026",
+      "label": "Interpretable Machine Learning\u2026",
       "title": "Interpretable Machine Learning Pathology",
       "overview": "This cluster focuses on developing interpretable machine learning methodologies, particularly Multiple Instance Learning (MIL), to analyze whole-slide images and spatial transcriptomic data. The approaches aim to identify histological biomarkers, predict clinical outcomes, and integrate multi-omic features for robust patient-level predictions in cancer research",
       "abstract": "This research cluster advances the application of interpretable machine learning techniques to computational pathology and spatial omics. Key contributions include the development of Wasserstein Geodesic Transformations to stabilize feature analysis and the creation of specialized MIL frameworks like SpaMIL for integrating spatial transcriptomics with histology. The cluster also introduces predictive models such as PreCSenM for cellular senescence and PETIL for determining optimal feature combinations in tumor-infiltrating lymphocyte expansion. These methods collectively enhance the stability, scalability, and biological interpretability of downstream analyses in glioblastoma, bladder cancer, and lung adenocarcinoma. By bridging high-dimensional imaging data with clinical and biological specimens, these tools facilitate the discovery of prognostic hotspots and actionable biomarkers",
@@ -1015,13 +1019,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Interpretable Machine Learning Pathology"
     },
     {
       "id": "Computational Cluster 5",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M5: Computational Oncogenomic Vari\u2026",
+      "label": "Computational Oncogenomic Vari\u2026",
       "title": "Computational Oncogenomic Variant Analysis",
       "overview": "This cluster focuses on advanced bioinformatics pipelines and statistical models for analyzing cancer genomes. It combines deep learning-based pathogenicity prediction with evolutionary clonal reconstruction to refine biomarkers like TMB and detect DNA repair deficiencies",
       "abstract": "The research cluster presents a suite of computational methods designed to enhance the precision of cancer genomic profiling. Key contributions include the development of metrics to quantify selection bias in driver genes and the integration of AlphaMissense deep learning scores to create a composite tumor mutation burden (AlphaTMB) biomarker. Additionally, the cluster features open-source workflows such as nf-core-oncoseq for streamlined long-read sequencing analysis, enabling rapid pediatric cancer diagnosis. Statistical and evolutionary modeling techniques are applied to reconstruct clonal structures from FFPE specimens and identify concurrent deficiencies in mismatch repair and homologous recombination pathways. These approaches collectively move beyond binary biomarkers to provide a nuanced, molecularly heterogeneous understanding of tumor evolution and therapeutic response",
@@ -1080,13 +1085,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T5"
+      "theme": "T5",
+      "unique_title": "Computational Oncogenomic Variant Analysis"
     },
     {
       "id": "Computational Cluster 6",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M6: Integrative Spatial Single-Cel\u2026",
+      "label": "Integrative Spatial Single-Cel\u2026",
       "title": "Integrative Spatial Single-Cell Analysis",
       "overview": "This cluster develops computational pipelines that integrate multi-modal spatial omics and single-cell data to reconstruct tumor microenvironments. It employs advanced clustering and imaging algorithms to map cellular heterogeneity, spatial interactions, and proteomic phenotypes in cancer contexts",
       "abstract": "Recent advancements in spatial and single-cell technologies have generated complex, high-dimensional datasets that require robust computational integration to reveal biological insights. This cluster presents novel algorithms, such as INCLOSE and GIS-ROTA, designed to cluster single-cell omics data while incorporating sample metadata and geographic information systems to reconstruct tumor architecture. Additionally, the cluster includes frameworks for deep multiplexed imaging and microscopy-guided proteomics, enabling the profiling of up to 50 molecular markers per cell and the mapping of proteomic heterogeneity within single-cell-derived colonies. By combining orthogonal validation strategies and spatial transcriptomics, these methods facilitate the discovery of condition-specific cell populations and intricate cellular interactomes. These computational approaches are applied to diverse cancer types, including skin cancers and head and neck squamous cell carcinoma, to uncover variability in the tumor microenvironment and identify actionable biomarkers for precision oncology",
@@ -1145,13 +1151,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Integrative Spatial Single-Cell Analysis"
     },
     {
       "id": "Computational Cluster 7",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M7: Engineered Cell Therapy Models",
+      "label": "Engineered Cell Therapy Models",
       "title": "Engineered Cell Therapy Models",
       "overview": "This cluster focuses on the design of advanced adoptive cell therapies, including CAR and TCR-engineered T cells, and the creation of syngeneic mouse models for in vivo validation. The research integrates genetic engineering tools to overcome resistance mechanisms and enhance therapeutic efficacy in solid tumors",
       "abstract": "This research cluster centers on the development of next-generation cellular immunotherapies and the establishment of robust preclinical models to evaluate their efficacy. Key contributions include the engineering of second-generation CAR T cells with modified specificity to avoid on-target off-tumor toxicity, as well as the creation of TCR:ICOS formats that enhance T cell fitness and durability. The work is supported by the development of syngeneic mouse models and isogenic xenografts that enable longitudinal lineage tracing and transcriptome-wide analysis of tumor resistance mechanisms. These models facilitate the functional interrogation of high-plasticity cell states and metabolic alterations that drive resistance to targeted therapies. By combining advanced genetic engineering with precise in vivo modeling, the cluster provides a comprehensive framework for optimizing adoptive cell therapy against solid tumors",
@@ -1210,13 +1217,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Engineered Cell Therapy Models"
     },
     {
       "id": "Computational Cluster 8",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M8: Structure-Guided Small Molecul\u2026",
+      "label": "Structure-Guided Small Molecul\u2026",
       "title": "Structure-Guided Small Molecule Inhibitor Design",
       "overview": "This cluster focuses on the integration of structural biology, molecular docking, and chemical synthesis to develop potent small molecule inhibitors. It highlights the use of structure-activity relationship (SAR) campaigns and cryo-EM data to guide the design of ligands targeting specific protein interactions and post-translational modifications",
       "abstract": "The research presented in this cluster centers on the rational design and optimization of small molecule inhibitors for various biological targets implicated in cancer and other diseases. By leveraging high-resolution structural data, such as cryo-EM structures of GPCR complexes, and computational tools like molecular docking and dynamics simulations, researchers identify key binding sites and interaction motifs. These insights drive structure-activity relationship (SAR) campaigns to synthesize analogs with improved potency and selectivity, as seen in the optimization of CD28 and TRIB2 inhibitors. Additionally, the cluster explores novel mechanisms of action, such as lysine-R2HGylation, where small molecules are designed to mimic or modulate post-translational modifications. The combined use of chemical synthesis, mutational analysis, and functional characterization enables the development of targeted therapeutic agents that disrupt critical protein-protein interactions or enzymatic activities",
@@ -1275,13 +1283,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Structure-Guided Small Molecule Inhibitor Design"
     },
     {
       "id": "Computational Cluster 9",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M9: Targeted Nanomedicine Delivery\u2026",
+      "label": "Targeted Nanomedicine Delivery\u2026",
       "title": "Targeted Nanomedicine Delivery Systems",
       "overview": "This cluster focuses on the design of advanced drug delivery platforms, including aptamer-embedded circular RNAs, nanochiral assemblies, and antibody-drug conjugates. These systems utilize specific molecular targeting mechanisms to enhance the efficacy of cytotoxic payloads and immunotherapeutic agents in cancer treatment",
       "abstract": "The research within this cluster centers on the development of sophisticated, carrier-based delivery systems designed to overcome biological barriers and improve therapeutic specificity. Key contributions include the engineering of programmable aptamer-embedded circular RNAs for targeted antigen-presenting cell immunotherapy and the creation of nanochirality-programmed assemblies that facilitate deep-tumor penetration by reducing extracellular matrix adhesion. Additionally, the cluster highlights the advancement of antibody-drug conjugates targeting specific markers like L1CAM and the design of covalent activators that induce metabolic imbalance in tumor cells. These methodologies collectively aim to synergize targeted delivery with potent cytotoxic or immunomodulatory payloads to enhance anti-tumor immunity and suppress tumor growth in both in vitro and in vivo models",
@@ -1340,13 +1349,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Targeted Nanomedicine Delivery Systems"
     },
     {
       "id": "Computational Cluster 10",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M10: Multi-omics Metabolic Kinetic\u2026",
+      "label": "Multi-omics Metabolic Kinetic\u2026",
       "title": "Multi-omics Metabolic Kinetic Modeling",
       "overview": "This cluster develops computational frameworks that integrate multi-omics data with kinetic metabolic models to characterize tumor microenvironment dynamics. It combines flux sampling algorithms with proteomic profiling to identify context-specific metabolic vulnerabilities and protein interaction networks in cancer",
       "abstract": "The research cluster focuses on the computational integration of high-throughput proteomics and metabolic flux analysis to elucidate metabolic heterogeneity in cancer. By applying flux sampling and representation learning to central carbon metabolism models, the studies map the full range of feasible metabolic states in tumor cells. Concurrently, context-dependent photoproximity labeling techniques are used to capture cancer-specific protein-protein interactions and complex topologies within intact nuclei. These proteomic insights are coupled with large-scale multi-omics-driven kinetic model populations to track temporal adaptations in nutrient use and energy production. The combined approach enables the identification of specific metabolic vulnerabilities and regulatory liabilities, such as those involving MYC and CEP55, across diverse cancer models including ovarian and colorectal cancers",
@@ -1405,13 +1415,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Multi-omics Metabolic Kinetic Modeling"
     },
     {
       "id": "Computational Cluster 11",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M11: Competing Risk Survival Models",
+      "label": "Competing Risk Survival Models",
       "title": "Competing Risk Survival Models",
       "overview": "This cluster focuses on the application of competing risk statistical models, including piecewise continuous-time illness-death frameworks, to analyze cancer trajectories. It integrates clinical outcomes with health economic data to evaluate treatment effectiveness and resource burden",
       "abstract": "The papers in this cluster develop and apply advanced survival analysis techniques, specifically competing risk models and continuous-time Markov frameworks, to address complex clinical questions in oncology. Key contributions include the construction of piecewise continuous-time illness-death models to estimate temporal response and survival dynamics following immunotherapy in non-small-cell lung cancer. Additionally, the cluster features the use of pseudostaging algorithms applied to administrative claims data to evaluate the economic burden and stage-specific expenditures of melanoma. These computational methods are further extended to predict risks of complications such as cachexia and to assess multidimensional patient needs, providing a robust statistical foundation for both clinical trial analysis and health policy evaluation",
@@ -1470,13 +1481,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 2,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Competing Risk Survival Models"
     },
     {
       "id": "Computational Cluster 12",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M12: Conversational AI Precision On\u2026",
+      "label": "Conversational AI Precision On\u2026",
       "title": "Conversational AI Precision Oncology Frameworks",
       "overview": "This cluster focuses on conversational artificial intelligence platforms, such as AI-HOPE, that enable natural language queries for complex multi-omics data integration. These systems facilitate precision oncology by identifying prognostic pathway alterations, predicting therapeutic responses, and streamlining clinical trial eligibility assessments",
       "abstract": "The research cluster centers on the development and application of conversational artificial intelligence (AI) platforms, specifically the AI-HOPE ecosystem, to enhance integrative data exploration in oncology. By leveraging natural language processing, these tools allow researchers and clinicians to harmonize genomic, clinical, demographic, and therapeutic variables through intuitive queries. Key contributions include the identification of prognostic alterations in critical pathways such as TP53, JAK-STAT, and RTK-RAS in colorectal cancer, as well as the construction of immune and signaling profiles to predict long-term therapy response in chronic myeloid leukemia. Additionally, the cluster explores the use of foundation models like TabPFN for recommending optimal neoadjuvant therapies in breast cancer and evaluates the real-world impact of AI support in lung cancer diagnosis pathways. These computational workflows aim to bridge the gap between complex multi-dimensional data and actionable clinical insights, thereby supporting precision medicine and trial eligibility determination",
@@ -1535,13 +1547,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Conversational AI Precision Oncology Frameworks"
     },
     {
       "id": "Computational Cluster 13",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M13: Methylation-Based Liquid Biops\u2026",
+      "label": "Methylation-Based Liquid Biops\u2026",
       "title": "Methylation-Based Liquid Biopsy Profiling",
       "overview": "This cluster focuses on the development of computational pipelines and analytical methods for detecting and quantifying DNA methylation patterns in circulating cell-free DNA (cfDNA). It integrates high-throughput sequencing and array-based data to enable non-invasive cancer diagnosis, tumor purity estimation, and prognostic grading",
       "abstract": "The research within this cluster addresses the challenge of extracting actionable clinical insights from low-input, fragmented circulating DNA samples. By leveraging advanced algorithms for read alignment and methylation quantification, these methods distinguish tumor-derived DNA from background noise to assess tumor purity and identify specific cancer types. The computational frameworks are applied to both targeted and genome-wide methylation data, enabling the construction of prognostic scores such as the continuous grading coefficient for gliomas. Additionally, the cluster includes related high-sensitivity detection methods for extracellular vesicles and small RNA, which complement methylation-based liquid biopsy approaches. These tools collectively enhance the precision of non-invasive diagnostics, offering rapid and cost-effective alternatives for monitoring disease progression and therapeutic response",
@@ -1600,13 +1613,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T5"
+      "theme": "T5",
+      "unique_title": "Methylation-Based Liquid Biopsy Profiling"
     },
     {
       "id": "Computational Cluster 14",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M14: Foundation Models for Multi-Om\u2026",
+      "label": "Foundation Models for Multi-Om\u2026",
       "title": "Foundation Models for Multi-Omic Cancer Data",
       "overview": "This cluster focuses on the development of large-scale foundation models and machine learning frameworks designed to process complex, multi-omic cancer datasets. These methods leverage tokenized representations and latent factorization to handle sparse data, filter technical artifacts, and enable cross-platform prediction tasks such as mutation calling and tumor classification",
       "abstract": "The papers in this cluster introduce advanced computational architectures, including masked language models and non-negative matrix factorization variants, to address challenges in cancer genomics. Key contributions include the creation of generative foundation models trained on extensive tumor profiles to support genomic completion and synthetic patient generation. Additionally, the cluster features specialized frameworks for filtering FFPE-induced artifacts in RNA-seq data and deconvolving sparse count distributions in tumor cells. These methods jointly encode diverse data modalities, such as DNA methylation and gene expression, to improve biomarker quantification and early detection capabilities. By learning shared latent representations, these models enhance the robustness and scalability of multi-omic analysis across different cancer types and sequencing platforms",
@@ -1665,13 +1679,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 11,
       "bfs_degree": 7,
-      "theme": "T7"
+      "theme": "T7",
+      "unique_title": "Foundation Models for Multi-Omic Cancer Data"
     },
     {
       "id": "Computational Cluster 15",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M15: Computational Oncogenic RNA Di\u2026",
+      "label": "Computational Oncogenic RNA Di\u2026",
       "title": "Computational Oncogenic RNA Discovery",
       "overview": "This cluster focuses on developing reference-free and integrative computational frameworks to discover novel non-coding RNAs, such as oncRNAs and miRNAs, from cohort sequencing data. It employs AI-based modeling and network curation to identify druggable targets and regulatory mechanisms, including chromatin fragmentation signatures, independent of standard genome annotations",
       "abstract": "The papers in this cluster present advanced computational strategies for uncovering novel regulatory elements in cancer genomics, specifically targeting non-coding RNAs that are often missed by standard reference-based pipelines. A key contribution is the development of a reference-free approach to discover cancer-unique small RNAs and long non-coding RNAs directly from cohort sequencing data, bypassing dependencies on the human genome reference. Additionally, the cluster includes AI-based modeling and protein interaction network curation to identify druggable targets, such as SOX10 and MITF partners, in specific cancer types like uveal melanoma. Integrative transcriptomic analyses are used to pinpoint reproducible miRNA signatures regulating specific genes, while chromatin fiber models explain cell-free DNA fragmentation patterns linked to active regulatory elements. Together, these methods provide a comprehensive toolkit for identifying novel oncogenic RNAs and their functional regulatory contexts without relying on pre-existing genomic annotations",
@@ -1730,13 +1745,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Computational Oncogenic RNA Discovery"
     },
     {
       "id": "Computational Cluster 16",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M16: Machine Learning Multi-Omics B\u2026",
+      "label": "Machine Learning Multi-Omics B\u2026",
       "title": "Machine Learning Multi-Omics Biomarkers",
       "overview": "This cluster focuses on developing robust statistical and machine learning pipelines to integrate multi-omics data, including transcriptomics and proteomics, for cancer research. The primary objective is to identify molecular signatures and biomarkers that predict patient outcomes, such as drug resistance and response to neoadjuvant therapy",
       "abstract": "These studies employ advanced computational strategies, such as coupled support vector machines and recursive feature elimination, to analyze high-dimensional genomic and transcriptomic datasets from large patient cohorts. By integrating publicly available multi-omics resources, the frameworks aim to delineate actionable biomarkers for specific cancer types, including head and neck squamous cell carcinoma and breast cancer. The research also involves the creation of curated, updatable databases that predict chemotherapeutic drug resistance and overall survival probabilities based on experimentally validated markers. Furthermore, the models utilize importance scores to identify influential genes and maximize the likelihood of pathological complete response in patients. This approach bridges the gap between complex biological data and clinical decision-making by providing precise, data-driven predictions for personalized cancer therapies",
@@ -1795,13 +1811,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 9,
       "bfs_degree": 7,
-      "theme": "T7"
+      "theme": "T7",
+      "unique_title": "Machine Learning Multi-Omics Biomarkers"
     },
     {
       "id": "Computational Cluster 17",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M17: AI-Driven Radiotherapy Treatme\u2026",
+      "label": "AI-Driven Radiotherapy Treatme\u2026",
       "title": "AI-Driven Radiotherapy Treatment Planning",
       "overview": "This cluster focuses on advanced computational methods for optimizing radiation therapy, including AI-driven planning workflows and sequential decision-making algorithms. It integrates physical simulations of dose deposition with machine learning to enhance treatment efficacy and safety in various cancer types",
       "abstract": "The papers in this cluster present a suite of computational frameworks designed to improve radiotherapy planning and execution. Key contributions include the development of AI-driven end-to-end workflows for prostate and cervical cancer, as well as simulator-driven imitation learning for sequential decision-making in head and neck cancer. The research also encompasses physical modeling of Tumor Treating Fields (TTFields) electrode placement and the impact of surgical hardware on field delivery. Additionally, mechanistic models are employed to analyze normal tissue complication probabilities (NTCP) and radiopharmaceutical therapy dynamics. These methods collectively aim to optimize absorbed dose distribution, minimize toxicity, and enhance treatment consistency, particularly in resource-limited settings",
@@ -1860,13 +1877,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T6"
+      "theme": "T6",
+      "unique_title": "AI-Driven Radiotherapy Treatment Planning"
     },
     {
       "id": "Computational Cluster 18",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M18: Microfluidic Tumor Spheroid Me\u2026",
+      "label": "Microfluidic Tumor Spheroid Me\u2026",
       "title": "Microfluidic Tumor Spheroid Mechanics",
       "overview": "This cluster focuses on the development of microfluidic organ-on-chip systems that integrate tumor spheroids with vascularized extracellular matrices. These platforms enable simultaneous quantification of biomechanical properties, such as viscoelasticity, and invasive behaviors under physiological shear stress",
       "abstract": "The research presents advanced microfluidic devices, including microrheometers and tumor-on-chip models, designed to dissect the complex interplay between tumor mechanics and the extracellular matrix. By cultivating 3D tumor spheroids within vascularized microenvironments, these systems allow for the precise measurement of viscoelastic behavior and invasive potential in response to mechanical forces. The platforms facilitate the study of crosstalk between tumor cells and ascites or patient-derived fluids, providing insights into migration mechanisms. Additionally, the integration of these biophysical models with drug sensitivity profiling enables rapid, clinically actionable assessments of therapeutic efficacy. This approach offers a robust framework for understanding tumor microenvironment dynamics and developing targeted interventions for cancer and radiation injury",
@@ -1925,13 +1943,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Microfluidic Tumor Spheroid Mechanics"
     },
     {
       "id": "Computational Cluster 19",
       "type": "cluster",
       "subtype": "computational",
-      "label": "M19: Single-Cell T Cell Trajectory\u2026",
+      "label": "Single-Cell T Cell Trajectory\u2026",
       "title": "Single-Cell T Cell Trajectory Atlas",
       "overview": "This cluster focuses on computational workflows that integrate single-cell RNA sequencing data to map T cell differentiation trajectories and functional states. It emphasizes the harmonization of diverse datasets to build comprehensive atlases of tumor-infiltrating and reactive T cells",
       "abstract": "These studies develop and apply computational pipelines to analyze single-cell transcriptomic data, specifically targeting T cell populations in cancer and immune contexts. Key contributions include the construction of large-scale atlases, such as the CAR-T cell functional atlas, which integrates over one million cells to enable rational engineering of therapeutic products. The cluster highlights the use of trajectory inference algorithms to reconstruct dynamic transitions between cell states, such as dormancy and reactivity, during differentiation and immune response. Additionally, it addresses the harmonization of non-human cancer databases and the identification of cancer-reactive T cells using machine learning and signature-based approaches. These methods facilitate the precise characterization of T cell clonotypes and their spatiotemporal regulation within complex tumor microenvironments",
@@ -1990,13 +2009,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "Single-Cell T Cell Trajectory Atlas"
     },
     {
       "id": "Experimental Cluster 0",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E0: Tumor Microbiome Dynamics and\u2026",
+      "label": "Tumor Microbiome Dynamics and\u2026",
       "title": "Tumor Microbiome Dynamics and Therapy",
       "overview": "This cluster investigates the mechanistic roles of specific microbial taxa in tumor initiation, progression, and resistance to immunotherapy. It highlights how microbial transcriptional reprogramming generates neoantigens and how dietary interventions modulate the gut microbiome during chemotherapy",
       "abstract": "This research cluster elucidates the complex interactions between the tumor microbiome and host cancer biology across multiple cancer types. Studies demonstrate that microbial transcriptional reprogramming generates specific epitopes that influence immune responses, while colibactin-producing E. coli actively promote gastroesophageal adenocarcinoma through autophagy and differentiation pathways. Furthermore, the work identifies Bacteroidetes as a driver of hepatocellular carcinoma progression and resistance to immune checkpoint blockade. Mechanistic insights are provided on how gastric metaplasia enables colonization by Fusobacterium animalis, creating a niche for carcinogenic bacteria. Additionally, longitudinal analyses reveal that shifts in the gut microbiome during chemotherapy are significantly diet-dependent, with Mediterranean-style diets harnessing microbial metabolites to rejuvenate T cell function. These findings collectively underscore the potential of microbiome-targeted strategies and dietary modifications to enhance cancer therapeutic outcomes",
@@ -2055,13 +2075,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Tumor Microbiome Dynamics and Therapy"
     },
     {
       "id": "Experimental Cluster 1",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E1: Multi-omics Cancer Biomarker D\u2026",
+      "label": "Multi-omics Cancer Biomarker D\u2026",
       "title": "Multi-omics Cancer Biomarker Discovery",
       "overview": "This cluster focuses on the systematic integration of large-scale multi-omics datasets to identify actionable biomarkers and therapeutic targets in various cancers. It employs machine learning and statistical frameworks to analyze gene expression, genomic alterations, and drug response data",
       "abstract": "The research cluster presents a comprehensive approach to cancer precision medicine by leveraging large-scale public multi-omics data, including transcriptomics, genomics, and drug response profiles. Key contributions include the development of robust statistical frameworks for defining synergistic drug interactions and identifying genomic non-response biomarkers in advanced disease. Additionally, the cluster utilizes machine learning techniques to integrate heterogeneous data sources, such as HPV-negative head and neck squamous cell carcinoma datasets, to discover actionable biomarkers. Network-based topological analysis is also applied to malignant cell lines to pinpoint potential therapeutic targets in T-cell acute lymphoblastic leukemia. Overall, these studies aim to enhance the predictive power of molecular signatures for treatment selection and prognosis in diverse cancer types",
@@ -2120,13 +2141,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 9,
       "bfs_degree": 7,
-      "theme": "T7"
+      "theme": "T7",
+      "unique_title": "Multi-omics Cancer Biomarker Discovery"
     },
     {
       "id": "Experimental Cluster 2",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E2: Molecular Mechanisms of Oncoge\u2026",
+      "label": "Molecular Mechanisms of Oncoge\u2026",
       "title": "Molecular Mechanisms of Oncogenic Signaling",
       "overview": "This cluster investigates the molecular underpinnings of cancer progression and drug resistance through structural modeling, epigenetic profiling, and post-translational modifications. It highlights how alterations in p53 dynamics, nucleosome positioning, and tRNA modification pathways drive oncogenesis and therapeutic failure",
       "abstract": "This research cluster elucidates the complex interplay between structural biology, epigenetic regulation, and post-translational modifications in the context of cancer biology. Key contributions include the development of the first wild-type full-length p53 tetramer model bound to DNA, which provides insights into its dynamic interactions and the mechanism of action for novel inhibitors like AKT-100. Additionally, the cluster characterizes circulating DNA nucleosome occupancy patterns (WPNA) to identify biomarkers associated with histone-DNA affinity in cancer. Mechanistic studies further reveal how compensatory tRNA modifications via DUS-L enzymes confer resistance to METTL1 depletion, and how reduced 4E-BP1 activity drives acquired resistance to capivasertib through altered protein synthesis. These findings collectively advance the understanding of oncogenic signaling networks and potential therapeutic vulnerabilities",
@@ -2185,13 +2207,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Molecular Mechanisms of Oncogenic Signaling"
     },
     {
       "id": "Experimental Cluster 3",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E3: Innate Immune Checkpoint Resis\u2026",
+      "label": "Innate Immune Checkpoint Resis\u2026",
       "title": "Innate Immune Checkpoint Resistance",
       "overview": "This cluster investigates the mechanisms by which innate immune cells and inflammatory pathways, such as type 2 cytokines and cGAS-STING signaling, drive resistance to checkpoint inhibitors and radiotherapy. It highlights the therapeutic potential of combining innate immune blockade with adaptive immune modulation to improve anti-tumor efficacy",
       "abstract": "Research in this cluster elucidates the critical role of innate immune surveillance in determining the efficacy of cancer immunotherapies and radiation. Studies demonstrate that liver metastases induce systemic resistance to checkpoint inhibitors through splenic granulopoiesis and S100A9-mediated mechanisms, while type 2 cytokines like IL-4, IL-13, and TSLP suppress anti-tumor immunity. Conversely, therapeutic blockade of these innate pathways, when combined with PD-1 antagonism, reprograms both innate and adaptive immune responses to unleash potent anti-tumor effects. Additionally, the cluster explores how cGAS-STING-mediated inflammation contributes to cancer-related fatigue and how radiation-induced fibroblast expansion limits CD8+ T-cell responses. These findings collectively identify innate immune checkpoints as key targets for overcoming resistance and enhancing the synergistic effects of combined immunotherapy and radiotherapy",
@@ -2250,13 +2273,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "Innate Immune Checkpoint Resistance"
     },
     {
       "id": "Experimental Cluster 4",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E4: Spatial Histopathology and Ima\u2026",
+      "label": "Spatial Histopathology and Ima\u2026",
       "title": "Spatial Histopathology and Imaging Prognostics",
       "overview": "This cluster focuses on the integration of high-resolution spatial histopathology, single-cell omics, and medical imaging to identify prognostic biomarkers in cancer. It emphasizes the use of deep learning models to analyze whole-slide images and radiomic features for predicting patient survival and treatment response",
       "abstract": "Recent advances in spatial biology and artificial intelligence have enabled the extraction of complex prognostic signals from heterogeneous tumor microenvironments. This research cluster investigates the utility of spatial transcriptomics, second-harmonic generation microscopy, and deep learning-based digital pathology in characterizing immune infiltrates, chromatin compaction, and metabolic activity. By analyzing large cohorts from initiatives like the Human Cell Atlas and TCGA, these studies reveal specific histological zones and radiomic features that correlate with overall survival in glioblastoma, lung cancer, and head and neck squamous cell carcinoma. Furthermore, the work addresses the need for fair representation in single-cell atlases and validates foundation models for robust cancer subtyping. The combined approach of multi-modal imaging and computational analysis offers a pathway toward precision medicine by identifying spatially resolved biomarkers that predict clinical outcomes and therapeutic responses",
@@ -2315,13 +2339,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Spatial Histopathology and Imaging Prognostics"
     },
     {
       "id": "Experimental Cluster 5",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E5: Mitochondrial Metabolism Ferro\u2026",
+      "label": "Mitochondrial Metabolism Ferro\u2026",
       "title": "Mitochondrial Metabolism Ferroptosis Resistance",
       "overview": "This cluster investigates how tumor cells and associated immune microenvironments exploit mitochondrial metabolism to evade ferroptotic cell death. Key mechanisms include SDH-deficiency vulnerabilities, iron homeostasis manipulation by macrophages, and the upregulation of antioxidant systems like NRF2 and GSTs",
       "abstract": "These studies elucidate the complex interplay between mitochondrial function, redox balance, and ferroptosis resistance in various cancer contexts. Research highlights specific vulnerabilities in succinate dehydrogenase (SDH)-deficient cells, which exhibit increased susceptibility to DNA damage and mitochondrial-targeted cytotoxic agents. In the tumor microenvironment, tumor-associated macrophages (TAMs) are shown to protect glioblastoma and breast cancer cells from ferroptotic stress by modulating iron metabolism and activating the IRG1/itaconate/NRF2/GSH axis. Furthermore, the role of antioxidant enzymes, such as GSTP1 and GSTM2, in conferring therapy resistance is explored through the development of novel inhibitors. Collectively, these works identify critical metabolic nodes, including the Heme-Complex II axis and chromosomal 4p loss effects, that drive oxidative stress adaptation and immune evasion in cancer",
@@ -2380,13 +2405,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Mitochondrial Metabolism Ferroptosis Resistance"
     },
     {
       "id": "Experimental Cluster 6",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E6: Computational Cancer Prognosis\u2026",
+      "label": "Computational Cancer Prognosis\u2026",
       "title": "Computational Cancer Prognosis and Drug Response",
       "overview": "This cluster focuses on developing and validating machine learning models to predict patient survival, drug response, and molecular mechanisms in various cancers. It emphasizes rigorous methodological approaches, including leakage prevention, class imbalance handling, and the evaluation of single-cell foundation models",
       "abstract": "The research cluster centers on the application of advanced computational methods, including feedforward neural networks, transformers, and Cox proportional hazards models, to predict clinical outcomes in oncology. Key contributions include the development of interpretable models for identifying signaling mechanisms that enhance immune responses, such as CXCL9 expression, and the systematic evaluation of single-cell foundation models for cancer-specific tasks. The studies address critical methodological challenges, such as class imbalance through weighted loss functions and data leakage through rigorous cross-validation and re-auditing of survival classifiers. Additionally, the cluster explores the integration of multi-omics data, including autophagy-dependent transcriptional datasets and genomic mutation profiles, to deliver individualized risk management and prioritize drug combinations. These efforts aim to improve the accuracy and generalizability of predictive models across diverse cancer types, from pancreatic ductal adenocarcinoma to osteosarcoma and prostate cancer",
@@ -2445,13 +2471,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Computational Cancer Prognosis and Drug Response"
     },
     {
       "id": "Experimental Cluster 7",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E7: Advanced Radiation Dosimetry a\u2026",
+      "label": "Advanced Radiation Dosimetry a\u2026",
       "title": "Advanced Radiation Dosimetry and Toxicity",
       "overview": "This cluster investigates advanced radiation delivery techniques, including FLASH and proton therapy, to minimize normal tissue toxicity while preserving tumor control. It integrates preclinical organ chip models and patient-reported outcomes to refine dosimetric strategies and understand biological responses",
       "abstract": "This research cluster focuses on optimizing radiation therapy through comparative dosimetry of advanced modalities such as FLASH, proton, and photon-based IMRT. Studies utilize human organ chips and preclinical models to elucidate mechanisms of radiation-induced injury, particularly in sensitive tissues like the intestine and immune system. The work highlights the potential of high-dose-rate FLASH irradiation to spare lymphocytes and reduce immunosuppression, as well as the role of thymus composition in predicting pneumonitis risk. Additionally, patient-reported outcomes are leveraged to map dose-response relationships and cross-toxicity trade-offs in head and neck cancer. These findings collectively aim to enhance therapeutic ratios by mitigating late toxicities and preserving immune function during cancer treatment",
@@ -2510,13 +2537,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T6"
+      "theme": "T6",
+      "unique_title": "Advanced Radiation Dosimetry and Toxicity"
     },
     {
       "id": "Experimental Cluster 8",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E8: Oncology Outcomes and Treatmen\u2026",
+      "label": "Oncology Outcomes and Treatmen\u2026",
       "title": "Oncology Outcomes and Treatment Planning",
       "overview": "This research cluster focuses on the application of advanced statistical modeling and machine learning to evaluate clinical outcomes and prognostic factors in oncology and rehabilitation settings. The studies employ rigorous quantitative methods, including random-effects meta-analysis, time-to-event survival analysis, and hazard ratio comparisons, to assess the impact of treatment protocols, body composition, and neurological changes on patient survival and quality of life",
       "abstract": "This research cluster focuses on the application of advanced statistical methodologies and machine learning techniques to evaluate clinical outcomes and treatment efficacy across diverse oncological and neurological contexts. By integrating retrospective assessments, such as Likert scale evaluations of automated radiation therapy plans, with prospective time-to-event analyses, the studies aim to identify predictive biomarkers and risk factors for patient survival and functional recovery. The investigations utilize pooled data from large cohorts, including lung screening studies and cancer treatment centers, to quantify the impact of specific interventions, such as stereotactic radiotherapy programs and chemotherapy-induced changes in neurological and gastrointestinal clusters. Furthermore, the cluster explores the role of artificial intelligence in segmenting body composition features and analyzing complex datasets to refine risk stratification models. These approaches collectively enhance the precision of clinical decision-making by leveraging robust statistical frameworks, including random-effects models and hazard ratio comparisons, to derive actionable insights from heterogeneous medical data",
@@ -2575,13 +2603,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Oncology Outcomes and Treatment Planning"
     },
     {
       "id": "Experimental Cluster 9",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E9: Temporal Dynamics in Oncology\u2026",
+      "label": "Temporal Dynamics in Oncology\u2026",
       "title": "Temporal Dynamics in Oncology Outcomes",
       "overview": "This cluster focuses on leveraging longitudinal, multi-modal data to model the temporal evolution of cancer trajectories, including cachexia, immune microenvironment shifts, and treatment response. It emphasizes the integration of patient-reported outcomes, genomic alterations, and survival metrics to improve prognostic accuracy and surrogate endpoint validity",
       "abstract": "Recent studies in this cluster utilize advanced statistical and machine learning frameworks to analyze longitudinal clinicogenomic data from diverse cancer populations. Key contributions include the definition of episode-resolved trajectories for cancer cachexia linked to serology and tumor genotypes, as well as the construction of continuous-time illness-death models to assess survival dynamics in non-small cell lung cancer. Furthermore, the research explores the temporal plasticity of the immune microenvironment in pediatric solid tumors and the predictive value of patient-reported outcomes in enhancing surrogate endpoints for overall survival. Additional work applies artificial intelligence to identify prognostic genomic alterations in specific subpopulations, such as early-onset colorectal cancer patients treated with FOLFOX. Collectively, these efforts aim to refine clinical decision-making by capturing the dynamic, time-dependent nature of disease progression and treatment response",
@@ -2640,13 +2669,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 9,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Temporal Dynamics in Oncology Outcomes"
     },
     {
       "id": "Experimental Cluster 10",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E10: Epigenetic Regulation of Cance\u2026",
+      "label": "Epigenetic Regulation of Cance\u2026",
       "title": "Epigenetic Regulation of Cancer Plasticity",
       "overview": "This cluster investigates the epigenetic mechanisms, including DNA demethylation and histone deacetylation, that drive gene expression changes in various cancers. It highlights how these modifications regulate cell cycle arrest, lineage plasticity, and survival pathways in breast, prostate, and myeloma models",
       "abstract": "The studies within this cluster elucidate the critical role of epigenetic modifiers in controlling tumor cell behavior and microenvironment interactions. Research demonstrates that targeting DNA methyltransferases and histone deacetylases can reactivate tumor suppressor genes and induce cell cycle arrest in triple-negative breast cancer. Additionally, the cluster explores how transcription factors like Kaiso and NR0B1 interact with epigenetic machinery to modulate survival signals in multiple myeloma and Ewing sarcoma. The findings further reveal how small activating RNAs and racial divergence in fibroblast activation contribute to tumorigenic pathways through epigenetic reprogramming. Collectively, these works underscore the therapeutic potential of manipulating epigenetic landscapes to overcome cancer resistance and plasticity",
@@ -2705,13 +2735,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Epigenetic Regulation of Cancer Plasticity"
     },
     {
       "id": "Experimental Cluster 11",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E11: Noncoding RNA Oncogenic Mechan\u2026",
+      "label": "Noncoding RNA Oncogenic Mechan\u2026",
       "title": "Noncoding RNA Oncogenic Mechanisms",
       "overview": "This cluster investigates the regulatory mechanisms of long intergenic noncoding RNAs and microRNAs across various cancer types. It utilizes integrative multi-omics approaches to link specific noncoding RNA expression profiles with oncogenic signaling pathways, epigenetic alterations, and clinical outcomes",
       "abstract": "The research focuses on elucidating the functional roles of noncoding RNAs, including lincRNAs and miRNAs, in tumorigenesis and disease progression. By integrating RNA sequencing, exome data, and clinical records from cohorts such as TCGA, these studies identify differentially expressed noncoding RNAs associated with specific genetic mutations, such as KRAS status in pancreatic cancer and IDH mutations in astrocytomas. Key findings include the characterization of lncRNAs like LINC00941 and CyKILRb, which drive aggressiveness and chemoresistance by modulating critical signaling pathways such as PI3K/AKT. Additionally, the cluster explores epigenetic drivers of gene expression, such as hypomethylation leading to CLPB overexpression in breast cancer, and identifies non-invasive diagnostic biomarkers through urinary exosomal miRNA profiling in bladder cancer. These integrative analyses provide a comprehensive understanding of how noncoding RNAs contribute to subtype-specific cancer phenotypes and therapeutic resistance",
@@ -2770,13 +2801,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T7"
+      "theme": "T7",
+      "unique_title": "Noncoding RNA Oncogenic Mechanisms"
     },
     {
       "id": "Experimental Cluster 12",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E12: Targeted Cancer Therapeutics a\u2026",
+      "label": "Targeted Cancer Therapeutics a\u2026",
       "title": "Targeted Cancer Therapeutics and Diagnostics",
       "overview": "This research cluster focuses on the development of advanced therapeutic delivery systems and targeted nanomedicines for cancer treatment, employing diverse carriers such as lipid nanoparticles, polyplexes, and membranolytic peptides to enhance drug efficacy and reduce toxicity. The studies investigate the mechanisms of these agents, including the co-encapsulation of p53 mRNA with small molecules, the use of affibody-functionalized carriers to target EGFR, and the optimization of mitochondrial-targeting fluorescent compounds and antimicrobial peptides for selective cytotoxicity",
       "abstract": "This research cluster focuses on the development of advanced nanomedicine and biomolecular delivery systems designed to enhance the specificity and efficacy of cancer therapeutics. A central theme involves the engineering of lipid nanoparticles and polyplexes, such as those utilizing PEI, to co-encapsulate genetic material like mRNA and small molecule inhibitors, thereby overcoming traditional delivery obstacles. The studies highlight the use of targeted ligands, including affibodies and specific peptides, to ensure selective binding to tumor-associated receptors like EGFR while minimizing non-specific toxicity. Additionally, the cluster explores the integration of diagnostic modalities, such as surface plasmon resonance and isolation-free sensing methods, to validate the binding kinetics and detection limits of these therapeutic agents. By combining mitochondrial-targeting fluorescent probes with membranolytic peptides, the research aims to create multi-functional platforms that simultaneously monitor cellular viability and execute cytotoxic effects. Collectively, these efforts represent a shift towards precision oncology, where smart delivery vehicles are optimized to distinguish between malignant and healthy tissues through targeted molecular interactions",
@@ -2835,13 +2867,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Targeted Cancer Therapeutics and Diagnostics"
     },
     {
       "id": "Experimental Cluster 13",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E13: 3D Tumor Model Mechanics",
+      "label": "3D Tumor Model Mechanics",
       "title": "3D Tumor Model Mechanics",
       "overview": "This cluster focuses on the development and application of advanced 3D patient-derived tumor models, including organoids and spheroids, to study tumor mechanics and microenvironmental interactions. It integrates techniques such as microrheometry, multiparametric QPI, and optimized cryopreservation to enhance the physiological relevance and translational utility of these in vitro systems",
       "abstract": "The research presented in this cluster advances the field of cancer modeling by refining 3D patient-derived xenograft (PDX) and organoid systems to better recapitulate in vivo tumor biology. Key contributions include the development of a microfluidic rheometer for quantifying tumor spheroid mechanics and invasion, as well as the use of multiparametric quantitative phase imaging (mQPI) to determine drug sensitivity in breast cancer models. The studies further explore the role of the extracellular matrix (ECM) and stromal cells, such as macrophages, in modulating cancer cell behavior and migration. Additionally, the cluster addresses critical methodological challenges, such as optimizing vitrification strategies for the cryopreservation of ex vivo 3D tumor models to ensure long-term viability. By combining mechanical analysis, microenvironmental reconstruction, and preservation techniques, these works provide a robust platform for comparative and translational carcinoma studies",
@@ -2900,13 +2933,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "3D Tumor Model Mechanics"
     },
     {
       "id": "Experimental Cluster 14",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E14: CRISPR Screens for BRCA Vulner\u2026",
+      "label": "CRISPR Screens for BRCA Vulner\u2026",
       "title": "CRISPR Screens for BRCA Vulnerabilities",
       "overview": "This cluster utilizes genome-wide CRISPR and CRISPRi screens to uncover essential genes and synthetic lethal interactions in BRCA1 and BRCA2-deficient tumor models. The studies highlight specific vulnerabilities, such as the 9-1-1 complex and APT1, that drive growth advantages in carrier cells and offer potential therapeutic targets",
       "abstract": "Researchers employed high-throughput CRISPR-Cas9 and CRISPRi screening technologies to systematically identify genetic dependencies in BRCA1 and BRCA2-deficient cancer cells. Key findings include the essential role of the RAD9A-HUS1-RAD1 (9-1-1) complex in protecting single-stranded DNA gaps in BRCA2-deficient contexts through an ATR-independent mechanism. Additionally, the cluster identifies APT1 as a context-dependent vulnerability in triple-negative breast cancer, where its inhibition alters nuclear acylation and impacts cell survival. Further mechanistic analyses trace BRCA1 loss to transcription-factor-mediated shifts in enzyme activity, revealing network-level rewiring and metabolic adaptations. These integrated approaches, combining patient datasets with in vitro assays, provide a comprehensive map of synthetic lethalities and growth suppressors, such as the lncRNA INSTAR, that can be exploited for targeted cancer therapies",
@@ -2965,13 +2999,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "CRISPR Screens for BRCA Vulnerabilities"
     },
     {
       "id": "Experimental Cluster 15",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E15: Spatially Resolved Tumor Micro\u2026",
+      "label": "Spatially Resolved Tumor Micro\u2026",
       "title": "Spatially Resolved Tumor Microenvironment Mapping",
       "overview": "This cluster focuses on the application of advanced spatial transcriptomics and single-cell sequencing to map cellular identities and spatial interactions within diverse tumor microenvironments. By integrating multimodal data, these studies elucidate how local cellular neighborhoods and metabolic niches influence disease progression and therapeutic response",
       "abstract": "Recent advancements in spatially resolved single-cell technologies have enabled the systematic characterization of cellular identity and functional states within the tumor microenvironment (TME). This research cluster integrates complementary methods, including spatial transcriptomics, single-nucleus RNA sequencing, and multiplexed immunofluorescence, to generate orthogonally validated cell signatures and spatial maps across various cancer types, including skin, ovarian, colorectal, and lung cancers. Key contributions include the identification of specific cellular interactions, such as cell engulfment defining competitive metabolic niches, and the use of social network analysis to quantify spatial relationships between epithelial and inflammatory cells. These studies reveal how spatial heterogeneity and local microenvironment dynamics correlate with clinical outcomes, microsatellite instability, and therapy response. By resolving the spatial architecture of premalignant and malignant states, this work provides critical insights into the mechanisms driving tumor evolution and identifies potential biomarkers for precision oncology",
@@ -3030,13 +3065,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Spatially Resolved Tumor Microenvironment Mapping"
     },
     {
       "id": "Experimental Cluster 16",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E16: Multiscale Modeling of Tumor R\u2026",
+      "label": "Multiscale Modeling of Tumor R\u2026",
       "title": "Multiscale Modeling of Tumor Resistance",
       "overview": "This cluster develops computational frameworks that combine geometric landscapes, ordinary differential equations, and agent-based models to simulate tumor dynamics. It focuses on understanding how phenotypic plasticity, immune evasion, and spatial heterogeneity drive treatment resistance and relapse",
       "abstract": "The research cluster presents a unified approach to modeling complex tumor behaviors by integrating multiscale mathematical techniques, including geometric landscape analysis and stochastic agent-based simulations. These models are applied to elucidate mechanisms of drug resistance, such as the selective killing of tumor spheroids by paclitaxel and the cooperative interactions between sub-clones in melanoma. Furthermore, the studies investigate the link between phenotypic states, such as epithelial-mesenchymal transitions, and immune evasion markers like PD-L1 expression in breast cancer. By incorporating lineage tracing and single-cell transcriptomics data, the models reveal how transcriptional noise and plasticity lead to post-treatment awakening and relapse in pediatric cancers. The resulting frameworks provide a mechanistic understanding of how spatial heterogeneity and regulatory network dynamics influence therapeutic outcomes and the evolution of resistant populations",
@@ -3095,13 +3131,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T6"
+      "theme": "T6",
+      "unique_title": "Multiscale Modeling of Tumor Resistance"
     },
     {
       "id": "Experimental Cluster 17",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E17: T Cell Dynamics in Immunothera\u2026",
+      "label": "T Cell Dynamics in Immunothera\u2026",
       "title": "T Cell Dynamics in Immunotherapy",
       "overview": "This research cluster investigates the mechanistic and clinical impact of immune checkpoint inhibitors, such as pembrolizumab, nivolumab, and relatlimab, on tumor immunology across diverse cancer types. By integrating single-cell profiling and genomic analysis, these studies elucidate how these therapies modulate T-cell receptor (TCR) clonotypes, differentiation trajectories, and immune receptor reactivity to predict therapeutic response and prognosis",
       "abstract": "This research cluster investigates the mechanistic and clinical efficacy of immune checkpoint inhibitors, specifically targeting the PD-1/PD-L1 and CTLA-4 axes, in various solid malignancies including melanoma, prostate cancer, and meningiomas. By integrating single-cell RNA sequencing and T-cell receptor (TCR) repertoire analysis, these studies elucidate the dynamic reprogramming of tumor-infiltrating lymphocytes, focusing on T-cell differentiation trajectories, clonotype expansion, and receptor reactivity following treatment with agents such as pembrolizumab, nivolumab, and relatlimab. The work further explores the synergistic potential of combining checkpoint blockade with novel modalities, including proton beam therapy and epigenetic modulation via DNMT1 inhibition, to enhance anti-tumor immunity. Through the application of genomic stratification and gene set variation analysis, the cluster identifies molecular signatures and prognostic biomarkers that correlate with immunotherapy response and patient survival. Ultimately, these investigations aim to define the immunological landscape of the tumor microenvironment to optimize combination strategies and improve therapeutic outcomes for patients with resistant or metastatic cancers",
@@ -3160,13 +3197,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "T Cell Dynamics in Immunotherapy"
     },
     {
       "id": "Experimental Cluster 18",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E18: Spatial Tumor Microenvironment\u2026",
+      "label": "Spatial Tumor Microenvironment Atlases",
       "title": "Spatial Tumor Microenvironment Atlases",
       "overview": "This cluster focuses on constructing high-resolution spatial atlases of various cancer types using advanced computational frameworks. It emphasizes the integration of single-cell multi-omics data with spatial histology to reveal cell-type-specific interactions and treatment responses",
       "abstract": "These studies develop and apply deep learning and statistical frameworks to infer spatial protein expression and cell-cell communication within tumor microenvironments. By combining single-cell RNA and ATAC sequencing with spatial transcriptomics and routine histology, the research identifies distinct spatial arrangements of immune and stromal cells associated with clinical outcomes such as chemotherapy response and anti-PD-1 therapy efficacy. The work highlights the importance of architectural fragmentation, causal modeling of ligand-receptor interactions, and subtype-specific baseline landscapes in understanding disease progression and therapeutic resistance across breast, lung, and head and neck cancers",
@@ -3225,13 +3263,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Spatial Tumor Microenvironment Atlases"
     },
     {
       "id": "Experimental Cluster 19",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E19: Micro RNA Networks in Leukemia\u2026",
+      "label": "Micro RNA Networks in Leukemia\u2026",
       "title": "Micro RNA Networks in Leukemia Resistance",
       "overview": "This cluster investigates the regulatory roles of microRNA clusters and targeting landscapes in acute myeloid leukemia (AML) and other hematologic malignancies. It integrates high-throughput screening of epigenetic modulators with advanced sRNA sequencing techniques to identify mechanisms of chemoresistance and define rational combination strategies",
       "abstract": "The research focuses on elucidating the complex interplay between microRNA networks, epigenetic modulators, and oncogenic drivers in acute myeloid leukemia and related cancers. Key contributions include the identification of tumor-suppressive miRNA clusters, such as miR-214-3p/miR-199a-5p, which are lost in chemoresistant phenotypes but can be restored using engineered extracellular vesicles. The cluster further explores how RNA-binding proteins like IGF2BP3 remodel microRNA targeting landscapes in MLL-AF4 leukemia, revealing novel dependencies in disease progression. To facilitate therapeutic development, the authors developed NIL-TDS, a high-precision method for quantifying small RNA slicing activity, and established robust patient-derived xenograft models for subgroups lacking established cell lines. Additionally, high-throughput screening of over 900 epigenetic modulators combined with menin inhibition identified synergistic pairs, such as menin and LSD1 inhibitors, that dismantle oncogenic programs and restore differentiation. These findings collectively provide a mechanistic framework for overcoming resistance in AML through targeted microRNA modulation and epigenetic co-therapy",
@@ -3290,13 +3329,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Micro RNA Networks in Leukemia Resistance"
     },
     {
       "id": "Experimental Cluster 20",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E20: Targeted Therapies and Resista\u2026",
+      "label": "Targeted Therapies and Resista\u2026",
       "title": "Targeted Therapies and Resistance Mechanisms",
       "overview": "This cluster investigates the preclinical efficacy of novel targeted agents, such as ONC206 and dabrafenib, across various cancer types including medulloblastoma and melanoma. It further elucidates mechanisms of therapeutic resistance, highlighting the roles of p38MAPK modulation, tumor microenvironment interactions, and somatic mutations in immune cells",
       "abstract": "This research cluster focuses on advancing precision oncology through the evaluation of novel therapeutic strategies and the dissection of resistance mechanisms in solid tumors. Studies demonstrate the potent anti-tumorigenic activity of ONC206 in high-risk medulloblastoma and the pharmacokinetic efficacy of dabrafenib in zebrafish models of BRAF-mutant melanoma. Concurrently, the cluster explores how modulating p38MAPK can recalibrate sensitivity to chemotherapy in pancreatic adenocarcinoma, while also identifying bacterial mediators of osimertinib resistance via the IGF1R pathway in lung cancer. Additionally, the work highlights the role of somatic TYK2 mutations in tumor-infiltrating lymphocytes in promoting anti-cancer immunity and the utility of bispecific antibodies in overcoming EGFR mutation-specific resistance. Collectively, these studies provide critical insights into optimizing targeted therapies and overcoming adaptive resistance in diverse oncological contexts",
@@ -3355,13 +3395,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 2,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Targeted Therapies and Resistance Mechanisms"
     },
     {
       "id": "Experimental Cluster 21",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E21: Genomic Drivers of Cancer Evol\u2026",
+      "label": "Genomic Drivers of Cancer Evol\u2026",
       "title": "Genomic Drivers of Cancer Evolution",
       "overview": "This cluster investigates the genetic architecture of cancer by combining somatic sequencing, polygenic risk scoring, and comparative biology. It examines how mutation rates, selection pressures, and germline variants influence tumor progression across diverse populations and species",
       "abstract": "This research cluster synthesizes multi-omics data to elucidate the genomic mechanisms underlying cancer initiation and progression. Key studies analyze somatic mutation landscapes and selection coefficients in prostate and liver cancers, revealing stage-specific evolutionary dynamics and epistatic interactions. Additionally, the cluster evaluates the context-dependent efficacy of polygenic risk scores in diverse ancestral cohorts, highlighting the importance of population-specific genetic architecture. Comparative oncology approaches are employed to correlate neoplasia prevalence with body mass and longevity in captive vertebrates, offering evolutionary insights into tumor biology. Finally, Mendelian randomization and expression profiling further dissect the causal roles of specific genetic variants and gene families in cancer susceptibility and survival",
@@ -3420,13 +3461,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 2,
       "bfs_degree": 7,
-      "theme": "T5"
+      "theme": "T5",
+      "unique_title": "Genomic Drivers of Cancer Evolution"
     },
     {
       "id": "Experimental Cluster 22",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E22: Single-Cell Tumor Microenviron\u2026",
+      "label": "Single-Cell Tumor Microenviron\u2026",
       "title": "Single-Cell Tumor Microenvironment Mapping",
       "overview": "This cluster focuses on utilizing single-cell RNA sequencing and spatial transcriptomics to define cellular heterogeneity within diverse cancer types, including breast, pancreatic, and gastric cancers. The studies characterize interactions between tumor cells and stromal components, such as cancer-associated fibroblasts and macrophages, to identify conserved cell states and signaling pathways. These insights aim to reveal mechanisms of dormancy, metastasis, and immune evasion, providing a foundation for targeted therapeutic interventions",
       "abstract": "The research cluster presents a comprehensive analysis of tumor microenvironment (TME) architecture using advanced single-cell and spatial transcriptomic technologies across multiple cancer models. Key findings include the identification of specific cell states, such as CXCL10-high dormant breast cancer cells and VEGFA+ macrophages in cholangiocarcinoma, that drive disease progression and immune modulation. The studies further map the functional heterogeneity of cancer-associated fibroblasts and pericytes, highlighting their roles in supporting tumor growth and metastasis through pathways like OSM and THBS1 signaling. By comparing orthotopic and subcutaneous implant models, the work reveals significant differences in immune and stromal composition that impact therapeutic response. Additionally, the integration of high-content phenotyping and co-culture models enables the label-free characterization of complex cell interactions. Collectively, these studies provide a detailed atlas of TME cellular dynamics, identifying novel therapeutic targets and mechanisms for sensitizing tumors to immunotherapy",
@@ -3485,13 +3527,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 10,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Single-Cell Tumor Microenvironment Mapping"
     },
     {
       "id": "Experimental Cluster 23",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E23: Metabolic Reprogramming in Can\u2026",
+      "label": "Metabolic Reprogramming in Can\u2026",
       "title": "Metabolic Reprogramming in Cancer Progression",
       "overview": "This cluster investigates the metabolic reprogramming mechanisms that drive tumor growth, cachexia, and therapeutic resistance across diverse cancer models. It combines multi-omics profiling with computational flux analysis to elucidate how metabolic heterogeneity and microenvironmental interactions influence disease progression",
       "abstract": "The studies within this cluster employ a multi-modal approach, integrating transcriptional profiling, targeted metabolomics, and computational flux sampling to dissect the metabolic states of cancer cells. Key findings highlight the critical role of specific metabolic pathways, such as glutamine metabolism and de novo nucleotide biosynthesis, in sustaining tumor growth and driving resistance to therapies like PARP inhibitors. Furthermore, the research explores the impact of the tumor microenvironment, demonstrating how cancer-associated fibroblasts and host-derived proteins like hexamerins contribute to metabolic heterogeneity and tumor duration. By utilizing cross-species models ranging from Drosophila to human patient cohorts, the work provides a comprehensive understanding of how metabolic plasticity enhances evolvability and persistence. These insights collectively offer a framework for identifying metabolic vulnerabilities that can be targeted to suppress tumor progression and overcome therapeutic resistance",
@@ -3550,13 +3593,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Metabolic Reprogramming in Cancer Progression"
     },
     {
       "id": "Experimental Cluster 24",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E24: Molecular Mechanisms of Cancer\u2026",
+      "label": "Molecular Mechanisms of Cancer\u2026",
       "title": "Molecular Mechanisms of Cancer Drug Resistance",
       "overview": "This cluster investigates the molecular underpinnings of resistance to various cancer therapies, including abiraterone, rapaprotin, and chemotherapeutics. It employs advanced genomic and proteomic techniques to identify key regulatory elements such as lncRNAs, chromatin landscapes, and novel post-translational modifications",
       "abstract": "The research focuses on elucidating the complex mechanisms that drive resistance to targeted and conventional cancer treatments. Key findings include the identification of P-glycoprotein as a determinant of rapaprotin resistance and the role of BIRC6-AS1/BIRC6 in mediating abiraterone resistance through the NHEJ pathway. Additionally, the cluster explores the chromatin landscape of endometrial tumors, revealing shared binding sites between estrogen and progesterone receptors. Novel post-translational modifications, such as lysine-R2HGylation, are characterized in R2HG-elevated cancers, while targeted protein degradation strategies are developed to reverse chemoresistance in acute myeloid leukemia. These studies collectively provide a comprehensive view of the genetic, epigenetic, and proteomic factors contributing to therapeutic failure",
@@ -3615,13 +3659,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Molecular Mechanisms of Cancer Drug Resistance"
     },
     {
       "id": "Experimental Cluster 25",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E25: Cancer Treatment Access and Ec\u2026",
+      "label": "Cancer Treatment Access and Ec\u2026",
       "title": "Cancer Treatment Access and Economics",
       "overview": "This cluster investigates the intersection of healthcare economics, patient access barriers, and clinical outcomes across various cancer types. It combines registry-based cohort studies with economic modeling to assess how travel time, treatment costs, and novel biomarkers influence definitive care and survival projections",
       "abstract": "The research focuses on quantifying the impact of logistical and economic factors on cancer treatment receipt and outcomes. Key studies analyze how travel burden affects definitive prostate cancer treatment and evaluate the economic implications of melanoma stage distribution for state-wide early detection initiatives. Additionally, the cluster explores the potential economic value and survival benefits of mRNA cancer vaccines and compares the effectiveness of systemic therapies for soft tissue sarcomas. A significant component involves using real-world data and predictive scores, such as AlphaMissense, to enhance the assessment of immunotherapy response and overall treatment efficacy",
@@ -3680,13 +3725,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Cancer Treatment Access and Economics"
     },
     {
       "id": "Experimental Cluster 26",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E26: Multi-omic Proteomic Mechanism\u2026",
+      "label": "Multi-omic Proteomic Mechanism\u2026",
       "title": "Multi-omic Proteomic Mechanism Mapping",
       "overview": "This cluster focuses on the application of advanced mass spectrometry and multi-omic techniques to map complex signaling networks in cancer and genetic disorders. It highlights the discovery of novel regulatory mechanisms, including lncRNA-derived peptides and specific post-translational modifications, across various tissue types",
       "abstract": "The research within this cluster employs high-resolution quantitative mass spectrometry, proteogenomics, and translatomics to elucidate molecular mechanisms underlying diverse pathological conditions. Key contributions include the characterization of interferon signaling signatures in xeroderma pigmentosum keratinocytes and the identification of immune response biomarkers in metastatic renal cell carcinoma. Additionally, the cluster details the discovery of lncRNA-derived peptides in hepatocellular carcinoma and the mapping of subtype-specific PARP1 ADP-ribosylated proteomes in breast cancer. These studies collectively advance the understanding of DNA damage responses, immune modulation, and post-translational regulation through comprehensive proteomic profiling",
@@ -3745,13 +3791,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Multi-omic Proteomic Mechanism Mapping"
     },
     {
       "id": "Experimental Cluster 27",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E27: CAR T Cell Solid Tumor Efficac\u2026",
+      "label": "CAR T Cell Solid Tumor Efficac\u2026",
       "title": "CAR T Cell Solid Tumor Efficacy",
       "overview": "This cluster investigates the mechanisms governing CAR T cell efficacy in solid tumors, focusing on tumor-intrinsic stress responses and antigen-specific targeting strategies. It highlights how modulating tumor microenvironment factors and engineering specific CAR constructs can overcome resistance and improve therapeutic outcomes in cancers such as pancreatic, liver, and ovarian malignancies",
       "abstract": "Recent studies in this cluster elucidate the complex interplay between tumor biology and CAR T cell function in solid tumor contexts. Research reveals that tumor-intrinsic oxidative and proteotoxic stress pathways significantly modulate CAR T cell therapeutic sensitivity in pancreatic cancer, while MDR1 expression in tumor-specific CD8 T cells promotes persistence and protects against chemotherapy. Additionally, engineering hyper-migratory CAR T cells using viral receptors has shown efficacy in alleviating ovarian cancer metastasis, and systematic analysis of tonic signaling in B7-H3 targeted CARs identifies it as a key determinant of performance in glioma. The cluster also explores the development of second-generation CAR T cells targeting Nectin-4 to overcome antibody-drug conjugate resistance and the design of L1CAM-targeting antibody-drug conjugates for metastatic cancer. Collectively, these works advance the understanding of how to optimize CAR T cell design and target selection to enhance anti-tumor immunity in challenging solid tumor environments",
@@ -3810,13 +3857,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "CAR T Cell Solid Tumor Efficacy"
     },
     {
       "id": "Experimental Cluster 28",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E28: Pan-cancer Regulatory Network\u2026",
+      "label": "Pan-cancer Regulatory Network\u2026",
       "title": "Pan-cancer Regulatory Network Inference",
       "overview": "This cluster focuses on the computational inference of gene regulatory networks (GRNs) and transcription factor activities using large-scale transcriptomic and single-cell datasets. The studies aim to identify recurrent regulatory dysregulations, such as TP53 dependency and immune pathway alterations, that drive tumor heterogeneity and prognosis across diverse cancer types",
       "abstract": "The research cluster centers on the application of bioinformatics algorithms, including ARACNe, VIPER, and TP53-META, to deconstruct complex gene regulatory landscapes from bulk and single-cell RNA-seq data. By integrating datasets from The Cancer Genome Atlas (TCGA) and other repositories, the studies infer individual patient-specific regulatory networks to uncover inter-patient heterogeneity and subtype-specific vulnerabilities. Key findings highlight the role of specific transcription factors, such as PHGDH in triple-negative breast cancer and PD-1 pathway dysregulation in pan-cancer contexts, in determining therapeutic response and clinical outcomes. Additionally, the cluster explores cross-disease genetic links, such as the intersection of Type 1 Diabetes genes with hepatocellular carcinoma prognosis, to identify shared molecular mechanisms. These integrative approaches enable the visualization of significant expression clusters and the prediction of therapeutics applicable across different tissue types, ultimately facilitating a more personalized understanding of cancer biology",
@@ -3875,13 +3923,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T7"
+      "theme": "T7",
+      "unique_title": "Pan-cancer Regulatory Network Inference"
     },
     {
       "id": "Experimental Cluster 29",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E29: Fetal Reprogramming in Cancer\u2026",
+      "label": "Fetal Reprogramming in Cancer\u2026",
       "title": "Fetal Reprogramming in Cancer Progression",
       "overview": "This cluster investigates the induction of fetal-like transcriptional reprogramming in various cancer types, including colorectal and lung carcinomas. It explores how specific molecular pathways, such as WNT signaling and toxin-mediated stem cell reprogramming, drive epithelial-to-mesenchymal transition and enhance tumor plasticity",
       "abstract": "Recent studies highlight the critical role of fetal-like transcriptional reprogramming in driving tumor initiation, progression, and metastasis across multiple cancer types. In colorectal cancer, the E. coli CNF1 toxin induces a fetal-like state in intestinal stem cells, resulting in a serrated cancer transcriptional signature and enhanced stemness. Similarly, macrophage-derived WNT signaling in the tumor microenvironment promotes an immunosuppressive phenotype that facilitates colitis-associated colon cancer development. In non-small cell lung cancer, CD47 regulates MAPK signaling and epithelial-to-mesenchymal transition to drive pro-metastatic phenotypes, while ALDH2 deficiency in mammary tissue drives proliferative morphogenesis and epithelial cell stemness via oxidative stress. These findings collectively suggest that the reactivation of developmental programs, particularly those resembling fetal states, is a fundamental mechanism underlying high-plasticity cell states and aggressive tumor behaviors",
@@ -3940,13 +3989,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 9,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Fetal Reprogramming in Cancer Progression"
     },
     {
       "id": "Experimental Cluster 30",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E30: Single-Cell Glioma Heterogenei\u2026",
+      "label": "Single-Cell Glioma Heterogenei\u2026",
       "title": "Single-Cell Glioma Heterogeneity",
       "overview": "This cluster investigates the molecular heterogeneity of gliomas using advanced spatial and single-cell transcriptomics. It focuses on identifying distinct cellular subpopulations, such as quiescent tumor cells and stromal components, to understand tumor progression and treatment resistance",
       "abstract": "The research cluster employs high-resolution spatial transcriptomics and single-cell RNA sequencing to dissect the complex cellular architecture of glioblastoma and lower-grade gliomas. Key contributions include the characterization of quiescent tumor subpopulations and the identification of lineage-specific developmental programs that drive malignant behavior. Additionally, the studies examine the role of epigenetic mechanisms, such as TET-mediated DNA demethylation, in shaping the progression of IDH-mutant gliomas. By integrating genomic, transcriptomic, and clinical data, the work elucidates the transcriptional programs underlying differences in neurofibroma-associated cells and the dynamics of radionecrotic changes. These insights provide a comprehensive map of the microenvironmental and intratumoral heterogeneity critical for developing targeted therapeutic strategies",
@@ -4005,13 +4055,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "Single-Cell Glioma Heterogeneity"
     },
     {
       "id": "Experimental Cluster 31",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E31: AI-Driven Multimodal Prognosti\u2026",
+      "label": "AI-Driven Multimodal Prognosti\u2026",
       "title": "AI-Driven Multimodal Prognostic Modeling",
       "overview": "This cluster focuses on developing robust machine learning frameworks that integrate diverse data modalities, including radiomic features, microbiome dynamics, and spatial histology, to predict treatment response and patient outcomes. The research emphasizes the validation of these models across independent cohorts and measurement platforms to ensure clinical utility and generalizability",
       "abstract": "Recent advances in biomedical AI have enabled the extraction of clinically actionable insights from complex, multimodal datasets. This research cluster highlights the application of deep learning and statistical methods to identify prognostic signatures in non-small cell lung cancer, melanoma, and other malignancies. Key contributions include the use of self-supervised learning to reveal hidden spatial patterns in immunofluorescence images and the integration of longitudinal microbiome data to predict primary resistance to immune checkpoint inhibitors. Furthermore, the cluster explores the bridging of histological and transcriptomic data to predict molecular subtypes and outcomes in bladder cancer. These models are rigorously validated across multiple independent cohorts and diverse staining protocols to assess stability and performance. Ultimately, these approaches aim to enhance precision medicine by providing reliable, cross-platform predictive tools for personalized treatment strategies",
@@ -4070,13 +4121,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 9,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "AI-Driven Multimodal Prognostic Modeling"
     },
     {
       "id": "Experimental Cluster 32",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E32: Multi-omic Biomarker Discovery\u2026",
+      "label": "Multi-omic Biomarker Discovery\u2026",
       "title": "Multi-omic Biomarker Discovery in Cancer",
       "overview": "This cluster focuses on the application of high-throughput multi-omic technologies, including proteomics and metabolomics, to identify diagnostic biomarkers and therapeutic targets in various malignancies. The research leverages large-scale biobank data and clinical cohorts to link molecular signatures with cancer incidence, prognosis, and treatment response",
       "abstract": "The studies within this cluster employ advanced analytical techniques such as nuclear magnetic resonance spectroscopy, data-independent acquisition proteomics, and mass spectral lipidomics to characterize the molecular landscape of cancer. Key contributions include the identification of circulating metabolites and plasma proteins associated with the incidence of breast, prostate, lung, and colorectal cancers in major biobanks like the UK Biobank and HUNT study. Additionally, the cluster highlights the discovery of specific molecular targets, such as the cholesterol esterification enzyme SOAT1, which plays a pivotal role in immune evasion and liver cancer recurrence. Other investigations reveal distinct proteomic features in renal cell carcinoma pseudocapsules and urinary peptidomic signatures that predict survival outcomes in bladder cancer. Furthermore, the work explores the therapeutic potential of exosomal lipid profiles in enhancing drug delivery for pancreatic cancer, demonstrating the translational value of these multi-omic insights",
@@ -4135,13 +4187,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Multi-omic Biomarker Discovery in Cancer"
     },
     {
       "id": "Experimental Cluster 33",
       "type": "cluster",
       "subtype": "experimental",
-      "label": "E33: Advanced NGS Liquid Biopsy Pro\u2026",
+      "label": "Advanced NGS Liquid Biopsy Pro\u2026",
       "title": "Advanced NGS Liquid Biopsy Profiling",
       "overview": "This cluster focuses on the development and application of advanced next-generation sequencing (NGS) methodologies, including adaptive sampling and duplex sequencing, to detect circulating tumor DNA (ctDNA) and cerebrospinal fluid (CSF) biomarkers. The research emphasizes high-sensitivity profiling for early detection, surveillance, and comprehensive genomic characterization in pediatric and adult cancers",
       "abstract": "The papers in this cluster present innovative NGS protocols designed to enhance the sensitivity and specificity of tumor DNA detection from liquid biopsy specimens. Key contributions include the use of ultra-sensitive TwinStrand Duplex Sequencing to identify low-frequency mutations in longitudinal clinical samples and the optimization of Oxford Nanopore Technologies with adaptive sampling for unified genomic and epigenomic profiling in pediatric oncology. Additionally, the cluster explores the utility of cerebrospinal fluid cytology supernatants as a viable liquid biopsy source for central nervous system tumors and evaluates the information yield from mid-depth whole-exome sequencing of matched tumor and metastasis samples. These studies collectively advance the field by providing robust frameworks for detecting rare variants, such as KRAS, NRAS, and BRAF mutations, in colorectal cancer and other malignancies, thereby improving diagnostic accuracy and enabling more precise patient surveillance",
@@ -4200,7 +4253,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 1,
       "bfs_degree": 7,
-      "theme": "T5"
+      "theme": "T5",
+      "unique_title": "Advanced NGS Liquid Biopsy Profiling"
     },
     {
       "id": "Impact Cluster 0",
@@ -4265,7 +4319,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Real-World Clinical Validation Frameworks"
     },
     {
       "id": "Impact Cluster 1",
@@ -4330,7 +4385,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Spatial Transcriptomic Clinical Biomarkers"
     },
     {
       "id": "Impact Cluster 2",
@@ -4395,7 +4451,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Prostate Cancer Evolution and Clinical Translation"
     },
     {
       "id": "Impact Cluster 3",
@@ -4460,7 +4517,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T5"
+      "theme": "T5",
+      "unique_title": "Quantifying Somatic Variant Selection"
     },
     {
       "id": "Impact Cluster 4",
@@ -4525,7 +4583,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T3"
+      "theme": "T3",
+      "unique_title": "Metastasis Mechanisms and Tumor Microenvironment"
     },
     {
       "id": "Impact Cluster 5",
@@ -4590,7 +4649,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "Advanced Brain Tumor Therapeutics"
     },
     {
       "id": "Impact Cluster 6",
@@ -4655,7 +4715,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Molecular Mechanisms of Disease Progression"
     },
     {
       "id": "Impact Cluster 7",
@@ -4720,7 +4781,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "HCC Immune Heterogeneity and Prognosis"
     },
     {
       "id": "Impact Cluster 8",
@@ -4785,7 +4847,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Pancreatic Cancer Therapeutic Sensitization"
     },
     {
       "id": "Impact Cluster 9",
@@ -4850,7 +4913,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Multidimensional Cancer Cachexia Assessment"
     },
     {
       "id": "Impact Cluster 10",
@@ -4915,7 +4979,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Advanced HNSCC Therapies Diagnostics"
     },
     {
       "id": "Impact Cluster 11",
@@ -4980,7 +5045,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Noncoding RNA and p53 mechanisms"
     },
     {
       "id": "Impact Cluster 12",
@@ -5045,7 +5111,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Gut Microbiome Cancer Mechanisms"
     },
     {
       "id": "Impact Cluster 13",
@@ -5110,7 +5177,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Novel Pediatric Cancer Therapeutics"
     },
     {
       "id": "Impact Cluster 14",
@@ -5175,7 +5243,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Targeted Therapies for Viral Leukemias"
     },
     {
       "id": "Impact Cluster 15",
@@ -5240,7 +5309,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Overcoming Targeted Therapy Resistance"
     },
     {
       "id": "Impact Cluster 16",
@@ -5305,7 +5375,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Ovarian Cancer Mechanisms and Therapy"
     },
     {
       "id": "Impact Cluster 17",
@@ -5370,7 +5441,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T0"
+      "theme": "T0",
+      "unique_title": "Lung Cancer Resistance Mechanisms"
     },
     {
       "id": "Impact Cluster 18",
@@ -5435,7 +5507,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 13,
       "bfs_degree": 7,
-      "theme": "T6"
+      "theme": "T6",
+      "unique_title": "Overcoming Therapeutic Resistance Barriers"
     },
     {
       "id": "Impact Cluster 19",
@@ -5500,7 +5573,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Metabolic Vulnerabilities in Cancer"
     },
     {
       "id": "Impact Cluster 20",
@@ -5565,7 +5639,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Overcoming Resistance in Breast Cancer"
     },
     {
       "id": "Impact Cluster 21",
@@ -5630,7 +5705,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Molecular Biomarkers for Renal Carcinoma"
     },
     {
       "id": "Impact Cluster 22",
@@ -5695,7 +5771,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 1,
       "bfs_degree": 7,
-      "theme": "T1"
+      "theme": "T1",
+      "unique_title": "Triple-Negative Breast Cancer Therapeutics"
     },
     {
       "id": "Impact Cluster 23",
@@ -5760,7 +5837,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Equitable Cancer Care and Prevention"
     },
     {
       "id": "Impact Cluster 24",
@@ -5825,7 +5903,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 7,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "Melanoma Immune Evasion and Burden"
     },
     {
       "id": "Impact Cluster 25",
@@ -5890,7 +5969,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": "T4"
+      "theme": "T4",
+      "unique_title": "Advanced Cellular Immunotherapy Strategies"
     },
     {
       "id": "Problems Cluster 2",
@@ -5955,7 +6035,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Oncolytic Virus Immuno-Oncology Strategies"
     },
     {
       "id": "Problems Cluster 3",
@@ -6020,7 +6101,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Transcriptomic Data Integration Methods"
     },
     {
       "id": "Problems Cluster 4",
@@ -6085,7 +6167,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Cancer Registry and Survival Analytics"
     },
     {
       "id": "Problems Cluster 7",
@@ -6142,7 +6225,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 4,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Oncology Diagnostic and Toxicity Analysis"
     },
     {
       "id": "Problems Cluster 8",
@@ -6207,7 +6291,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Multimodal Oncology Prognosis and Imaging"
     },
     {
       "id": "Problems Cluster 10",
@@ -6272,7 +6357,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Computational Oncology Software Tools"
     },
     {
       "id": "Problems Cluster 11",
@@ -6337,7 +6423,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 6,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Computational Frameworks for Cancer Subtyping"
     },
     {
       "id": "Problems Cluster 14",
@@ -6402,7 +6489,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 3,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Preprint Withdrawal and Consent Issues"
     },
     {
       "id": "Problems Cluster 16",
@@ -6467,7 +6555,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 5,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Translational Oncology Prioritization and Evidence"
     },
     {
       "id": "Problems Cluster 17",
@@ -6532,7 +6621,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 2,
       "bfs_degree": 7,
-      "theme": "T2"
+      "theme": "T2",
+      "unique_title": "Clinical Trial Protocols and Registration"
     },
     {
       "id": "Problems Cluster 18",
@@ -6589,7 +6679,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 2,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Multi-Platform Transcriptomic Biomarker Validation"
     },
     {
       "id": "Problems Cluster 19",
@@ -6646,7 +6737,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       ],
       "degree": 8,
       "bfs_degree": 7,
-      "theme": null
+      "theme": null,
+      "unique_title": "Advanced Molecular Diagnostics and Targeted Therapy"
     },
     {
       "id": "subtheme::raman spectroscopy",
@@ -11728,7 +11820,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
               fontFamily: "JetBrains Mono, monospace",
               style: { pointerEvents: "none" }
             },
-            isOpen ? "\u2212" : node.n_clusters
+            isOpen ? "\u2212" : "+"
           ));
         })() : node.type === "input_article" ? /* @__PURE__ */ React.createElement(
           "polygon",
@@ -12286,7 +12378,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       background: getNodeColor(selectedNode),
       color: "white",
       fontWeight: 500
-    } }, getSubtypeLabel(selectedNode.subtype))), /* @__PURE__ */ React.createElement("h3", { style: { fontSize: "17px", fontWeight: 600, paddingRight: "32px", lineHeight: 1.3, color: theme.text } }, selectedNode.title || selectedNode.label), /* @__PURE__ */ React.createElement(
+    } }, getSubtypeLabel(selectedNode.subtype))), /* @__PURE__ */ React.createElement("h3", { style: { fontSize: "17px", fontWeight: 600, paddingRight: "32px", lineHeight: 1.3, color: theme.text } }, selectedNode.unique_title || selectedNode.title || selectedNode.label), /* @__PURE__ */ React.createElement(
       "button",
       {
         onClick: () => setSelectedNode(null),
@@ -12335,7 +12427,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           color: theme.text,
           opacity: off ? 0.6 : 0.9,
           lineHeight: 1.4
-        } }, k.title || k.label)), list.length > 6 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", color: theme.textMuted } }, "+", list.length - 6, " more") : null);
+        } }, k.unique_title || k.title || k.label)), list.length > 6 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", color: theme.textMuted } }, "+", list.length - 6, " more") : null);
       }));
     })(), selectedNode.type === "author" && (() => {
       const au = authorNodes.find((a) => a.id === selectedNode.id) || selectedNode;
@@ -12358,7 +12450,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       return /* @__PURE__ */ React.createElement("div", { "data-author-panel": au.aid, style: { marginBottom: "20px" } }, au.institution ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13.5px", color: theme.text, opacity: 0.85, marginBottom: "6px" } }, au.institution) : null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", fontSize: "12.5px", color: theme.textMuted } }, au.h_index !== null && au.h_index !== void 0 ? /* @__PURE__ */ React.createElement("span", null, "h-index ", au.h_index) : null, au.n_papers_on_map ? /* @__PURE__ */ React.createElement("span", null, au.n_papers_on_map, " ", au.n_papers_on_map === 1 ? "paper" : "papers", " on this map") : null, au.credibility !== null && au.credibility !== void 0 ? /* @__PURE__ */ React.createElement("span", { title: "Display only. How well the author's record is established; it does not rate any paper." }, "credibility ", au.credibility.toFixed(2)) : null, au.orcid ? /* @__PURE__ */ React.createElement("span", { "data-orcid": "1", style: { padding: "1px 7px", borderRadius: "9px", border: "1px solid #a6ce39", color: "#a6ce39", fontSize: "11px" } }, "ORCID ", au.orcid) : null), au.reason ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px", fontSize: "12.5px", color: theme.textMuted } }, au.reason) : null, (au.clusters || []).length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: head }, "Topics on this map (", au.clusters.length, ")"), au.clusters.slice(0, 8).map((c) => {
         const k = NODE_BY_ID[c.key];
         if (!k) return null;
-        return /* @__PURE__ */ React.createElement("button", { key: c.key, type: "button", "data-cluster-focus": c.key, onClick: () => focusNode(k), style: btn }, k.title || k.label, /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", Math.round(c.share * 100), "%"));
+        return /* @__PURE__ */ React.createElement("button", { key: c.key, type: "button", "data-cluster-focus": c.key, onClick: () => focusNode(k), style: btn }, k.unique_title || k.title || k.label, /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", Math.round(c.share * 100), "%"));
       })), /* @__PURE__ */ React.createElement("div", { style: head }, "Nearby deepthinkers"), (meta.nearby || []).length > 0 ? (meta.nearby || []).slice(0, 14).map((nb) => {
         const there = onMap(nb.id);
         return there ? /* @__PURE__ */ React.createElement("button", { key: nb.id, type: "button", "data-nearby": nb.id, onClick: () => focusAuthor(there), style: btn }, nb.name, nb.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", nb.reason) : null) : /* @__PURE__ */ React.createElement("div", { key: nb.id, style: { ...btn, cursor: "default", opacity: 0.6 } }, nb.name, nb.reason ? " \xB7 " + nb.reason : "");
