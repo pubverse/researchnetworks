@@ -1,0 +1,16 @@
+# Public-repo hygiene: fail a push that would publish local paths, internal addresses or credentials.
+# The same check runs on the build machine from the pre-push hook; this is the backstop for any other clone.
+name: hygiene
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  leak-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: No local paths, internal addresses or credentials in tracked files
+        run: bash ops/leak_check.sh
