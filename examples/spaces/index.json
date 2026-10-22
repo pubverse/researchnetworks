@@ -1,0 +1,43 @@
+[
+ {
+  "slug": "oncology",
+  "name": "Oncology and Cancer Research",
+  "subfield_ids": [
+   2730,
+   1306
+  ],
+  "n_papers": 5015,
+  "n_clusters": 92,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1311",
+  "name": "Genetics",
+  "subfield_ids": [
+   1311
+  ],
+  "n_papers": 7045,
+  "n_clusters": 131,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf2705",
+  "name": "Cardiology and Cardiovascular Medicine",
+  "subfield_ids": [
+   2705
+  ],
+  "n_papers": 2306,
+  "n_clusters": 72,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2303",
+  "name": "Ecology",
+  "subfield_ids": [
+   2303
+  ],
+  "n_papers": 1072,
+  "n_clusters": 60,
+  "n_themes": 8
+ }
+]

@@ -353,3 +353,12 @@ button.chip:focus-visible,a.chip:focus-visible{outline:2px solid var(--blue);out
 .cov{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;white-space:nowrap}
 a.chip-btn{text-decoration:none;color:inherit}
 .person-list .orcid-badge{align-self:flex-start;margin:2px 0}
+
+/* Research-space maps: the #space/<slug> view and the buttons that open it. */
+.btn-row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn-row > span:empty{display:none}
+.space-map{margin:0 -4px}
+.space-map iframe{display:block;width:100%;height:clamp(460px,74vh,860px);border:0;border-radius:12px;background:#0f1d16}
+.space-map iframe:fullscreen{height:100vh;border-radius:0}
+.space-status{margin:0;min-height:1.4em;flex:1 1 220px}
+@media(max-width:720px){.space-map iframe{height:clamp(420px,70vh,640px)}}

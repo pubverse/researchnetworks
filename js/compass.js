@@ -1082,3 +1082,311 @@
   }
   PV.compass = { init: initPage, selectField: selectField };
 })();
+
+/* ---------------------------------------------------------------------------------------------
+   Map bridge: authors on the research-space maps.
+
+   A map runs in an iframe and has no credentials and makes no API calls. When the reader searches
+   a name inside it, or clicks an author on it, the map posts a message up; this bridge calls the
+   login-gated author routes and posts the answer back down. One protocol serves every map the page
+   shows (a search's own map, a published example, and the space maps of #space/<slug>).
+
+   map -> page   pv:author-query {q}   pv:author-click {id}   pv:open-author {id}
+   page -> map   pv:author-nodes {mode:'place'|'expand', anchor, authors:[...], edges:[...]}
+                 pv:author-error {message}
+
+   Trust: a message is acted on only when event.source is the contentWindow of an iframe THIS page
+   registered, and event.origin is that frame's own origin. Every field is validated before use,
+   and answers are posted to the frame's origin, never '*'. A map that does not understand these
+   messages simply ignores them, so an older cached map is unaffected.
+   --------------------------------------------------------------------------------------------- */
+(function () {
+  'use strict';
+  if (!window.PV || !window.PV.api) return;
+  var api = PV.api;
+
+  var ID_RE = /^A\d{1,12}$/;
+  var MAX_AUTHORS = 25, MAX_CLUSTERS = 12, CACHE_MS = 120000, SEARCH_PLACE = 5;
+  var frames = [];                 // [{ frame, resolve, onStatus }]
+  var cache = Object.create(null); // key -> { at, p }
+  var blockedUntil = 0;            // 429: no calls before this time
+
+  function str(x, n) { return typeof x === 'string' ? x.slice(0, n || 200) : ''; }
+  function numOr(x, d) { x = Number(x); return isFinite(x) ? x : d; }
+
+  /* ----- spaces index (examples/spaces/index.json, published beside the space maps) ----- */
+  var spacesP = null;
+  function spaces() {
+    if (!spacesP) {
+      spacesP = fetch('/examples/spaces/index.json', { cache: 'no-cache' })
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (list) {
+          if (!Array.isArray(list)) return [];
+          return list.filter(function (s) {
+            return s && /^[a-z0-9_-]{1,40}$/.test(String(s.slug || ''));
+          }).map(function (s) {
+            return { slug: s.slug, name: str(s.name, 120) || s.slug,
+                     subfield_ids: (Array.isArray(s.subfield_ids) ? s.subfield_ids : []).map(String),
+                     n_papers: s.n_papers, n_clusters: s.n_clusters, n_themes: s.n_themes };
+          });
+        })
+        .catch(function () { return []; });
+    }
+    return spacesP;
+  }
+  // Accepts 2705, "2705", "subfield-2705".
+  function spaceForSubfield(list, id) {
+    var m = /(\d{1,9})\s*$/.exec(String(id == null ? '' : id));
+    if (!m) return null;
+    for (var i = 0; i < list.length; i++) if (list[i].subfield_ids.indexOf(m[1]) >= 0) return list[i];
+    return null;
+  }
+  function spaceBySlug(list, slug) {
+    for (var i = 0; i < list.length; i++) if (list[i].slug === slug) return list[i];
+    return null;
+  }
+  function spaceByName(list, name) {
+    var n = String(name || '').trim().toLowerCase();
+    if (!n) return null;
+    for (var i = 0; i < list.length; i++) if (list[i].name.toLowerCase() === n) return list[i];
+    return null;
+  }
+
+  /* ----- payload shaping (everything from the server is re-validated) ----- */
+  function normClusters(list) {
+    var out = [], seen = Object.create(null);
+    (Array.isArray(list) ? list : []).forEach(function (c) {
+      if (!c || typeof c !== 'object') return;
+      var key = str(c.cluster_key != null ? c.cluster_key : (c.key != null ? c.key : c.id), 120);
+      if (!key || seen[key] || out.length >= MAX_CLUSTERS) return;
+      seen[key] = 1;
+      out.push({ key: key, cluster_key: key, share: Math.max(0, Math.min(1, numOr(c.share, 0))),
+                 n_papers: Math.max(0, Math.round(numOr(c.n_papers, 0))) });
+    });
+    return out;
+  }
+  // The API scores credibility 0-100; the map expects 0..1.
+  function normCred(x) {
+    x = numOr(x, 0);
+    if (x > 1) x = x / 100;
+    return Math.max(0, Math.min(1, x));
+  }
+  function normAuthor(a, extra) {
+    if (!a || typeof a !== 'object') return null;
+    var id = String(a.id != null ? a.id : a.author_id);
+    if (!ID_RE.test(id) || a.suspect_merge === true) return null;
+    var o = {
+      id: id,
+      name: str(a.name || a.display_name, 160) || 'Unnamed author',
+      institution: str(a.institution || a.last_institution, 200),
+      country: str(a.country || a.last_institution_country, 8),
+      orcid: str(a.orcid, 40),
+      h_index: a.h_index == null ? null : Math.round(numOr(a.h_index, 0)),
+      credibility: a.credibility == null ? null : normCred(a.credibility),
+      n_papers: Math.max(0, Math.round(numOr(a.n_papers_on_map != null ? a.n_papers_on_map : a.n_papers, 0))),
+      clusters: normClusters(a.clusters || a.shared_clusters || a.top_clusters)
+    };
+    if (extra) { for (var k in extra) o[k] = extra[k]; }
+    return o;
+  }
+
+  /* ----- cached, rate-aware calls ----- */
+  function failMessage(res) {
+    if (res && res.status === 429) {
+      var s = parseInt(res.retryAfter, 10);
+      return 'Too many author lookups. Please wait ' + (s > 0 && s < 600 ? s + ' seconds' : 'a moment') + ' and try again.';
+    }
+    if (res && res.status === 404) return null;   // the caller says which 404
+    if (res && (res.status >= 500 || res.transport)) return 'Author data is unavailable right now. Try again shortly.';
+    if (res && res.status === 401) return 'Sign in to see authors on the map.';
+    return (res && typeof res.message === 'string' && res.message.slice(0, 200)) || 'Author data is unavailable right now.';
+  }
+  function call(key, fn) {
+    var hit = cache[key];
+    if (hit && Date.now() - hit.at < CACHE_MS) return hit.p;
+    if (Date.now() < blockedUntil) {
+      return Promise.resolve({ ok: false, status: 429, retryAfter: Math.ceil((blockedUntil - Date.now()) / 1000) });
+    }
+    var p = Promise.resolve(fn()).then(function (res) {
+      if (res && res.status === 429) {
+        var s = parseInt(res.retryAfter, 10);
+        blockedUntil = Date.now() + (s > 0 && s < 600 ? s : 10) * 1000;
+      }
+      if (!res || res.ok === false) delete cache[key];
+      return res;
+    });
+    cache[key] = { at: Date.now(), p: p };
+    var keys = Object.keys(cache);
+    if (keys.length > 60) keys.sort(function (a, b) { return cache[a].at - cache[b].at; })
+      .slice(0, keys.length - 60).forEach(function (k) { delete cache[k]; });
+    return p;
+  }
+
+  /* ----- talking to one frame ----- */
+  function findEntry(frame) {
+    for (var i = 0; i < frames.length; i++) if (frames[i].frame === frame) return frames[i];
+    return null;
+  }
+  function frameOrigin(frame) {
+    var src = frame.getAttribute('src') || '';
+    if (!src || src === 'about:blank') return null;
+    try { return new URL(src, location.href).origin; } catch (e) { return null; }
+  }
+  function post(entry, msg) {
+    var w = entry.frame.contentWindow, o = frameOrigin(entry.frame);
+    if (!w || !o || o === 'null') return false;
+    try { w.postMessage(msg, o); return true; } catch (e) { return false; }
+  }
+  function status(entry, text) { if (entry.onStatus) { try { entry.onStatus(text || ''); } catch (e) {} } }
+  function fail(entry, text) { post(entry, { type: 'pv:author-error', message: text }); status(entry, text); }
+
+  function withSpace(entry, fn) {
+    return Promise.resolve(entry.resolve ? entry.resolve() : null).then(function (slug) {
+      if (!slug || !/^[a-z0-9_-]{1,40}$/.test(slug)) {
+        fail(entry, 'Author search is not available on this map.');
+        return null;
+      }
+      return fn(slug);
+    });
+  }
+
+  function queryAuthors(entry, q) {
+    q = str(q, 120).trim();
+    if (q.length < 2) { fail(entry, 'Type at least two letters of a name.'); return Promise.resolve(); }
+    return withSpace(entry, function (slug) {
+      return call('s:' + slug + ':' + q.toLowerCase(), function () { return api.mapAuthors(slug, q); }).then(function (res) {
+        if (!res || res.ok === false) { fail(entry, failMessage(res) || 'Author search is unavailable right now.'); return; }
+        var list = (Array.isArray(res.authors) ? res.authors : []).map(function (a) { return normAuthor(a); })
+          .filter(Boolean).slice(0, SEARCH_PLACE);
+        if (!list.length) {
+          fail(entry, 'No author matching "' + q + '" is placed on this map. Authors of papers after March 2026 are not placed yet.');
+          return;
+        }
+        post(entry, { type: 'pv:author-nodes', mode: 'place', anchor: list[0].id, authors: list, edges: [] });
+        status(entry, list.length === 1 ? 'Placed ' + list[0].name + ' on the map.' : 'Placed ' + list.length + ' authors on the map.');
+      });
+    });
+  }
+
+  // One placed author: the anchor with its clusters on this map, then co-authors on this map, then
+  // deepthinkers who share its clusters, each with the reason. mode 'expand' adds them beside the anchor.
+  function detail(entry, id, mode) {
+    return withSpace(entry, function (slug) {
+      return call('a:' + slug + ':' + id, function () { return api.mapAuthor(slug, id); }).then(function (res) {
+        if (!res || res.ok === false) {
+          fail(entry, failMessage(res) || 'That author is not placed on this map.');
+          return false;
+        }
+        var anchor = normAuthor(Object.assign({}, res.author || {}, { clusters: res.clusters || (res.author && res.author.clusters) }));
+        if (!anchor || anchor.id !== id) { fail(entry, 'That author is not placed on this map.'); return false; }
+        var authors = [anchor], edges = [], seen = Object.create(null);
+        seen[id] = 1;
+        // A neighbor's hit carries the clusters it shares with the anchor (shared_clusters) on the
+        // deepthinkers list; a co-author listed only under coauthors_on_map borrows them from there.
+        var shared = Object.create(null);
+        (Array.isArray(res.deepthinkers) ? res.deepthinkers : []).forEach(function (x) {
+          if (x && typeof x === 'object' && x.id != null) shared[String(x.id)] = x.shared_clusters || x.clusters;
+        });
+        function add(list, link, defReason) {
+          (Array.isArray(list) ? list : []).forEach(function (x) {
+            if (authors.length >= MAX_AUTHORS) return;
+            var lk = (x && x.kind === 'coauthor') ? 'co' : link;
+            var reason = str(x && x.reason, 120) || defReason;
+            if (x && typeof x === 'object' && !(x.clusters && x.clusters.length) && !(x.shared_clusters && x.shared_clusters.length) && shared[String(x.id)]) {
+              x = Object.assign({}, x, { shared_clusters: shared[String(x.id)] });
+            }
+            var a = normAuthor(x, { link: lk, reason: reason });
+            if (!a || seen[a.id]) return;
+            seen[a.id] = 1;
+            authors.push(a);
+            edges.push({ source: id, target: a.id, kind: lk, reason: reason });
+          });
+        }
+        if (mode !== 'place') {
+          add(res.coauthors_on_map, 'co', 'co-author');
+          add(res.deepthinkers, 'space', 'shares topics on this map');
+        }
+        post(entry, { type: 'pv:author-nodes', mode: mode, anchor: id, authors: authors, edges: edges });
+        status(entry, mode === 'place' ? 'Placed ' + anchor.name + ' on the map.'
+          : anchor.name + ': ' + (authors.length - 1) + ' nearby ' + (authors.length === 2 ? 'author' : 'authors') + ' added.');
+        return true;
+      });
+    });
+  }
+
+  /* ----- inbound ----- */
+  function onMessage(ev) {
+    var d = ev && ev.data;
+    if (!d || typeof d !== 'object' || typeof d.type !== 'string') return;
+    if (d.type === 'pv:map-ready') {
+      for (var j = 0; j < frames.length; j++) {
+        if (frames[j].frame.contentWindow && frames[j].frame.contentWindow === ev.source) {
+          var oo = frameOrigin(frames[j].frame);
+          if (oo && ev.origin === oo) post(frames[j], { type: 'pv:author-capable', version: 1 });
+          return;
+        }
+      }
+      return;
+    }
+    if (d.type !== 'pv:author-query' && d.type !== 'pv:author-click' && d.type !== 'pv:open-author') return;
+    var entry = null;
+    for (var i = 0; i < frames.length; i++) {
+      if (frames[i].frame.contentWindow && frames[i].frame.contentWindow === ev.source) { entry = frames[i]; break; }
+    }
+    if (!entry) return;                                     // not a map this page created
+    var o = frameOrigin(entry.frame);
+    if (!o || ev.origin !== o) return;                      // a navigated or foreign document
+    if (d.type === 'pv:author-query') {
+      if (typeof d.q !== 'string') return;
+      queryAuthors(entry, d.q);
+    } else {
+      var id = typeof d.id === 'string' ? d.id : (typeof d.author_id === 'string' ? d.author_id : '');
+      if (!ID_RE.test(id)) return;
+      if (d.type === 'pv:author-click') detail(entry, id, 'expand');
+      else if (window.PV.search && PV.search.go) PV.search.go('#author/' + id);
+      else location.hash = '#author/' + id;
+    }
+  }
+  window.addEventListener('message', onMessage);
+
+  /* ----- public ----- */
+  // attach(frame, { resolve: () => slug | Promise<slug|null>, onStatus: text => void })
+  function attach(frame, opts) {
+    if (!frame) return;
+    var e = findEntry(frame);
+    if (!e) { e = { frame: frame }; frames.push(e); }
+    if (!e.loadHooked) {
+      e.loadHooked = true;
+      frame.addEventListener('load', function () { post(e, { type: 'pv:author-capable', version: 1 }); });
+    }
+    e.resolve = (opts && opts.resolve) || null;
+    e.onStatus = (opts && opts.onStatus) || null;
+  }
+  function detach(frame) { frames = frames.filter(function (e) { return e.frame !== frame; }); }
+  // Place one author on the frame's map (used by #space/<slug>?author=A...). Resolves {ok}.
+  function placeAuthor(frame, id) {
+    var e = findEntry(frame);
+    if (!e || !ID_RE.test(String(id))) return Promise.resolve({ ok: false });
+    return detail(e, id, 'place').then(function (ok) { return { ok: !!ok }; });
+  }
+
+  PV.mapBridge = { attach: attach, detach: detach, spaces: spaces, spaceForSubfield: spaceForSubfield,
+                   spaceBySlug: spaceBySlug, spaceByName: spaceByName, placeAuthor: placeAuthor };
+
+  /* The landing page's one frame shows either a published example or a search's own map. Only a
+     search in a field that has a space map can answer author queries: its field label is matched to
+     the space name; anything else tells the map authors are not available there. */
+  var landing = document.getElementById('fieldGraphFrame');
+  var landingLabel = '';
+  if (landing) {
+    attach(landing, { resolve: function () {
+      if (!landingLabel) return null;
+      return spaces().then(function (l) { var s = spaceByName(l, landingLabel); return s ? s.slug : null; });
+    } });
+    document.addEventListener('pv:run-map', function (e) {
+      var d = (e && e.detail) || {};
+      landingLabel = d.state === 'ready' && typeof d.field === 'string' ? d.field : '';
+    });
+    document.addEventListener('pv:field-map', function () { landingLabel = ''; });
+  }
+})();

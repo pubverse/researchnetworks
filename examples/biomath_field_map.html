@@ -348,6 +348,231 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 <body>
     <div id="root"></div>
     
+    <script>/* Author layer for the field-map renderer: the pure half (validation, merging, node building).
+ *
+ * render_field_map.py inlines this file into the page as a plain script and the React app calls
+ * window.PVAuthorLayer; tests/test_author_layer.js loads the same file under node. No DOM, no React,
+ * no network here, so every rule below can be tested without a browser.
+ *
+ * TRUST MODEL. The parent page answers a reader's own query, so its messages are display data and
+ * nothing else. Still every field is checked: ids must look like OpenAlex author ids, cluster keys must
+ * exist on this map, counts are capped, text is cut to length and later rendered as TEXT (React
+ * escapes it; nothing here or in the renderer uses innerHTML). Authors are display only: they never
+ * reach a model feature or a training graph.
+ *
+ * PROTOCOL (documented in the wave contract, phase6/contract.md, "Deviations/M1 protocol"):
+ *   parent -> map  pv:author-capable {version:1}      the parent can answer author messages
+ *   parent -> map  pv:author-nodes   {mode:'place'|'expand', anchor, authors:[...], edges:[...]}
+ *   parent -> map  pv:author-error   {message}
+ *   map -> parent  pv:map-ready      {}               (announces the map; a parent may answer with capable)
+ *   map -> parent  pv:author-query   {q}
+ *   map -> parent  pv:author-click   {id}
+ *   map -> parent  pv:open-author    {id}
+ */
+(function (root) {
+  'use strict';
+
+  var AUTHOR_ID_RE = /^A\d{1,12}$/;
+  var ORCID_RE = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
+  var MAX_PER_MESSAGE = 25;
+  var MAX_TOTAL = 80;
+  var MAX_CLUSTERS_PER_AUTHOR = 12;
+  var MAX_EDGES_PER_MESSAGE = 200;
+  var MAX_QUERY = 80;
+
+  function text(s, max) {
+    if (s === null || s === undefined) return '';
+    if (typeof s !== 'string' && typeof s !== 'number') return '';
+    // control characters and bidi overrides out, whitespace collapsed
+    var t = String(s).replace(/[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩]/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    return t.length > max ? t.slice(0, max - 1).replace(/\s+$/, '') + '…' : t;
+  }
+
+  function num(x, lo, hi) {
+    if (typeof x !== 'number' || !isFinite(x)) return null;
+    return Math.min(hi, Math.max(lo, x));
+  }
+
+  function cleanQuery(q) {
+    // The string the map sends out when a reader asks for an author: what they typed, bounded.
+    return text(q, MAX_QUERY);
+  }
+
+  function nodeId(aid) { return 'author::' + aid; }
+
+  /* Validate one inbound pv:author-nodes payload.
+   * hasCluster(key) -> bool says whether a cluster node id exists on THIS map.
+   * Returns {mode, anchor, authors, edges, dropped} or null when the message is unusable. */
+  function validateAuthorNodes(d, hasCluster) {
+    if (!d || typeof d !== 'object') return null;
+    var mode = d.mode === 'expand' ? 'expand' : (d.mode === 'place' ? 'place' : null);
+    if (!mode) return null;
+    if (!Array.isArray(d.authors)) return null;
+    var dropped = 0;
+    var seen = {};
+    var authors = [];
+    for (var i = 0; i < d.authors.length && authors.length < MAX_PER_MESSAGE; i++) {
+      var a = d.authors[i];
+      if (!a || typeof a !== 'object' || typeof a.id !== 'string' || !AUTHOR_ID_RE.test(a.id) || seen[a.id]) {
+        dropped++; continue;
+      }
+      var name = text(a.name, 80);
+      if (!name) { dropped++; continue; }
+      seen[a.id] = true;
+      var cl = [];
+      var cs = Array.isArray(a.clusters) ? a.clusters : [];
+      for (var j = 0; j < cs.length && cl.length < MAX_CLUSTERS_PER_AUTHOR; j++) {
+        var c = cs[j];
+        if (!c || typeof c.key !== 'string' || !hasCluster(c.key)) continue;
+        var share = num(c.share, 0, 1);
+        if (share === null) share = 0.3;
+        var np = num(c.n_papers, 0, 1e6);
+        cl.push({ key: c.key, share: share, n_papers: np === null ? null : Math.round(np) });
+      }
+      cl.sort(function (x, y) { return y.share - x.share; });
+      // placing an author means putting it beside a topic of THIS map; with none valid there is nowhere to put it
+      if (mode === 'place' && !cl.length) { dropped++; continue; }
+      var h = num(a.h_index, 0, 2000);
+      var cred = num(a.credibility, 0, 1);
+      var onMap = num(a.n_papers_on_map, 0, 1e6);
+      authors.push({
+        id: a.id, name: name,
+        institution: text(a.institution, 100),
+        h_index: h === null ? null : Math.round(h),
+        orcid: (typeof a.orcid === 'string' && ORCID_RE.test(a.orcid)) ? a.orcid : '',
+        credibility: cred,
+        n_papers_on_map: onMap === null ? null : Math.round(onMap),
+        reason: text(a.reason, 120),
+        link: a.link === 'co' ? 'co' : (a.link === 'space' ? 'space' : ''),
+        clusters: cl
+      });
+    }
+    var edges = [];
+    var es = Array.isArray(d.edges) ? d.edges : [];
+    for (var k = 0; k < es.length && edges.length < MAX_EDGES_PER_MESSAGE; k++) {
+      var e = es[k];
+      if (!e || typeof e.source !== 'string' || typeof e.target !== 'string') continue;
+      if (!AUTHOR_ID_RE.test(e.source) || !AUTHOR_ID_RE.test(e.target) || e.source === e.target) continue;
+      var w = num(e.weight, 0, 1);
+      edges.push({ source: e.source, target: e.target, kind: e.kind === 'space' ? 'space' : 'coauthor',
+                   weight: w === null ? 0.5 : w });
+    }
+    var anchor = (typeof d.anchor === 'string' && AUTHOR_ID_RE.test(d.anchor)) ? d.anchor : '';
+    if (!authors.length) return null;
+    return { mode: mode, anchor: anchor, authors: authors, edges: edges, dropped: dropped };
+  }
+
+  /* Build the display nodes and edges for a validated message.
+   *  existing: array of author nodes already on the map (state)
+   *  byId:     lookup of cluster nodes (NODE_BY_ID)
+   *  seq:      next sequence number (monotonic; the oldest unselected is evicted first)
+   * Returns {nodes: [...new or refreshed author nodes], edges: [...], focusId}. */
+  function buildAuthors(msg, existing, byId, seq) {
+    var have = {};
+    existing.forEach(function (n) { have[n.aid] = n; });
+    var nodes = [], edges = [], s = seq;
+    msg.authors.forEach(function (a) {
+      var strongest = a.clusters.length ? byId[a.clusters[0].key] : null;
+      var prev = have[a.id];
+      var node = {
+        id: nodeId(a.id), aid: a.id, type: 'author', subtype: 'author',
+        label: a.name, title: a.name,
+        institution: a.institution, h_index: a.h_index, orcid: a.orcid,
+        credibility: a.credibility, n_papers_on_map: a.n_papers_on_map,
+        clusters: a.clusters,
+        anchor: strongest ? strongest.id : (prev ? prev.anchor : null),
+        theme: strongest ? (strongest.theme || null) : (prev ? prev.theme : null),
+        // a node with no cluster on this map hangs off the author that asked for it
+        seedNear: (msg.mode === 'expand' && msg.anchor && msg.anchor !== a.id) ? nodeId(msg.anchor)
+          : (!strongest && prev ? prev.seedNear : null),
+        reason: a.reason, link: a.link,
+        bfs_degree: 1, degree: a.clusters.length + 1,
+        seq: prev ? prev.seq : s++
+      };
+      nodes.push(node);
+      a.clusters.forEach(function (c) {
+        edges.push({ source: node.id, target: c.key, weight: c.share, w_rel: Math.max(0.15, c.share),
+                     edge_type: 'author_member' });
+      });
+    });
+    var ids = {};
+    existing.concat(nodes).forEach(function (n) { ids[n.aid] = true; });
+    var linked = {};
+    msg.edges.forEach(function (e) {
+      if (!ids[e.source] || !ids[e.target]) return;
+      var key = [e.source, e.target].sort().join('|');
+      linked[key] = true;
+      edges.push({ source: nodeId(e.source), target: nodeId(e.target), weight: e.weight,
+                   w_rel: Math.max(0.2, e.weight), edge_type: 'author_link', kind: e.kind });
+    });
+    // An expansion's neighbours are linked to the author that asked even when the parent sent no
+    // explicit edge, so the reader sees whose neighbour each one is.
+    if (msg.mode === 'expand' && msg.anchor && ids[msg.anchor]) {
+      nodes.forEach(function (n) {
+        if (n.aid === msg.anchor) return;
+        var key = [n.aid, msg.anchor].sort().join('|');
+        if (linked[key]) return;
+        linked[key] = true;
+        edges.push({ source: nodeId(msg.anchor), target: n.id, weight: 0.4, w_rel: 0.4,
+                     edge_type: 'author_link', kind: n.link === 'co' ? 'coauthor' : 'space' });
+      });
+    }
+    var focus = msg.mode === 'place'
+      ? nodeId(msg.anchor && ids[msg.anchor] ? msg.anchor : msg.authors[0].id) : null;
+    return { nodes: nodes, edges: edges, focusId: focus, nextSeq: s };
+  }
+
+  /* Merge new author nodes into the list. At most MAX_TOTAL; the oldest unselected go first.
+   * Returns {nodes, evicted: [node ids]}. */
+  function mergeAuthors(existing, fresh, selectedId, max) {
+    max = max || MAX_TOTAL;
+    var by = {};
+    existing.forEach(function (n) { by[n.id] = n; });
+    fresh.forEach(function (n) { by[n.id] = n; });
+    var list = Object.keys(by).map(function (k) { return by[k]; });
+    var evicted = [];
+    if (list.length > max) {
+      var freshIds = {};
+      fresh.forEach(function (n) { freshIds[n.id] = true; });
+      var cand = list.filter(function (n) { return n.id !== selectedId && !freshIds[n.id]; })
+        .sort(function (a, b) { return a.seq - b.seq; });
+      var over = list.length - max;
+      for (var i = 0; i < over && i < cand.length; i++) evicted.push(cand[i].id);
+      // a single message larger than the room left: drop its newest tail, never the selected node
+      var drop = {};
+      evicted.forEach(function (id) { drop[id] = true; });
+      list = list.filter(function (n) { return !drop[n.id]; });
+      if (list.length > max) {
+        var tail = list.filter(function (n) { return n.id !== selectedId; })
+          .sort(function (a, b) { return b.seq - a.seq; }).slice(0, list.length - max);
+        tail.forEach(function (n) { drop[n.id] = true; evicted.push(n.id); });
+        list = list.filter(function (n) { return !drop[n.id]; });
+      }
+    }
+    list.sort(function (a, b) { return a.seq - b.seq; });
+    return { nodes: list, evicted: evicted };
+  }
+
+  /* Keep only edges whose both ends are still author nodes or known map nodes. */
+  function pruneEdges(edges, authorIds, hasNode) {
+    return edges.filter(function (e) {
+      var s = e.source, t = e.target;
+      var okS = authorIds[s] || hasNode(s), okT = authorIds[t] || hasNode(t);
+      return okS && okT;
+    });
+  }
+
+  var api = {
+    AUTHOR_ID_RE: AUTHOR_ID_RE, MAX_PER_MESSAGE: MAX_PER_MESSAGE, MAX_TOTAL: MAX_TOTAL,
+    MAX_QUERY: MAX_QUERY, text: text, cleanQuery: cleanQuery, nodeId: nodeId,
+    validateAuthorNodes: validateAuthorNodes, buildAuthors: buildAuthors,
+    mergeAuthors: mergeAuthors, pruneEdges: pruneEdges
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.PVAuthorLayer = api;
+})(typeof window !== 'undefined' ? window : this);
+</script>
     <script>
 (() => {
   const { useState, useEffect, useLayoutEffect, useRef, useMemo } = React;
@@ -31478,6 +31703,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }
   ];
   const BAND = { "field": "band_z", "unit": "standard deviations", "label": "fit to the established structure of the field", "note": "Cosine to the nearest cluster in each context, scored against that cluster's own reference distribution over the landscape, averaged across contexts.", "default": 2.473, "min": 5e-3, "max": 2.865, "ordinary_total": 160, "needles_always_shown": true, "dims": [{ "key": "band_z", "field": "band_z", "label": "All contexts (average)", "short": "All", "note": "Cosine to the nearest cluster in each context, scored against that cluster's own reference distribution over the landscape, averaged across contexts.", "default": 2.473, "min": 5e-3, "max": 2.865, "ordinary_total": 160 }, { "key": "computational", "ctx": "computational", "label": "Computational methods", "short": "Computational", "pipeline_group": "Methods", "note": "Cosine to the nearest computational cluster only, scored against that cluster's own reference distribution over the landscape. Not averaged with the other contexts.", "default": 3.308, "min": 0.054, "max": 3.917, "ordinary_total": 160 }, { "key": "experimental", "ctx": "experimental", "label": "Experimental methods", "short": "Experimental", "pipeline_group": "Methods", "note": "Cosine to the nearest experimental cluster only, scored against that cluster's own reference distribution over the landscape. Not averaged with the other contexts.", "default": 3.419, "min": 0.919, "max": 4.186, "ordinary_total": 160 }, { "key": "impact", "ctx": "impact", "label": "Outcomes", "short": "Outcomes", "pipeline_group": "Impact / Novelty", "note": "Cosine to the nearest impact cluster only, scored against that cluster's own reference distribution over the landscape. Not averaged with the other contexts.", "default": 2.667, "min": -0.723, "max": 3.324, "ordinary_total": 160 }, { "key": "problems", "ctx": "problems", "label": "Problem statements", "short": "Problem statements", "pipeline_group": "Novelty", "note": "Cosine to the nearest problems cluster only, scored against that cluster's own reference distribution over the landscape. Not averaged with the other contexts.", "default": 1.763, "min": -1.825, "max": 2.182, "ordinary_total": 160 }], "default_dim": "band_z", "dims_unavailable": [], "dims_caveat": "These are the four Prism contexts the landscape is clustered on, not the judge dimensions shown on a paper card. deep_grounding.DIM_CONTEXTS groups computational and experimental together as Methods and feeds the impact context into both Novelty and Impact; this selector keeps the four contexts separate on purpose, because computational and experimental agree only weakly (r = 0.47 on this run)." };
+  const SPACE_ONLY = false;
   const BAND_DIMS = BAND && Array.isArray(BAND.dims) && BAND.dims.length ? BAND.dims : BAND && BAND.field ? [{
     key: BAND.field,
     field: BAND.field,
@@ -31509,7 +31735,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     query: "Input",
     keyword: "Shared term",
     theme: "Theme",
-    article: "Publication"
+    article: "Publication",
+    author: "Author"
   };
   const getSubtypeLabel = (subtype) => SUBTYPE_LABELS[subtype] || subtype;
   const COLORS = {
@@ -31529,15 +31756,19 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     publication: "#475569",
     // COMPASS ADDITION. An ordinary paper that scored above the run's average. Amber, so it
     // reads as a paper rather than as an impact cluster, which is also a triangle.
-    paper: "#e0a458"
+    paper: "#e0a458",
+    // Author layer: a person. Magenta, so it cannot be mistaken for any topic colour.
+    author: "#ec4899"
   };
+  const AL = window.PVAuthorLayer;
+  const HAS_PARENT = !!(window.parent && window.parent !== window);
   const NODE_BY_ID = {};
   NODES.forEach((n) => {
     NODE_BY_ID[n.id] = n;
   });
   const HAS_THEMES = NODES.some((n) => n.type === "theme");
   const THEME_MAX = Math.max(1, ...NODES.filter((n) => n.type === "theme").map((n) => n.corpus_size || 1));
-  const LEGACY_DEPTH_DEFAULT = BAND && BAND.field ? 2 : 1;
+  const LEGACY_DEPTH_DEFAULT = SPACE_ONLY || BAND && BAND.field ? 2 : 1;
   const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const SUB_NEIGH = {};
   EDGES.forEach((e) => {
@@ -31854,7 +32085,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       frameNodes(allVisibleIds, true);
     };
     const bandTipText = bandDim && bandDim.ctx ? ((bandDim.note || "") + " " + BAND_TIP_TAIL + " " + (BAND && BAND.dims_caveat || "")).trim() : BAND_TIP_DEFAULT;
-    const isFieldMap = !!(BAND && BAND.field);
+    const isFieldMap = SPACE_ONLY || !!(BAND && BAND.field);
     const CENTER_X = 1e3, CENTER_Y = 750;
     const HAS_BRIDGE_EDGES = useMemo(() => EDGES.some((e) => {
       const sn = NODE_BY_ID[e.source] || NODE_BY_ID[e.source && e.source.id];
@@ -31907,6 +32138,41 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       edgeDefault: "rgba(100, 116, 139, 0.25)",
       edgeHighlight: "rgba(0,0,0,0.5)"
     };
+    const [authorCapable, setAuthorCapable] = useState(false);
+    const [authorNodes, setAuthorNodes] = useState([]);
+    const [authorEdges, setAuthorEdges] = useState([]);
+    const [authorMeta, setAuthorMeta] = useState({});
+    const [authorNote, setAuthorNote] = useState("");
+    const authorSeqRef = useRef(0);
+    const authorNodesRef = useRef([]);
+    authorNodesRef.current = authorNodes;
+    const authorEdgesRef = useRef([]);
+    authorEdgesRef.current = authorEdges;
+    const selectedIdRef = useRef(null);
+    selectedIdRef.current = selectedNode ? selectedNode.id : null;
+    const authorMetaRef = useRef({});
+    authorMetaRef.current = authorMeta;
+    const postParent = (type, payload) => {
+      if (!HAS_PARENT) return;
+      try {
+        window.parent.postMessage(Object.assign({ type }, payload || {}), "*");
+      } catch (err) {
+      }
+    };
+    const askAuthors = (q) => {
+      const clean = AL.cleanQuery(q);
+      if (clean.length < 2) return;
+      setAuthorNote('Looking for authors named "' + clean + '" on this map...');
+      postParent("pv:author-query", { q: clean });
+    };
+    const requestExpand = (node) => {
+      if (!HAS_PARENT || !node || node.type !== "author") return;
+      const m = authorMetaRef.current[node.aid] || {};
+      if (m.expanded || m.loading) return;
+      setAuthorMeta((prev) => Object.assign({}, prev, { [node.aid]: Object.assign({}, prev[node.aid], { loading: true }) }));
+      postParent("pv:author-click", { id: node.aid });
+    };
+    const openAuthorPage = (node) => postParent("pv:open-author", { id: node.aid });
     const TYPE_ORDER = { theme: 0, input_article: 1, cluster: 2, paper: 3, subtheme: 4 };
     const handleSearch = (query) => {
       setSearchQuery(query);
@@ -31916,11 +32182,24 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       }
       const q = query.toLowerCase();
       const results = NODES.filter((n) => (n.label || n.id).toLowerCase().includes(q)).sort((a, b) => (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9)).slice(0, 8);
+      if (authorCapable) {
+        const onMap = authorNodes.filter((n) => (n.label || "").toLowerCase().includes(q)).slice(0, 4);
+        results.unshift(...onMap);
+        if (query.trim().length >= 3) results.push({ id: "__find_author__", type: "find_author", label: AL.cleanQuery(query) });
+      }
       setSearchResults(results);
     };
     const selectSearchResult = (node) => {
       setSearchQuery("");
       setSearchResults([]);
+      if (node.type === "find_author") {
+        askAuthors(node.label);
+        return;
+      }
+      if (node.type === "author") {
+        focusAuthor(node);
+        return;
+      }
       focusNode(node);
     };
     const bandPass = (n) => {
@@ -31946,8 +32225,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         return true;
       });
       const ids = new Set(base.map((n) => n.id));
-      return base.filter((n) => n.type !== "subtheme" || (SUB_NEIGH[n.id] || []).filter((c) => ids.has(c)).length >= 2);
-    }, [gran, expanded, bandMin, bandDir, bandDimKey, hidden, legacyDepth, pinned]);
+      const kept = base.filter((n) => n.type !== "subtheme" || (SUB_NEIGH[n.id] || []).filter((c) => ids.has(c)).length >= 2);
+      return authorNodes.length ? kept.concat(authorNodes.filter((a) => !(hidden.length && classHidden(a, hidden)))) : kept;
+    }, [gran, expanded, bandMin, bandDir, bandDimKey, hidden, legacyDepth, pinned, authorNodes]);
     const bandPassCount = useMemo(
       () => NODES.filter((n) => n.type === "paper" && bandPass(n)).length,
       [bandMin, bandDir, bandDimKey]
@@ -32071,6 +32351,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
       return { x: cx - sx / k, y: cy - sy / k, w: W / k, h: H / k };
     };
+    const frameNodesRef = useRef(null);
     const followRef = useRef(null);
     const stopFollow = () => {
       if (followRef.current) cancelAnimationFrame(followRef.current.raf);
@@ -32124,6 +32405,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       };
       f.raf = requestAnimationFrame(step);
     };
+    frameNodesRef.current = frameNodes;
     const keepInView = (id) => {
       stopFollow();
       const f = { raf: 0, t0: performance.now() };
@@ -32165,6 +32447,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     };
     const focusRef = useRef(null);
     focusRef.current = focusNode;
+    const focusAuthor = (node) => {
+      const anchor = node.anchor ? NODE_BY_ID[node.anchor] : null;
+      const rebuild = true;
+      if (anchor) revealNode(anchor);
+      revealNode(node);
+      setSelectedNode(node);
+      const ids = [node.id].concat((node.clusters || []).slice(0, 3).map((c) => c.key));
+      frameNodes(() => ids, rebuild, 160);
+    };
+    const authorFocusRef = useRef(null);
+    authorFocusRef.current = focusAuthor;
     const toggleTheme = (t) => {
       const open = expanded.indexOf(t) >= 0;
       setExpanded(open ? expanded.filter((x) => x !== t) : expanded.concat([t]));
@@ -32183,8 +32476,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     };
     const filteredNodeIds = useMemo(() => new Set(filteredNodes.map((n) => n.id)), [filteredNodes]);
     const filteredEdges = useMemo(() => {
-      return EDGES.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
-    }, [filteredNodeIds]);
+      const base = EDGES.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
+      return authorEdges.length ? base.concat(authorEdges.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target))) : base;
+    }, [filteredNodeIds, authorEdges]);
     const bridgeVisible = useMemo(() => filteredEdges.some((e) => {
       const sn = NODE_BY_ID[e.source], tn = NODE_BY_ID[e.target];
       if (!sn || !tn) return false;
@@ -32214,6 +32508,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         if (prev) {
           retained++;
           return { ...n, x: prev.x, y: prev.y, fx: void 0, fy: void 0 };
+        }
+        if (n.type === "author") {
+          const near = n.seedNear && prevPos[n.seedNear] || n.anchor && prevPos[n.anchor] || null;
+          if (near) {
+            const a = Math.random() * 2 * Math.PI, r = (getNodeSize(n) + 30 + Math.random() * 40) * Math.max(0.5, spacingScale);
+            return { ...n, x: near.x + r * Math.cos(a), y: near.y + r * Math.sin(a), fx: void 0, fy: void 0 };
+          }
         }
         const hub = n.type !== "theme" && n.theme ? prevPos["theme::" + n.theme] : null;
         if (hub) {
@@ -32260,6 +32561,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const simulation = d3.forceSimulation(simNodes).force("link", d3.forceLink(simEdges).id((d) => d.id).distance((d) => {
         const s = spacingScale;
         const w = d.w_rel;
+        if (d.edge_type === "author_member") return Math.max(46, (200 - 110 * w) * s);
+        if (d.edge_type === "author_link") return Math.max(58, 150 * s);
         if (d.edge_type === "theme_member") return 120 * s;
         if (d.edge_type === "theme_needle") return 300 * s;
         if (d.edge_type === "theme_similarity") return 420 * s;
@@ -32274,6 +32577,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           const th = d.source.type === "theme" ? d.source : d.target;
           return Math.min(0.9, 3.2 / Math.sqrt(Math.max(visDeg[th.id] || 1, 1)));
         }
+        if (d.edge_type === "author_member") return 0.12 + 0.2 * w;
+        if (d.edge_type === "author_link") return 0.5;
         if (d.edge_type === "theme_needle") return 0.22;
         if (d.edge_type === "theme_similarity") return 0.06;
         if (d.edge_type === "membership" || d.edge_type === "similarity") {
@@ -32287,6 +32592,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       })).force("charge", d3.forceManyBody().strength((d) => {
         if (d.type === "input_article") return -2e3 * spacingScale;
         if (d.type === "theme") return -3200 * spacingScale;
+        if (d.type === "author") return -160 * Math.max(1, spacingScale);
         if (d.type === "cluster") {
           const deg = Math.max(d.degree || 1, 1);
           return -1200 * Math.sqrt(deg) / 2 * spacingScale;
@@ -32296,6 +32602,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         if (d.type === "input_article") return 100 * spacingScale;
         if (d.type === "theme") return Math.max(110 * spacingScale, getNodeSize(d) + 34);
         if (d.type === "cluster") return 70 * spacingScale;
+        if (d.type === "author") return Math.max(getNodeSize(d) + 8, 34 * spacingScale);
         return 30 * spacingScale;
       }).strength(0.85).iterations(2)).alphaDecay(0.015).alphaMin(5e-3).velocityDecay(0.45);
       simulationRef.current = simulation;
@@ -32539,12 +32846,115 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       window.addEventListener("message", onMsg);
       return () => window.removeEventListener("message", onMsg);
     }, []);
+    const applyAuthorRef = useRef(null);
+    applyAuthorRef.current = (d) => {
+      const msg = AL.validateAuthorNodes(d, (k) => {
+        const n = NODE_BY_ID[k];
+        return !!n && n.type === "cluster";
+      });
+      if (!msg) {
+        setAuthorNote("No author could be placed on this map.");
+        return;
+      }
+      const built = AL.buildAuthors(msg, authorNodesRef.current, NODE_BY_ID, authorSeqRef.current);
+      authorSeqRef.current = built.nextSeq;
+      const merged = AL.mergeAuthors(authorNodesRef.current, built.nodes, selectedIdRef.current, AL.MAX_TOTAL);
+      merged.nodes.forEach((n) => {
+        NODE_BY_ID[n.id] = n;
+      });
+      merged.evicted.forEach((id) => {
+        delete NODE_BY_ID[id];
+      });
+      const idSet = {};
+      merged.nodes.forEach((n) => {
+        idSet[n.id] = true;
+      });
+      const refreshed = {};
+      built.nodes.forEach((n) => {
+        refreshed[n.id] = true;
+      });
+      const edgeKey = (e) => e.source + "|" + e.target + "|" + e.edge_type;
+      let es = authorEdgesRef.current.filter((e) => !(e.edge_type === "author_member" && refreshed[e.source]));
+      const have = {};
+      es.forEach((e) => {
+        have[edgeKey(e)] = true;
+      });
+      built.edges.forEach((e) => {
+        if (!have[edgeKey(e)]) {
+          have[edgeKey(e)] = true;
+          es.push(e);
+        }
+      });
+      es = es.filter((e) => idSet[e.source] && (idSet[e.target] || NODE_BY_ID[e.target] && NODE_BY_ID[e.target].type === "cluster"));
+      const nameOf = {};
+      msg.authors.forEach((a) => {
+        nameOf[a.id] = a;
+      });
+      const metaNext = Object.assign({}, authorMetaRef.current);
+      if (msg.mode === "expand" && msg.anchor) {
+        metaNext[msg.anchor] = Object.assign({}, metaNext[msg.anchor], {
+          expanded: true,
+          loading: false,
+          nearby: msg.authors.filter((a) => a.id !== msg.anchor).map((a) => ({ id: a.id, name: a.name, reason: a.reason || (a.link === "co" ? "co-author" : ""), link: a.link }))
+        });
+      }
+      msg.authors.forEach((a) => {
+        if (!metaNext[a.id]) metaNext[a.id] = {};
+      });
+      const focus = built.focusId ? merged.nodes.find((n) => n.id === built.focusId) : null;
+      const run = () => {
+        setAuthorNodes(merged.nodes);
+        setAuthorEdges(es);
+        setAuthorMeta(metaNext);
+        setAuthorNote(msg.dropped ? msg.dropped + " author record(s) were skipped." : "");
+        if (focus) {
+          authorFocusRef.current(focus);
+        } else if (msg.mode === "expand" && msg.anchor) {
+          const parent = merged.nodes.find((n) => n.id === AL.nodeId(msg.anchor));
+          if (parent) frameNodesRef.current(() => [parent.id].concat(built.nodes.map((n) => n.id)), true, 120);
+        }
+      };
+      if (ReactDOM.unstable_batchedUpdates) ReactDOM.unstable_batchedUpdates(run);
+      else run();
+    };
+    useEffect(() => {
+      if (!HAS_PARENT) return void 0;
+      const onMsg = (ev) => {
+        if (ev.source !== window.parent) return;
+        const d = ev && ev.data;
+        if (!d || typeof d.type !== "string") return;
+        if (d.type === "pv:author-capable") {
+          setAuthorCapable(true);
+          return;
+        }
+        if (d.type === "pv:author-error") {
+          setAuthorCapable(true);
+          setAuthorNote(AL.text(d.message, 200) || "Authors could not be loaded just now.");
+          setAuthorMeta((prev) => {
+            const next = {};
+            Object.keys(prev).forEach((k) => {
+              next[k] = Object.assign({}, prev[k], { loading: false });
+            });
+            return next;
+          });
+          return;
+        }
+        if (d.type === "pv:author-nodes") {
+          setAuthorCapable(true);
+          applyAuthorRef.current(d);
+        }
+      };
+      window.addEventListener("message", onMsg);
+      postParent("pv:map-ready", {});
+      return () => window.removeEventListener("message", onMsg);
+    }, []);
     const getNodeColor = (node) => COLORS[node.subtype] || COLORS[node.type] || "#64748b";
     const getNodeSize = (node) => {
       if (node.type === "input_article") return 28;
       if (node.type === "theme") return 22 + 22 * Math.sqrt((node.corpus_size || 1) / THEME_MAX);
       if (node.type === "cluster") return 20;
       if (node.type === "paper") return 13;
+      if (node.type === "author") return 16 + 6 * (node.credibility || 0);
       return 8;
     };
     const createStarPoints = (cx, cy, outerR, innerR, points) => {
@@ -32658,6 +33068,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             if (!phoneToggle) setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
             else if (!phoneToggle) keepInView(node.id);
+            if (node.type === "author") requestExpand(node);
           },
           onMouseEnter: () => setHoveredNode(node),
           onMouseLeave: () => setHoveredNode(null)
@@ -32752,6 +33163,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
               strokeWidth: isSelected ? 3 : 1
             }
           )
+        ) : node.type === "author" ? (
+          // A person: head and shoulders in a ring. Nothing else on the map is a ring with a figure in it.
+          /* @__PURE__ */ React.createElement("g", null, /* @__PURE__ */ React.createElement("circle", { r: size, fill: color, fillOpacity: 0.22, stroke: isSelected ? "#fff" : color, strokeWidth: isSelected ? 3 : 2 }), /* @__PURE__ */ React.createElement("circle", { cx: 0, cy: -size * 0.28, r: size * 0.3, fill: color }), /* @__PURE__ */ React.createElement("path", { d: `M ${-size * 0.52} ${size * 0.62} Q 0 ${-size * 0.18} ${size * 0.52} ${size * 0.62} Z`, fill: color }))
         ) : node.type === "publication" ? /* @__PURE__ */ React.createElement(
           "rect",
           {
@@ -32766,7 +33180,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             strokeWidth: isSelected ? 2 : 1
           }
         ) : /* @__PURE__ */ React.createElement("circle", { r: size, fill: color, opacity: 0.7, stroke: isSelected ? "#fff" : "none", strokeWidth: 2 }),
-        (node.type === "input_article" || node.type === "theme" || node.type === "cluster" && (!isFieldMap || zoomFactor < 1.35)) && /* @__PURE__ */ React.createElement(
+        (node.type === "input_article" || node.type === "theme" || node.type === "author" || node.type === "cluster" && (!isFieldMap || zoomFactor < 1.35)) && /* @__PURE__ */ React.createElement(
           "text",
           {
             y: (() => {
@@ -32833,6 +33247,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         placeholder: isMobile ? "Search..." : "Search nodes...",
         value: searchQuery,
         onChange: (e) => handleSearch(e.target.value),
+        onKeyDown: (e) => {
+          if (e.key === "Enter" && authorCapable && searchQuery.trim().length >= 3) {
+            askAuthors(searchQuery);
+            setSearchQuery("");
+            setSearchResults([]);
+          }
+        },
         style: {
           width: "100%",
           padding: isMobile ? "6px 10px" : "8px 16px",
@@ -32844,7 +33265,20 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           outline: "none"
         }
       }
-    ), searchResults.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
+    ), authorNote ? /* @__PURE__ */ React.createElement("div", { role: "status", "data-author-note": "1", style: {
+      position: "absolute",
+      top: "100%",
+      left: 0,
+      right: 0,
+      marginTop: "4px",
+      padding: "6px 10px",
+      fontSize: "12px",
+      borderRadius: "8px",
+      background: theme.panelBg,
+      color: theme.textMuted,
+      border: `1px solid ${theme.border}`,
+      zIndex: 90
+    } }, authorNote) : null, searchResults.length > 0 && /* @__PURE__ */ React.createElement("div", { style: {
       position: "absolute",
       top: "100%",
       left: isMobile ? "-50px" : 0,
@@ -32871,8 +33305,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           gap: "10px"
         }
       },
-      /* @__PURE__ */ React.createElement("span", { style: { color: COLORS[node.subtype] || COLORS[node.type], fontSize: "12px" } }, "\u25CF"),
-      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "13px" } }, (node.label || node.id).substring(0, isMobile ? 35 : 50), "...")
+      /* @__PURE__ */ React.createElement("span", { style: { color: COLORS[node.subtype] || COLORS[node.type] || COLORS.author, fontSize: "12px" } }, "\u25CF"),
+      node.type === "find_author" ? /* @__PURE__ */ React.createElement("span", { "data-find-author": "1", style: { fontSize: "13px" } }, 'Find author "' + node.label.substring(0, isMobile ? 22 : 40) + '" on this map') : /* @__PURE__ */ React.createElement("span", { style: { fontSize: "13px" } }, (node.label || node.id).substring(0, isMobile ? 35 : 50), "...")
     )))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: isMobile ? "8px" : "24px", fontSize: "14px", color: theme.textMuted, alignItems: "center" } }, !isMobile && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", null, "Nodes: ", /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, filteredNodes.length)), /* @__PURE__ */ React.createElement("span", null, "Edges: ", /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, filteredEdges.length))), /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -32942,9 +33376,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             y1: sourcePos.y,
             x2: targetPos.x,
             y2: targetPos.y,
-            stroke: isHighlighted ? theme.edgeHighlight : bridgeColor,
+            stroke: isHighlighted ? theme.edgeHighlight : edge.edge_type === "author_member" || edge.edge_type === "author_link" ? COLORS.author : bridgeColor,
             strokeWidth: isHighlighted ? 2 : wWidth !== null ? wWidth : isBridge ? 1.5 : 1,
-            strokeOpacity: isHighlighted ? void 0 : wOpacity !== null ? wOpacity : isBridge ? 0.55 : void 0
+            strokeOpacity: isHighlighted ? void 0 : edge.edge_type === "author_member" ? 0.45 : edge.edge_type === "author_link" ? 0.8 : wOpacity !== null ? wOpacity : isBridge ? 0.55 : void 0,
+            strokeDasharray: edge.edge_type === "author_link" ? "5 4" : void 0
           }
         );
       }),
@@ -32963,13 +33398,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       transition: "background 0.3s",
       zIndex: isMobile ? 60 : 10
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "10px" } }, "Node Types"), [
-      { key: "input_article", type: BAND && BAND.field ? "Compass needles" : "Input Article", color: COLORS.input_article, shape: "\u2605" },
+      ...SPACE_ONLY ? [] : [{ key: "input_article", type: BAND && BAND.field ? "Compass needles" : "Input Article", color: COLORS.input_article, shape: "\u2605" }],
       ...HAS_THEMES ? [{ key: "theme", type: "Themes", color: COLORS.theme, shape: "\u25CF" }] : [],
       ...BAND && BAND.field && (gran === "detail" || !HAS_THEMES) ? [{ key: "paper", type: "Nominated papers", color: COLORS.paper, shape: "\u25C6" }] : [],
       { key: "problems", type: "Problem statements", color: COLORS.problems, shape: "\u2B20" },
       { key: "impact", type: "Outcomes", color: COLORS.impact, shape: "\u25B2" },
       { key: "methods", type: "Methods", color: COLORS.methods, shape: "hex" },
-      ...gran === "detail" || !HAS_THEMES ? [{ key: "subtheme", type: "Shared terms", color: COLORS.subtheme, shape: "\u2022" }] : []
+      ...gran === "detail" || !HAS_THEMES ? [{ key: "subtheme", type: "Shared terms", color: COLORS.subtheme, shape: "\u2022" }] : [],
+      ...authorNodes.length ? [{ key: "author", type: "Authors", color: COLORS.author, shape: "person" }] : []
     ].map((item) => {
       const off = hidden.indexOf(item.key) >= 0;
       return /* @__PURE__ */ React.createElement(
@@ -32996,7 +33432,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             textDecoration: off && item.key !== "methods" ? "line-through" : "none"
           }
         },
-        item.shape === "hex" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("polygon", { points: "8,0 4,6.93 -4,6.93 -8,0 -4,-6.93 4,-6.93", fill: item.color })) : item.shape === "sq" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("rect", { x: "-7", y: "-7", width: "14", height: "14", rx: "2.5", fill: item.color })) : /* @__PURE__ */ React.createElement("span", { style: { color: item.color, fontSize: "14px", width: "16px", textAlign: "center" } }, item.shape),
+        item.shape === "hex" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("polygon", { points: "8,0 4,6.93 -4,6.93 -8,0 -4,-6.93 4,-6.93", fill: item.color })) : item.shape === "person" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("circle", { r: "8.5", fill: item.color, fillOpacity: "0.22", stroke: item.color, strokeWidth: "1.6" }), /* @__PURE__ */ React.createElement("circle", { cx: "0", cy: "-2.4", r: "2.6", fill: item.color }), /* @__PURE__ */ React.createElement("path", { d: "M -4.4 5.2 Q 0 -1.5 4.4 5.2 Z", fill: item.color })) : item.shape === "sq" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("rect", { x: "-7", y: "-7", width: "14", height: "14", rx: "2.5", fill: item.color })) : /* @__PURE__ */ React.createElement("span", { style: { color: item.color, fontSize: "14px", width: "16px", textAlign: "center" } }, item.shape),
         /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.type),
         item.key === "methods" ? /* @__PURE__ */ React.createElement("span", { style: {
           marginLeft: "auto",
@@ -33060,7 +33496,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const cnt = (t) => filteredNodes.filter((n) => n.type === t).length;
       const parts = [cnt("theme") + " themes"];
       if (cnt("cluster")) parts.push(cnt("cluster") + " topics");
-      parts.push(cnt("input_article") + " needles");
+      if (!SPACE_ONLY) parts.push(cnt("input_article") + " needles");
+      if (cnt("author")) parts.push(cnt("author") + (cnt("author") === 1 ? " author" : " authors"));
       if (cnt("paper")) parts.push(cnt("paper") + " papers");
       return parts.join(" \xB7 ");
     })()), gran === "themes" ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "6px", fontSize: "11px", color: theme.textMuted } }, expanded.length === 0 ? "Click a theme to open it." : /* @__PURE__ */ React.createElement("button", { type: "button", onClick: collapseAll, style: {
@@ -33210,7 +33647,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       // asked to see had nowhere left to be.
       maxHeight: isMobile ? visBand ? Math.max(160, Math.round(0.6 * (visBand.bottom - Math.max(headerH, visBand.top)))) + "px" : "60vh" : visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "calc(100vh - " + (headerH + 32) + "px)",
       overflowY: "auto"
-    } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "theme" ? "Theme" : selectedNode.type === "cluster" ? "Topic" : selectedNode.type === "subtheme" ? "Shared Term" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : "Needle"), selectedNode.subtype && selectedNode.type !== "theme" && /* @__PURE__ */ React.createElement("span", { style: {
+    } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "theme" ? "Theme" : selectedNode.type === "cluster" ? "Topic" : selectedNode.type === "subtheme" ? "Shared Term" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : selectedNode.type === "author" ? "Author" : "Needle"), selectedNode.subtype && selectedNode.type !== "theme" && selectedNode.type !== "author" && /* @__PURE__ */ React.createElement("span", { style: {
       fontSize: "10px",
       padding: "2px 8px",
       borderRadius: "4px",
@@ -33268,6 +33705,42 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           lineHeight: 1.4
         } }, k.title || k.label)), list.length > 6 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", color: theme.textMuted } }, "+", list.length - 6, " more") : null);
       }));
+    })(), selectedNode.type === "author" && (() => {
+      const au = authorNodes.find((a) => a.id === selectedNode.id) || selectedNode;
+      const meta = authorMeta[au.aid] || {};
+      const onMap = (id) => authorNodes.find((a) => a.aid === id);
+      const btn = {
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: "4px 0",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontFamily: "inherit",
+        fontSize: "13px",
+        color: theme.text,
+        lineHeight: 1.4
+      };
+      const head = { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, margin: "14px 0 6px" };
+      return /* @__PURE__ */ React.createElement("div", { "data-author-panel": au.aid, style: { marginBottom: "20px" } }, au.institution ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13.5px", color: theme.text, opacity: 0.85, marginBottom: "6px" } }, au.institution) : null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", fontSize: "12.5px", color: theme.textMuted } }, au.h_index !== null && au.h_index !== void 0 ? /* @__PURE__ */ React.createElement("span", null, "h-index ", au.h_index) : null, au.n_papers_on_map ? /* @__PURE__ */ React.createElement("span", null, au.n_papers_on_map, " ", au.n_papers_on_map === 1 ? "paper" : "papers", " on this map") : null, au.credibility !== null && au.credibility !== void 0 ? /* @__PURE__ */ React.createElement("span", { title: "Display only. How well the author's record is established; it does not rate any paper." }, "credibility ", au.credibility.toFixed(2)) : null, au.orcid ? /* @__PURE__ */ React.createElement("span", { "data-orcid": "1", style: { padding: "1px 7px", borderRadius: "9px", border: "1px solid #a6ce39", color: "#a6ce39", fontSize: "11px" } }, "ORCID ", au.orcid) : null), au.reason ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px", fontSize: "12.5px", color: theme.textMuted } }, au.reason) : null, (au.clusters || []).length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: head }, "Topics on this map (", au.clusters.length, ")"), au.clusters.slice(0, 8).map((c) => {
+        const k = NODE_BY_ID[c.key];
+        if (!k) return null;
+        return /* @__PURE__ */ React.createElement("button", { key: c.key, type: "button", "data-cluster-focus": c.key, onClick: () => focusNode(k), style: btn }, k.title || k.label, /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", Math.round(c.share * 100), "%"));
+      })), /* @__PURE__ */ React.createElement("div", { style: head }, "Nearby deepthinkers"), (meta.nearby || []).length > 0 ? (meta.nearby || []).slice(0, 14).map((nb) => {
+        const there = onMap(nb.id);
+        return there ? /* @__PURE__ */ React.createElement("button", { key: nb.id, type: "button", "data-nearby": nb.id, onClick: () => focusAuthor(there), style: btn }, nb.name, nb.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", nb.reason) : null) : /* @__PURE__ */ React.createElement("div", { key: nb.id, style: { ...btn, cursor: "default", opacity: 0.6 } }, nb.name, nb.reason ? " \xB7 " + nb.reason : "");
+      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the deepthinkers near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, "Show nearby deepthinkers") : null, /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
+        marginTop: "14px",
+        fontSize: "12.5px",
+        padding: "7px 14px",
+        borderRadius: "8px",
+        cursor: "pointer",
+        border: "1px solid " + theme.border,
+        background: "transparent",
+        color: "#6366f1",
+        fontFamily: "inherit"
+      } }, "Open author page"));
     })(), (selectedNode.type === "input_article" || selectedNode.type === "paper") && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, selectedNode.author_list?.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "12.5px", color: theme.textMuted, margin: "0 0 10px", lineHeight: 1.5 } }, selectedNode.author_list.slice(0, 8).join(", "), selectedNode.author_list.length > 8 ? " and " + (selectedNode.author_list.length - 8) + " more" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" } }, selectedNode.url ? /* @__PURE__ */ React.createElement("a", { href: selectedNode.url, target: "_blank", rel: "noopener", style: {
       fontSize: "12px",
       padding: "6px 12px",
@@ -33347,7 +33820,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       pointerEvents: "none",
       zIndex: 100,
       maxWidth: "280px"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"))));
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type === "author" ? "Author" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"))));
   }
   ReactDOM.render(/* @__PURE__ */ React.createElement(DeepThoughtVisualization, null), document.getElementById("root"));
 })();

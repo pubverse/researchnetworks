@@ -292,6 +292,20 @@
     topicPeople: function (id, limit) {
       return request('/api/topics/' + encodeURIComponent(id) + '/people?limit=' + (limit || 25), { meta: true });
     },
+    // Research-space maps (login-gated). Authors placed on one space's map: search by name, and one
+    // placed author with their clusters, co-authors and nearby deepthinkers on that map.
+    // The space is a slug from examples/spaces/index.json; it is validated here as well as server-side.
+    mapAuthors: function (space, q) {
+      if (!/^[a-z0-9_-]{1,40}$/.test(String(space || ''))) return Promise.resolve({ ok: false, status: 404, message: 'Not found.' });
+      return request('/api/maps/' + encodeURIComponent(space) + '/authors?q=' +
+                     encodeURIComponent(String(q == null ? '' : q).slice(0, 120)), { meta: true });
+    },
+    mapAuthor: function (space, id) {
+      if (!/^[a-z0-9_-]{1,40}$/.test(String(space || '')) || !/^A\d{1,12}$/.test(String(id || ''))) {
+        return Promise.resolve({ ok: false, status: 404, message: 'Not found.' });
+      }
+      return request('/api/maps/' + encodeURIComponent(space) + '/authors/' + encodeURIComponent(id), { meta: true });
+    },
     // Bylines for papers the page already shows (Compass needles), by DOI or arXiv id, at most 50.
     paperAuthors: function (ids) {
       var list = (ids || []).filter(Boolean).slice(0, 50).map(function (x) { return encodeURIComponent(x); });

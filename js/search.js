@@ -9,6 +9,7 @@
 
    Views are hash routes so they can be linked and the Back button works:
      #search?q=...   results            #author/A123   an author     #funder/F123   a funder
+     #space/<slug>   a research-space map (optionally ?author=A123 to place that author on load)
      #compass  #score  #history          the other tabs
    Every string that came from the server is escaped before it touches innerHTML, and only ids that
    match the backend's own patterns are ever turned into links.
@@ -184,6 +185,9 @@
     if ((m = /^author\/(A\d{1,12})$/.exec(h))) return { tab: 'search', view: 'author', id: m[1] };
     if ((m = /^topic\/((?:topic|subfield)-\d{1,9})$/.exec(h))) return { tab: 'search', view: 'topic', id: m[1] };
     if ((m = /^funder\/(F\d{1,12})$/.exec(h))) return { tab: 'search', view: 'funder', id: m[1] };
+    if ((m = /^space\/([a-z0-9_-]{1,40})(?:\?author=(A\d{1,12}))?$/.exec(h))) {
+      return { tab: 'search', view: 'space', id: m[1], author: m[2] || '' };
+    }
     if (h.indexOf('search?') === 0) {
       var q = '';
       try { q = new URLSearchParams(h.slice(7)).get('q') || ''; } catch (e) { q = ''; }
@@ -207,6 +211,7 @@
     else if (r.view === 'author') openAuthor(r.id);
     else if (r.view === 'funder') openFunder(r.id);
     else if (r.view === 'topic') openTopic(r.id);
+    else if (r.view === 'space') openSpace(r.id, r.author);
     if (opts && opts.scroll) scrollToTabs();
   }
 
@@ -294,6 +299,7 @@
 
   function showHome() {
     setTitle('');
+    releaseSpaceFrame();
     if (homeEl) homeEl.hidden = false;
     if (viewEl) { viewEl.hidden = true; viewEl.innerHTML = ''; }
     if (resultsEl) resultsEl.innerHTML = '';
@@ -439,6 +445,7 @@
   }
   function beginView(caption) {
     setTitle('');
+    releaseSpaceFrame();
     if (homeEl) homeEl.hidden = true;
     if (!viewEl) return;
     viewEl.hidden = false;
@@ -528,6 +535,8 @@
         '<div class="chips">' + chips.slice(0, 12).join('') + '</div></section>';
     }
 
+    html += '<div id="avMaps"></div>';
+
     html += '<section class="av-sec" aria-labelledby="avPapersH">' +
       '<div class="row between rwrap av-papers-head"><h3 id="avPapersH">Papers</h3>' +
       '<div class="seg" role="group" aria-label="Sort papers">' +
@@ -552,6 +561,7 @@
     html += '</article>';
     viewEl.innerHTML = html;
     focusHeading();
+    fillAuthorMaps(id, (a.top_subfields || a.subfields || []));
 
     // Sort toggle: refetch rather than re-sort, because "newest" is a different top 50.
     Array.prototype.forEach.call(viewEl.querySelectorAll('.seg button'), function (b) {
@@ -698,7 +708,8 @@
       '<p class="av-sub">' + sub.map(esc).join(' ') + '</p></header>' +
       '<section class="av-sec"><dl class="facts">' +
         (t.works_count != null ? fact('Papers', num(t.works_count)) : '') +
-      '</dl><p><button type="button" class="btn" id="tvCompass" data-subject="' + esc(name) + '">Open in Compass</button></p></section>' +
+      '</dl><p class="btn-row"><button type="button" class="btn" id="tvCompass" data-subject="' + esc(name) + '">Open in Compass</button>' +
+      '<span id="tvMap"></span></p></section>' +
       '<section class="av-sec" aria-labelledby="tvPeople"><h3 id="tvPeople">People in this area</h3>';
     if (!people.length) {
       html += '<p class="muted">No credible authors are listed for this area yet.</p>';
@@ -721,6 +732,114 @@
     html += '</section></article>';
     viewEl.innerHTML = html;
     focusHeading();
+    fillTopicMap(t.id);
+  }
+
+  /* ------------------------------------------------ research-space maps */
+
+  // A space map exists only for the spaces listed in examples/spaces/index.json. The buttons below
+  // appear only when the list says so; a missing or empty list leaves the pages exactly as they were.
+  function fillAuthorMaps(authorId, subfields) {
+    var bridge = window.PV && PV.mapBridge;
+    if (!bridge) return;
+    bridge.spaces().then(function (list) {
+      var slot = viewEl && viewEl.querySelector('#avMaps');
+      if (!slot) return;
+      var seen = Object.create(null), links = [];
+      (subfields || []).forEach(function (sf) {
+        var sp = bridge.spaceForSubfield(list, sf && (sf.id != null ? sf.id : sf));
+        if (!sp || seen[sp.slug]) return;
+        seen[sp.slug] = 1;
+        links.push('<a class="btn ghost sm" href="#space/' + esc(sp.slug) + '?author=' + esc(authorId) + '">Show on the map' +
+          ': ' + esc(sp.name) + '</a>');
+      });
+      if (!links.length) return;
+      slot.innerHTML = '<section class="av-sec" aria-labelledby="avMapsH"><h3 id="avMapsH">On the map</h3>' +
+        '<p class="mini muted">See where this author sits among the topics of a research space, and who works beside them.</p>' +
+        '<div class="btn-row">' + links.join('') + '</div>' +
+        '<p class="mini muted">Authors are placed from papers through March 2026; newer preprints are not placed yet. ' +
+        '<a href="docs.html#maps">How authors appear on maps</a></p></section>';
+    });
+  }
+  function fillTopicMap(topicId) {
+    var bridge = window.PV && PV.mapBridge;
+    if (!bridge || !/^subfield-\d{1,9}$/.test(String(topicId || ''))) return;
+    bridge.spaces().then(function (list) {
+      var slot = viewEl && viewEl.querySelector('#tvMap');
+      var sp = bridge.spaceForSubfield(list, topicId);
+      if (!slot || !sp) return;
+      slot.innerHTML = '<a class="btn ghost" href="#space/' + esc(sp.slug) + '">Open the map</a>';
+    });
+  }
+
+  var spaceFrame = null, spaceTimers = [];
+  function releaseSpaceFrame() {
+    spaceTimers.forEach(clearTimeout);
+    spaceTimers = [];
+    if (spaceFrame && window.PV && PV.mapBridge) PV.mapBridge.detach(spaceFrame);
+    spaceFrame = null;
+  }
+  function openSpace(slug, authorId) {
+    var my = viewSeq;
+    beginView('Loading the map');
+    var bridge = window.PV && PV.mapBridge;
+    if (!bridge) { viewFailed(null); return; }
+    bridge.spaces().then(function (list) {
+      if (my !== viewSeq) return;
+      var sp = bridge.spaceBySlug(list, slug);
+      if (!sp) { viewEl.innerHTML = backLink() + errHtml('There is no map for that research space yet.'); return; }
+      var src = '/examples/spaces/' + encodeURIComponent(sp.slug) + '.html';
+      return fetch(src, { method: 'HEAD', cache: 'no-cache' }).then(function (r) {
+        if (my !== viewSeq) return;
+        if (!r.ok) { viewEl.innerHTML = backLink() + errHtml('The map for ' + sp.name + ' is not published yet.'); return; }
+        renderSpace(sp, src, authorId, my);
+      }, function () {
+        if (my === viewSeq) viewEl.innerHTML = backLink() + errHtml('The map could not be loaded.');
+      });
+    });
+  }
+  function renderSpace(sp, src, authorId, my) {
+    setTitle(sp.name + ' map');
+    var facts = [];
+    if (sp.n_papers != null) facts.push(num(sp.n_papers) + ' papers');
+    if (sp.n_clusters != null) facts.push(num(sp.n_clusters) + ' topics');
+    viewEl.innerHTML = backLink() + '<article class="card av space-view" aria-labelledby="spName">' +
+      '<header class="av-head"><h2 id="spName">' + esc(sp.name) + '</h2>' +
+      (facts.length ? '<p class="av-sub">' + esc(facts.join(' \u00b7 ')) + '</p>' : '') +
+      '<p class="mini muted">Search a name in the map\u2019s search box to place an author, then click an author to bring in ' +
+      'their co-authors and the people working on the same topics. Authors are placed from papers through March 2026. ' +
+      '<a href="docs.html#maps">How authors appear on maps</a></p></header>' +
+      '<div class="row between rwrap" style="gap:10px;margin:10px 0 8px">' +
+        '<p class="mini muted space-status" id="spStatus" role="status" aria-live="polite"></p>' +
+        '<button class="btn ghost sm" id="spFull" type="button" aria-controls="spaceMapFrame">Full screen</button></div>' +
+      '<div class="space-map"><iframe id="spaceMapFrame" allow="fullscreen" allowfullscreen ' +
+        'title="Interactive map of ' + esc(sp.name) + '"></iframe></div></article>';
+    focusHeading();
+    var frame = $('#spaceMapFrame'), st = $('#spStatus');
+    function say(t) { if (st) st.textContent = t || ''; }
+    releaseSpaceFrame();
+    spaceFrame = frame;
+    PV.mapBridge.attach(frame, { resolve: function () { return sp.slug; }, onStatus: say });
+    on($('#spFull'), 'click', function () {
+      var req = frame.requestFullscreen || frame.webkitRequestFullscreen;
+      if (document.fullscreenElement) { document.exitFullscreen(); return; }
+      if (req) { try { var p = req.call(frame); if (p && p.catch) p.catch(function () {}); } catch (e) {} }
+    });
+    if (authorId) {
+      // The map mounts after its document loads; one placement shortly after load and one more a
+      // little later, because the place message is idempotent and a first one can arrive before the
+      // map is listening.
+      on(frame, 'load', function () {
+        say('Placing the author on the map\u2026');
+        [250, 1800].forEach(function (ms) {
+          spaceTimers.push(setTimeout(function () {
+            if (my !== viewSeq || spaceFrame !== frame) return;
+            PV.mapBridge.placeAuthor(frame, authorId);
+          }, ms));
+        });
+      });
+    }
+    frame.src = src;
   }
 
   /* --------------------------------------------------- nav typeahead (combobox) */
