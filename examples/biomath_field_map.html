@@ -563,11 +563,126 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     });
   }
 
+  /* ---- Embedded author index (authors_embedded.json, schema v1; written at map-build time) ----
+   * The published map carries a top-K author list per cluster so an anonymous reader can find and place
+   * authors with no parent page. It feeds the SAME validateAuthorNodes/buildAuthors path as a parent's
+   * pv:author-nodes message: these functions only turn the index into that message shape. */
+  var MAX_EMB_PLACE = 5;
+  var MAX_EMB_NEIGHBORS = 12;
+
+  function fold(s) {
+    var t = String(s === null || s === undefined ? '' : s);
+    try { t = t.normalize('NFKD'); } catch (err) { /* very old engines */ }
+    return t.replace(/[^\x00-\x7f]/g, '').toLowerCase().split(/[^a-z0-9]+/)
+      .filter(function (x) { return x.length >= 2; });
+  }
+
+  /* Returns null (no usable index) or {emb, idToIdx, keys}. */
+  function prepareEmbedded(emb) {
+    if (!emb || typeof emb !== 'object' || emb.v !== 1 || !Array.isArray(emb.authors) || !emb.authors.length) return null;
+    var idToIdx = {};
+    emb.authors.forEach(function (a, i) { if (a && typeof a.id === 'string') idToIdx[a.id] = i; });
+    var names = (emb.names && typeof emb.names === 'object') ? emb.names : {};
+    return { emb: emb, idToIdx: idToIdx, names: names, keys: Object.keys(names) };
+  }
+
+  /* Author indices whose name matches q: every query token must match; the LAST token may be a prefix.
+   * Order = credibility (the index is stored credibility-descending, so ascending index). */
+  function searchEmbedded(E, q, limit) {
+    if (!E) return [];
+    var toks = fold(cleanQuery(q));
+    if (!toks.length) return [];
+    var sets = [];
+    for (var i = 0; i < toks.length; i++) {
+      var last = i === toks.length - 1, hit = {}, any = false;
+      var add = function (list) {
+        if (!Array.isArray(list)) return;
+        for (var j = 0; j < list.length; j++) { hit[list[j]] = true; any = true; }
+      };
+      if (Object.prototype.hasOwnProperty.call(E.names, toks[i])) add(E.names[toks[i]]);
+      if (last) {
+        for (var k = 0; k < E.keys.length; k++) {
+          if (E.keys[k].length > toks[i].length && E.keys[k].lastIndexOf(toks[i], 0) === 0) add(E.names[E.keys[k]]);
+        }
+      }
+      if (!any) return [];
+      sets.push(hit);
+    }
+    var out = Object.keys(sets[0]).map(Number).filter(function (n) {
+      for (var m = 1; m < sets.length; m++) if (!sets[m][n]) return false;
+      return n >= 0 && n < E.emb.authors.length;
+    }).sort(function (a, b) { return a - b; });
+    return out.slice(0, limit || MAX_EMB_PLACE);
+  }
+
+  /* cluster reference in `cl`: an index into the index's `clusters` table (a plain node id is also taken) */
+  function embKey(E, ref) {
+    if (typeof ref === 'number') return (E.emb.clusters && E.emb.clusters[ref]) || '';
+    return typeof ref === 'string' ? ref : '';
+  }
+  /* `dt` reason: 0 = co-author, N >= 2 = shares N of your topics (a verbatim string is also taken) */
+  function embReason(r) {
+    if (typeof r === 'number') return r === 0 ? 'co-author' : 'shares ' + Math.round(r) + ' of your topics on this map';
+    return typeof r === 'string' ? r : '';
+  }
+
+  function embRecord(E, idx, extra) {
+    var a = E.emb.authors[idx];
+    var rec = {
+      id: a.id, name: a.n, institution: a.i || '', country: a.c || '',
+      h_index: a.h, orcid: a.o || '', credibility: typeof a.cr === 'number' ? a.cr / 100 : null,
+      n_papers_on_map: a.p,
+      clusters: (a.cl || []).map(function (c) { return { key: embKey(E, c[0]), share: c[1] }; })
+    };
+    if (extra) for (var k in extra) rec[k] = extra[k];
+    return rec;
+  }
+
+  /* pv:author-nodes (place) for the matches of a name query. */
+  function embeddedPlace(E, idxs) {
+    if (!E || !idxs.length) return null;
+    return { type: 'pv:author-nodes', mode: 'place', anchor: E.emb.authors[idxs[0]].id,
+             authors: idxs.slice(0, MAX_EMB_PLACE).map(function (i) { return embRecord(E, i); }), edges: [] };
+  }
+
+  /* pv:author-nodes (expand) for a click on author `id`: its embedded deepthinkers (co-authors first)
+   * with the clusters they share with it, and a weighted edge to each embedded co-author. */
+  function embeddedExpand(E, id) {
+    if (!E || !Object.prototype.hasOwnProperty.call(E.idToIdx, id)) return null;
+    var ai = E.idToIdx[id], a = E.emb.authors[ai];
+    var mine = {};
+    (a.cl || []).forEach(function (c) { mine[embKey(E, c[0])] = true; });
+    var shared = {};
+    (a.co || []).forEach(function (c) { shared[c[0]] = c[1]; });
+    var maxShared = 1;
+    Object.keys(shared).forEach(function (k) { if (shared[k] > maxShared) maxShared = shared[k]; });
+    var authors = [embRecord(E, ai)], edges = [], seen = {};
+    seen[ai] = true;
+    (a.dt || []).forEach(function (d) {
+      if (authors.length > MAX_EMB_NEIGHBORS) return;
+      var bi = d[0];
+      if (typeof bi !== 'number' || !E.emb.authors[bi] || seen[bi]) return;
+      seen[bi] = true;
+      var b = E.emb.authors[bi];
+      var reason = embReason(d[1]);
+      var isCo = reason === 'co-author';
+      var common = (b.cl || []).filter(function (c) { return mine[embKey(E, c[0])]; });
+      var rec = embRecord(E, bi, { reason: reason, link: isCo ? 'co' : 'space' });
+      if (common.length) rec.clusters = common.map(function (c) { return { key: embKey(E, c[0]), share: c[1] }; });
+      authors.push(rec);
+      if (isCo) edges.push({ source: a.id, target: b.id, kind: 'coauthor',
+                             weight: Math.max(0.2, (shared[bi] || 1) / maxShared) });
+    });
+    return { type: 'pv:author-nodes', mode: 'expand', anchor: a.id, authors: authors, edges: edges };
+  }
+
   var api = {
     AUTHOR_ID_RE: AUTHOR_ID_RE, MAX_PER_MESSAGE: MAX_PER_MESSAGE, MAX_TOTAL: MAX_TOTAL,
     MAX_QUERY: MAX_QUERY, text: text, cleanQuery: cleanQuery, nodeId: nodeId,
     validateAuthorNodes: validateAuthorNodes, buildAuthors: buildAuthors,
-    mergeAuthors: mergeAuthors, pruneEdges: pruneEdges
+    mergeAuthors: mergeAuthors, pruneEdges: pruneEdges,
+    fold: fold, prepareEmbedded: prepareEmbedded, searchEmbedded: searchEmbedded,
+    embeddedPlace: embeddedPlace, embeddedExpand: embeddedExpand
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PVAuthorLayer = api;
@@ -20370,7 +20485,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 23,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.09.10.26362791",
+          "title": "Healthcare Providers Acceptability of Breast Milk Donation and Banking, and Factors Influencing Adoption in Rwanda: A Mixed-Methods Study",
+          "source": "medrxiv",
+          "date": "2026-09-12",
+          "url": "https://doi.org/10.64898/2026.09.10.26362791",
+          "similarity": 0.8641
+        },
+        {
+          "id": "10.64898/2026.05.04.26352395",
+          "title": "Understanding implementation of HEARTS for hypertension and diabetes in Guatemala: Qualitative and mixed-methods pilot results",
+          "source": "medrxiv",
+          "date": "2026-05-06",
+          "url": "https://doi.org/10.64898/2026.05.04.26352395",
+          "similarity": 0.8501
+        },
+        {
+          "id": "10.64898/2026.06.17.26355845",
+          "title": "The Impact of Pregnant Womens Dietary Behavior on the Physiological Adaptation Paradox and Maternal-Fetal Resource Conflict in Conflict Settings: A Predictive Analytical Study",
+          "source": "medrxiv",
+          "date": "2026-06-19",
+          "url": "https://doi.org/10.64898/2026.06.17.26355845",
+          "similarity": 0.849
+        },
+        {
+          "id": "10.64898/2026.04.01.26349993",
+          "title": "Co-Developing a Women-Centered HIV Prevention Intervention to Reduce Stigma, Increase HIV Self-Testing, and Improve Pre-Exposure Prophylaxis (PrEP) Uptake in Ghana (WISE WOMAN): A Study Protocol",
+          "source": "medrxiv",
+          "date": "2026-04-02",
+          "url": "https://doi.org/10.64898/2026.04.01.26349993",
+          "similarity": 0.8468
+        },
+        {
+          "id": "10.64898/2026.05.04.26352425",
+          "title": "Adolescent satisfaction with public health services and contraceptive use in Nepal - A sequential explanatory mixed methods study",
+          "source": "medrxiv",
+          "date": "2026-05-06",
+          "url": "https://doi.org/10.64898/2026.05.04.26352425",
+          "similarity": 0.844
+        },
+        {
+          "id": "10.64898/2026.09.11.26362825",
+          "title": "A National Survey Exploring Dementia Diagnostics and Care Provisions in Primary Care in England",
+          "source": "medrxiv",
+          "date": "2026-09-12",
+          "url": "https://doi.org/10.64898/2026.09.11.26362825",
+          "similarity": 0.8429
+        },
+        {
+          "id": "10.64898/2026.07.23.26358713",
+          "title": "Development and formative application of the Health Data Readiness Level framework for federated health-data services.",
+          "source": "medrxiv",
+          "date": "2026-07-27",
+          "url": "https://doi.org/10.64898/2026.07.23.26358713",
+          "similarity": 0.8352
+        },
+        {
+          "id": "10.64898/2026.01.11.26343900",
+          "title": "Efficacy of Personalized Connectivity-Guided Accelerated Brain Stimulation in a Naturalistic Treatment-Resistant Depression Population",
+          "source": "medrxiv",
+          "date": "2026-04-04",
+          "url": "https://doi.org/10.64898/2026.01.11.26343900",
+          "similarity": 0.8332
+        }
+      ]
     },
     {
       "id": "theme::T1",
@@ -20392,7 +20573,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 1,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 22,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.07.21.739808",
+          "title": "Linguistic structure and probability are jointly encoded in high gamma power",
+          "source": "biorxiv",
+          "date": "2026-07-22",
+          "url": "https://doi.org/10.64898/2026.07.21.739808",
+          "similarity": 0.8531
+        },
+        {
+          "id": "10.1101/2025.01.16.25320639",
+          "title": "Spectral normative modeling of brain structure",
+          "source": "medrxiv",
+          "date": "2026-04-05",
+          "url": "https://doi.org/10.1101/2025.01.16.25320639",
+          "similarity": 0.8459
+        },
+        {
+          "id": "10.1101/2025.09.24.678322",
+          "title": "Analytical Choices Impact the Estimation of Rhythmic and Arrhythmic Components of Brain Activity",
+          "source": "biorxiv",
+          "date": "2026-04-11",
+          "url": "https://doi.org/10.1101/2025.09.24.678322",
+          "similarity": 0.8694
+        },
+        {
+          "id": "2609.04461",
+          "title": "A Roadmap for MEG Foundation Models",
+          "source": "arxiv",
+          "date": "2026-09-03",
+          "url": "https://arxiv.org/abs/2609.04461",
+          "similarity": 0.8387
+        },
+        {
+          "id": "2604.22275",
+          "title": "Early Preconfiguration Failure: A Novel Predictor of the Repetitive Subconcussion",
+          "source": "arxiv",
+          "date": "2026-04-24",
+          "url": "https://arxiv.org/abs/2604.22275",
+          "similarity": 0.8381
+        },
+        {
+          "id": "2607.16225",
+          "title": "Overcoming the BCI Calibration Bottleneck: A Clinically-Grounded Architecture using Riemannian Alignment and Stochastic Weight Averaging",
+          "source": "arxiv",
+          "date": "2026-06-19",
+          "url": "https://arxiv.org/abs/2607.16225",
+          "similarity": 0.8357
+        },
+        {
+          "id": "2608.05882",
+          "title": "Complexity and Stability of Neural Activity Across Aging and Neurodegenerative Disease",
+          "source": "arxiv",
+          "date": "2026-08-06",
+          "url": "https://arxiv.org/abs/2608.05882",
+          "similarity": 0.8323
+        },
+        {
+          "id": "2607.24378",
+          "title": "Bayesian Feature Extraction using Gaussian and Diffused-gamma Priors for High Dimensional Spatio-Temporal Data",
+          "source": "arxiv",
+          "date": "2026-07-27",
+          "url": "https://arxiv.org/abs/2607.24378",
+          "similarity": 0.859
+        }
+      ]
     },
     {
       "id": "theme::T10",
@@ -20414,7 +20661,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 11,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "2604.07557",
+          "title": "Validated Synthetic Patient Generation for Small Longitudinal Cohorts: Coagulation Dynamics Across Pregnancy",
+          "source": "arxiv",
+          "date": "2026-04-08",
+          "url": "https://arxiv.org/abs/2604.07557",
+          "similarity": 0.8851
+        },
+        {
+          "id": "10.64898/2026.07.14.26357927",
+          "title": "Feasibility of using automatically extracted routine clinical data in a respiratory cohort study: The SPHN-SPAC demonstrator project.",
+          "source": "medrxiv",
+          "date": "2026-07-16",
+          "url": "https://doi.org/10.64898/2026.07.14.26357927",
+          "similarity": 0.8701
+        },
+        {
+          "id": "10.64898/2026.03.30.26349749",
+          "title": "MedResearchBench: A Multi-Domain Benchmark for Evaluating AI Research Agents on Clinical Medical Research",
+          "source": "medrxiv",
+          "date": "2026-03-31",
+          "url": "https://doi.org/10.64898/2026.03.30.26349749",
+          "similarity": 0.8589
+        },
+        {
+          "id": "10.64898/2026.05.20.26353690",
+          "title": "Evaluating Large Language Models for Translating Multimodal Phenotype Documentations into Executable EHR Phenotyping Algorithms",
+          "source": "medrxiv",
+          "date": "2026-05-22",
+          "url": "https://doi.org/10.64898/2026.05.20.26353690",
+          "similarity": 0.8493
+        },
+        {
+          "id": "10.64898/2026.01.18.26344356",
+          "title": "Using Natural Language Processing of Clinical Notes to Supplement Structured Electronic Health Record Data for Phenotyping Smoking and Obesity in a Healthcare System",
+          "source": "medrxiv",
+          "date": "2026-05-24",
+          "url": "https://doi.org/10.64898/2026.01.18.26344356",
+          "similarity": 0.8458
+        },
+        {
+          "id": "10.64898/2026.08.12.26360243",
+          "title": "Forecasting laboratory measurements from longitudinal electronic health records",
+          "source": "medrxiv",
+          "date": "2026-08-13",
+          "url": "https://doi.org/10.64898/2026.08.12.26360243",
+          "similarity": 0.842
+        },
+        {
+          "id": "10.1101/2025.11.14.25340276",
+          "title": "Patient2Sentence: Large Language Model-based Semantic Compression for Oncology Trial Eligibility Screening",
+          "source": "medrxiv",
+          "date": "2026-05-05",
+          "url": "https://doi.org/10.1101/2025.11.14.25340276",
+          "similarity": 0.836
+        },
+        {
+          "id": "10.64898/2026.07.22.26358688",
+          "title": "Small but Specialized: A Domain-Adapted Retrieval-Augmented LLM Outperforms Frontier Generalists in Pediatric and Adolescent Gynecology",
+          "source": "medrxiv",
+          "date": "2026-07-24",
+          "url": "https://doi.org/10.64898/2026.07.22.26358688",
+          "similarity": 0.836
+        }
+      ]
     },
     {
       "id": "theme::T11",
@@ -20436,7 +20749,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 12,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.05.21.26353759",
+          "title": "The Biobank Rare Variant consortium powers the discovery of rare genetic associations through global collaboration",
+          "source": "medrxiv",
+          "date": "2026-05-24",
+          "url": "https://doi.org/10.64898/2026.05.21.26353759",
+          "similarity": 0.8515
+        },
+        {
+          "id": "10.1101/2025.10.10.25337470",
+          "title": "Genomic analyses reveal new insights into Alzheimer's disease",
+          "source": "medrxiv",
+          "date": "2026-05-20",
+          "url": "https://doi.org/10.1101/2025.10.10.25337470",
+          "similarity": 0.85
+        },
+        {
+          "id": "10.64898/2026.03.24.26349148",
+          "title": "Rare coding and noncoding variants map 1,342 diseases and biomarkers in 490,549 whole genomes",
+          "source": "medrxiv",
+          "date": "2026-03-26",
+          "url": "https://doi.org/10.64898/2026.03.24.26349148",
+          "similarity": 0.8491
+        },
+        {
+          "id": "10.64898/2026.06.25.26356239",
+          "title": "Integrating multi-ancestry common and rare variant mapping accelerates therapeutic target discovery",
+          "source": "medrxiv",
+          "date": "2026-07-08",
+          "url": "https://doi.org/10.64898/2026.06.25.26356239",
+          "similarity": 0.8475
+        },
+        {
+          "id": "10.1101/2025.03.18.25324091",
+          "title": "Leveraging nationwide health care records in Estonia to identify the genetic background of understudied disease phenotypes",
+          "source": "medrxiv",
+          "date": "2026-06-11",
+          "url": "https://doi.org/10.1101/2025.03.18.25324091",
+          "similarity": 0.8471
+        },
+        {
+          "id": "10.64898/2026.05.08.26350964",
+          "title": "Systematic common and rare variant association testing in 392,030 whole genomes in All of Us",
+          "source": "medrxiv",
+          "date": "2026-05-12",
+          "url": "https://doi.org/10.64898/2026.05.08.26350964",
+          "similarity": 0.8461
+        },
+        {
+          "id": "2605.02954",
+          "title": "EFGPP: Exploratory framework for genotype-phenotype prediction",
+          "source": "arxiv",
+          "date": "2026-05-02",
+          "url": "https://arxiv.org/abs/2605.02954",
+          "similarity": 0.8566
+        },
+        {
+          "id": "10.64898/2026.04.10.26350624",
+          "title": "Vector2Variant: Discovery of Genetic Associations from ML Derived Representations without Phenotype Engineering",
+          "source": "medrxiv",
+          "date": "2026-04-17",
+          "url": "https://doi.org/10.64898/2026.04.10.26350624",
+          "similarity": 0.8557
+        }
+      ]
     },
     {
       "id": "theme::T2",
@@ -20458,7 +20837,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 1,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 30,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.06.06.26355081",
+          "title": "Data-Driven Stochastic Model for Detecting Patientswith Alzheimer's Disease",
+          "source": "medrxiv",
+          "date": "2026-06-15",
+          "url": "https://doi.org/10.64898/2026.06.06.26355081",
+          "similarity": 0.862
+        },
+        {
+          "id": "10.64898/2026.08.03.26359415",
+          "title": "Multivariate blood biomarkers capture resilience and resistance phenotypes across the Alzheimers disease spectrum",
+          "source": "medrxiv",
+          "date": "2026-08-05",
+          "url": "https://doi.org/10.64898/2026.08.03.26359415",
+          "similarity": 0.862
+        },
+        {
+          "id": "10.64898/2026.03.23.26349050",
+          "title": "Multidomain determinants of perivascular spaces indicate early cerebrovascular vulnerability in individuals at risk of Alzheimer's disease",
+          "source": "medrxiv",
+          "date": "2026-03-25",
+          "url": "https://doi.org/10.64898/2026.03.23.26349050",
+          "similarity": 0.8601
+        },
+        {
+          "id": "2608.26210",
+          "title": "Multimodal risk trajectories reveal heterogeneous paths to dementia",
+          "source": "arxiv",
+          "date": "2026-08-26",
+          "url": "https://arxiv.org/abs/2608.26210",
+          "similarity": 0.8565
+        },
+        {
+          "id": "10.64898/2026.08.19.26360525",
+          "title": "MRI-derived brain aging trajectories across the Alzheimer's continuum: links to cognition, pathology and lifestyle risk factors",
+          "source": "medrxiv",
+          "date": "2026-08-22",
+          "url": "https://doi.org/10.64898/2026.08.19.26360525",
+          "similarity": 0.8525
+        },
+        {
+          "id": "10.64898/2026.05.08.723911",
+          "title": "Immune receptor LAG3 regulates microglia function duringAlzheimer's disease",
+          "source": "biorxiv",
+          "date": "2026-05-12",
+          "url": "https://doi.org/10.64898/2026.05.08.723911",
+          "similarity": 0.8457
+        },
+        {
+          "id": "2603.26007",
+          "title": "Longitudinal Boundary Sharpness Coefficient Slopes Predict Time to Alzheimer's Disease Conversion in Mild Cognitive Impairment: A Survival Analysis Using the ADNI Cohort",
+          "source": "arxiv",
+          "date": "2026-03-27",
+          "url": "https://arxiv.org/abs/2603.26007",
+          "similarity": 0.8698
+        },
+        {
+          "id": "2606.07798",
+          "title": "Reconstructing and forecasting disease trajectories of patients with Alzheimer's disease using routine data in resource-constrained settings",
+          "source": "arxiv",
+          "date": "2026-06-05",
+          "url": "https://arxiv.org/abs/2606.07798",
+          "similarity": 0.8635
+        }
+      ]
     },
     {
       "id": "theme::T3",
@@ -20480,7 +20925,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 31,
-      "bfs_degree": 1
+      "bfs_degree": 1,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.07.21.739817",
+          "title": "TRIM28 preserves ovarian identity by stabilising lineage-specific transcription factor hubs",
+          "source": "biorxiv",
+          "date": "2026-07-27",
+          "url": "https://doi.org/10.64898/2026.07.21.739817",
+          "similarity": 0.8419
+        },
+        {
+          "id": "10.64898/2026.04.14.718598",
+          "title": "Distribution and p300/CBP dependency of cis-regulatory elements are encoded by unique combinations of histone lactylation and acetylation",
+          "source": "biorxiv",
+          "date": "2026-04-16",
+          "url": "https://doi.org/10.64898/2026.04.14.718598",
+          "similarity": 0.8382
+        },
+        {
+          "id": "10.64898/2026.04.30.721988",
+          "title": "Histone H3K27 methylation states are sequentially catalyzed in cycling cells",
+          "source": "biorxiv",
+          "date": "2026-05-04",
+          "url": "https://doi.org/10.64898/2026.04.30.721988",
+          "similarity": 0.8362
+        },
+        {
+          "id": "10.64898/2026.08.18.745242",
+          "title": "Integrative enhancer discovery identifies functional enhancer dependencies in pediatric acute myeloid leukemia",
+          "source": "biorxiv",
+          "date": "2026-08-19",
+          "url": "https://doi.org/10.64898/2026.08.18.745242",
+          "similarity": 0.8224
+        },
+        {
+          "id": "10.64898/2026.05.02.722411",
+          "title": "Reversing PROTAC-induced ASH2L degradation reactivates proliferation in senescent cells",
+          "source": "biorxiv",
+          "date": "2026-05-04",
+          "url": "https://doi.org/10.64898/2026.05.02.722411",
+          "similarity": 0.82
+        },
+        {
+          "id": "10.64898/2026.06.12.731885",
+          "title": "Dual profiling of DNA modifications with enhancer features during the exit of naive pluripotency",
+          "source": "biorxiv",
+          "date": "2026-08-13",
+          "url": "https://doi.org/10.64898/2026.06.12.731885",
+          "similarity": 0.8175
+        },
+        {
+          "id": "10.64898/2026.04.14.718430",
+          "title": "The Alzheimer's disease neurodegenerative cascade reconstructed in human L2/3 excitatory neurons",
+          "source": "biorxiv",
+          "date": "2026-04-15",
+          "url": "https://doi.org/10.64898/2026.04.14.718430",
+          "similarity": 0.8501
+        },
+        {
+          "id": "10.64898/2026.08.03.741071",
+          "title": "Tau reduction counteracts transcriptomic and behavioral abnormalities in an Alzheimer amyloid model",
+          "source": "biorxiv",
+          "date": "2026-08-04",
+          "url": "https://doi.org/10.64898/2026.08.03.741071",
+          "similarity": 0.8437
+        }
+      ]
     },
     {
       "id": "theme::T4",
@@ -20502,7 +21013,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 1,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 24,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.04.13.718066",
+          "title": "Managed Bee Pollination Enhances Yield and Seed Quality in Brassica napus through Flowering Duration and Agronomic Trait Modulation",
+          "source": "biorxiv",
+          "date": "2026-04-15",
+          "url": "https://doi.org/10.64898/2026.04.13.718066",
+          "similarity": 0.8619
+        },
+        {
+          "id": "10.64898/2026.04.17.719139",
+          "title": "Ribosome profiling reveals widespread translational control across developmental stages in the brown alga Ectocarpus",
+          "source": "biorxiv",
+          "date": "2026-04-17",
+          "url": "https://doi.org/10.64898/2026.04.17.719139",
+          "similarity": 0.8384
+        },
+        {
+          "id": "10.64898/2026.07.06.736556",
+          "title": "Effects of an increase in water temperature on inter- and transgenerational plasticity reveal a short-term metabolic and phenotypic memory in an aquatic plant species",
+          "source": "biorxiv",
+          "date": "2026-07-07",
+          "url": "https://doi.org/10.64898/2026.07.06.736556",
+          "similarity": 0.8365
+        },
+        {
+          "id": "10.64898/2026.04.12.718021",
+          "title": "Natural variation in DXR expression is associated with apical hook bending under NaCl stress in Arabidopsis thaliana",
+          "source": "biorxiv",
+          "date": "2026-04-13",
+          "url": "https://doi.org/10.64898/2026.04.12.718021",
+          "similarity": 0.8357
+        },
+        {
+          "id": "10.64898/2026.04.22.720251",
+          "title": "Leaves in Transition: Single nuclei RNA sequencing provides insights into sorghums juvenile and adult phases",
+          "source": "biorxiv",
+          "date": "2026-04-25",
+          "url": "https://doi.org/10.64898/2026.04.22.720251",
+          "similarity": 0.8338
+        },
+        {
+          "id": "10.64898/2026.05.08.723783",
+          "title": "Turnip mosaic virus co-opts host RNA methylation to orchestrate plant infection",
+          "source": "biorxiv",
+          "date": "2026-05-09",
+          "url": "https://doi.org/10.64898/2026.05.08.723783",
+          "similarity": 0.833
+        },
+        {
+          "id": "10.1101/2025.07.21.665945",
+          "title": "Chasing amylase: genotypic diversity in Geukensia demissa may be environmentally driven",
+          "source": "biorxiv",
+          "date": "2026-08-29",
+          "url": "https://doi.org/10.1101/2025.07.21.665945",
+          "similarity": 0.8144
+        },
+        {
+          "id": "10.64898/2026.04.10.717778",
+          "title": "Phlag: Scalable detection of genomics regions with unexplained phylogenetic heterogeneity",
+          "source": "biorxiv",
+          "date": "2026-04-13",
+          "url": "https://doi.org/10.64898/2026.04.10.717778",
+          "similarity": 0.8139
+        }
+      ]
     },
     {
       "id": "theme::T5",
@@ -20524,7 +21101,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 4,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 24,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.04.13.718248",
+          "title": "A universal resazurin-based viability assay for prokaryotic and eukaryotic cells in 2D and 3D cultures",
+          "source": "biorxiv",
+          "date": "2026-04-15",
+          "url": "https://doi.org/10.64898/2026.04.13.718248",
+          "similarity": 0.854
+        },
+        {
+          "id": "10.64898/2026.06.23.733943",
+          "title": "Catalytic rewiring of RuvC-II catalytic site activates trans-cleavage in Fanzor2",
+          "source": "biorxiv",
+          "date": "2026-06-24",
+          "url": "https://doi.org/10.64898/2026.06.23.733943",
+          "similarity": 0.8434
+        },
+        {
+          "id": "10.64898/2026.08.31.26361816",
+          "title": "Development of a Modular APEX2-based Lateral Flow Signaling Platform for Virus Diagnostics",
+          "source": "medrxiv",
+          "date": "2026-09-07",
+          "url": "https://doi.org/10.64898/2026.08.31.26361816",
+          "similarity": 0.8249
+        },
+        {
+          "id": "10.64898/2026.04.24.720684",
+          "title": "Engineering modular cargo loading strategies for carboxysome-derived protein particles",
+          "source": "biorxiv",
+          "date": "2026-04-25",
+          "url": "https://doi.org/10.64898/2026.04.24.720684",
+          "similarity": 0.8223
+        },
+        {
+          "id": "10.64898/2026.04.08.717203",
+          "title": "Expression landscape of heterologous enzymes in Synechocystis sp. PCC 6803",
+          "source": "biorxiv",
+          "date": "2026-04-09",
+          "url": "https://doi.org/10.64898/2026.04.08.717203",
+          "similarity": 0.8195
+        },
+        {
+          "id": "10.64898/2026.06.10.731343",
+          "title": "Escherichia coli and Mammalian Cells Follow Divergent Rules for Lipid-Driven Cytosolic Accumulation",
+          "source": "biorxiv",
+          "date": "2026-06-14",
+          "url": "https://doi.org/10.64898/2026.06.10.731343",
+          "similarity": 0.8181
+        },
+        {
+          "id": "10.1101/2025.10.15.682636",
+          "title": "A Novel {psi}-\u03C7 Fusion Protein for Unravelling the Contributions of \u03C7 to DNA Replication and Repair",
+          "source": "biorxiv",
+          "date": "2026-04-14",
+          "url": "https://doi.org/10.1101/2025.10.15.682636",
+          "similarity": 0.8346
+        },
+        {
+          "id": "10.64898/2026.04.15.718635",
+          "title": "Evolution and adaptations of the seminal proteome in an insect with traumatic insemination",
+          "source": "biorxiv",
+          "date": "2026-04-18",
+          "url": "https://doi.org/10.64898/2026.04.15.718635",
+          "similarity": 0.8346
+        }
+      ]
     },
     {
       "id": "theme::T6",
@@ -20546,7 +21189,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 3,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 33,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.06.28.734957",
+          "title": "Interspecific variation in reproductive and foraging traits for raptors breeding in Norway",
+          "source": "biorxiv",
+          "date": "2026-08-09",
+          "url": "https://doi.org/10.64898/2026.06.28.734957",
+          "similarity": 0.8316
+        },
+        {
+          "id": "10.64898/2026.04.12.718042",
+          "title": "Habitat-loss-driven predictor coupling limits inference about the independent effects of configuration in additive habitat-amount models: implications for the fragmentation debate",
+          "source": "biorxiv",
+          "date": "2026-04-15",
+          "url": "https://doi.org/10.64898/2026.04.12.718042",
+          "similarity": 0.821
+        },
+        {
+          "id": "10.64898/2026.04.09.716047",
+          "title": "Behavioural plasticity at the spatial-social interface: Predation risk modulates density-dependent breeding dispersion",
+          "source": "biorxiv",
+          "date": "2026-04-10",
+          "url": "https://doi.org/10.64898/2026.04.09.716047",
+          "similarity": 0.8207
+        },
+        {
+          "id": "2604.22122",
+          "title": "Global remote sensing reveals vegetation clustering as a physical footprint of shifting aridity trends in drylands",
+          "source": "arxiv",
+          "date": "2026-04-23",
+          "url": "https://arxiv.org/abs/2604.22122",
+          "similarity": 0.8187
+        },
+        {
+          "id": "10.64898/2026.06.19.733388",
+          "title": "NicheDiv: A DAPC framework to quantify niche divergence across highly multivariate environmental space",
+          "source": "biorxiv",
+          "date": "2026-06-22",
+          "url": "https://doi.org/10.64898/2026.06.19.733388",
+          "similarity": 0.8169
+        },
+        {
+          "id": "2605.04807",
+          "title": "A process-based dynamic occupancy model to study range dynamics under non-equilibrium conditions",
+          "source": "arxiv",
+          "date": "2026-05-06",
+          "url": "https://arxiv.org/abs/2605.04807",
+          "similarity": 0.8155
+        },
+        {
+          "id": "10.64898/2026.07.07.736978",
+          "title": "Five Decades of Rariphotic Research: A Systematic Reviewof Trends, Biases, and Future Directions",
+          "source": "biorxiv",
+          "date": "2026-07-08",
+          "url": "https://doi.org/10.64898/2026.07.07.736978",
+          "similarity": 0.84
+        },
+        {
+          "id": "2604.07347",
+          "title": "Temporal Structure Mediates the Robustness and Collapse of Plant-Pollinator Networks",
+          "source": "arxiv",
+          "date": "2026-04-08",
+          "url": "https://arxiv.org/abs/2604.07347",
+          "similarity": 0.8398
+        }
+      ]
     },
     {
       "id": "theme::T7",
@@ -20568,7 +21277,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 14,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "2607.23518",
+          "title": "Chamaileon: Cross-Context Binder Design with Contextualized Modeling and Mixed Sampling",
+          "source": "arxiv",
+          "date": "2026-07-26",
+          "url": "https://arxiv.org/abs/2607.23518",
+          "similarity": 0.8686
+        },
+        {
+          "id": "10.64898/2026.04.16.718848",
+          "title": "A deep learning predictor of bindable protein surfaces toguide generative synthetic biology",
+          "source": "biorxiv",
+          "date": "2026-04-16",
+          "url": "https://doi.org/10.64898/2026.04.16.718848",
+          "similarity": 0.8531
+        },
+        {
+          "id": "10.1101/2025.06.08.658499",
+          "title": "Simpatico: accurate and ultra-fast virtual drug screening with atomic embeddings",
+          "source": "biorxiv",
+          "date": "2026-05-13",
+          "url": "https://doi.org/10.1101/2025.06.08.658499",
+          "similarity": 0.8566
+        },
+        {
+          "id": "10.1101/2024.08.01.606258",
+          "title": "Toward De Novo Protein Design from Natural Language",
+          "source": "biorxiv",
+          "date": "2026-08-31",
+          "url": "https://doi.org/10.1101/2024.08.01.606258",
+          "similarity": 0.8523
+        },
+        {
+          "id": "2605.11022",
+          "title": "SCOPE: Siamese Contrastive Operon Pair Embeddings for Functional Sequence Representation and Classification",
+          "source": "arxiv",
+          "date": "2026-05-10",
+          "url": "https://arxiv.org/abs/2605.11022",
+          "similarity": 0.8461
+        },
+        {
+          "id": "2605.31236",
+          "title": "SwitchCraft: A Programmatic Framework for Designing State-Switching Proteins",
+          "source": "arxiv",
+          "date": "2026-05-29",
+          "url": "https://arxiv.org/abs/2605.31236",
+          "similarity": 0.8499
+        },
+        {
+          "id": "2606.02629",
+          "title": "Enhancing Protein-Protein Interaction Prediction with Hierarchical Motif-based Multimodal Protein Embedding",
+          "source": "arxiv",
+          "date": "2026-05-30",
+          "url": "https://arxiv.org/abs/2606.02629",
+          "similarity": 0.8488
+        },
+        {
+          "id": "2604.14796",
+          "title": "PUFFIN: Protein Unit Discovery with Functional Supervision",
+          "source": "arxiv",
+          "date": "2026-04-16",
+          "url": "https://arxiv.org/abs/2604.14796",
+          "similarity": 0.8486
+        }
+      ]
     },
     {
       "id": "theme::T8",
@@ -20590,7 +21365,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 10,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.05.12.26353080",
+          "title": "Last Mile elimination activities in Cambodia, October 2019 to December 2023",
+          "source": "medrxiv",
+          "date": "2026-05-18",
+          "url": "https://doi.org/10.64898/2026.05.12.26353080",
+          "similarity": 0.8113
+        },
+        {
+          "id": "10.64898/2026.05.17.26353405",
+          "title": "Low birthweight and prematurity, but not malaria chemoprevention, are associated with reduced pneumococcal vaccine immunogenicity in Ugandan infants",
+          "source": "medrxiv",
+          "date": "2026-05-20",
+          "url": "https://doi.org/10.64898/2026.05.17.26353405",
+          "similarity": 0.8093
+        },
+        {
+          "id": "10.64898/2026.06.05.26354236",
+          "title": "Modeling the Impact of Pediatric RSV Immunization in Massachusetts, 2024--2025",
+          "source": "medrxiv",
+          "date": "2026-06-10",
+          "url": "https://doi.org/10.64898/2026.06.05.26354236",
+          "similarity": 0.7981
+        },
+        {
+          "id": "10.1101/2025.11.03.25339423",
+          "title": "Geographical structure and evolutionary trajectories of Streptococcus pneumoniae serotype 19F lineages in South Africa",
+          "source": "medrxiv",
+          "date": "2026-08-06",
+          "url": "https://doi.org/10.1101/2025.11.03.25339423",
+          "similarity": 0.7939
+        },
+        {
+          "id": "10.64898/2026.03.26.26349424",
+          "title": "Enhancing, controlling, and sterilizing dengue immunity and the development of broadly protective responses",
+          "source": "medrxiv",
+          "date": "2026-03-27",
+          "url": "https://doi.org/10.64898/2026.03.26.26349424",
+          "similarity": 0.7897
+        },
+        {
+          "id": "10.64898/2026.07.27.26359071",
+          "title": "Evaluation of dual-active ingredient long-lasting insecticidal nets against wild resistant malaria vectors in Tanzania: a series of experimental hut trials",
+          "source": "medrxiv",
+          "date": "2026-07-30",
+          "url": "https://doi.org/10.64898/2026.07.27.26359071",
+          "similarity": 0.7897
+        },
+        {
+          "id": "10.1101/2025.10.28.25339021",
+          "title": "Coupling models of within-human, human-to-mosquito, and within-mosquito malaria parasite dynamics to identify key drivers of malaria transmission",
+          "source": "medrxiv",
+          "date": "2026-08-24",
+          "url": "https://doi.org/10.1101/2025.10.28.25339021",
+          "similarity": 0.8346
+        },
+        {
+          "id": "10.64898/2026.03.30.26349719",
+          "title": "Decomposing Participatory Surveillance Symptom Time Series to Track Respiratory Infections: A Cross-Country Evaluation Using Non-Negative Matrix Factorization",
+          "source": "medrxiv",
+          "date": "2026-03-31",
+          "url": "https://doi.org/10.64898/2026.03.30.26349719",
+          "similarity": 0.8238
+        }
+      ]
     },
     {
       "id": "theme::T9",
@@ -20612,7 +21453,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 13,
-      "bfs_degree": 1
+      "bfs_degree": 1,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.04.02.715020",
+          "title": "Transcription Factor Subtype Governs Response and Resistance to DLL3-Directed T-Cell Engagement in Small Cell Lung Cancer",
+          "source": "biorxiv",
+          "date": "2026-04-08",
+          "url": "https://doi.org/10.64898/2026.04.02.715020",
+          "similarity": 0.8472
+        },
+        {
+          "id": "10.64898/2026.07.10.737486",
+          "title": "Genetically distinct microenvironment determines cancer survival and response to therapy in mice",
+          "source": "biorxiv",
+          "date": "2026-07-13",
+          "url": "https://doi.org/10.64898/2026.07.10.737486",
+          "similarity": 0.8447
+        },
+        {
+          "id": "10.64898/2026.07.09.26357661",
+          "title": "Aqueous Humor Liquid Biopsy Enables Multi-Omics Tumor Profiling and Methylation-Based Machine-Learning Stratification of Retinoblastoma",
+          "source": "medrxiv",
+          "date": "2026-07-13",
+          "url": "https://doi.org/10.64898/2026.07.09.26357661",
+          "similarity": 0.8441
+        },
+        {
+          "id": "10.64898/2026.07.17.26358051",
+          "title": "Comprehensive molecular characterization of cutaneous squamous cell carcinoma reveals determinants of metastatic progression",
+          "source": "medrxiv",
+          "date": "2026-07-20",
+          "url": "https://doi.org/10.64898/2026.07.17.26358051",
+          "similarity": 0.8414
+        },
+        {
+          "id": "10.1101/2025.11.01.25339299",
+          "title": "Distinct Sarcoma Microenvironments Predict Benefit from Addition of Pembrolizumab to Preoperative Radiotherapy and Surgery in SU2C-SARC032",
+          "source": "medrxiv",
+          "date": "2026-03-19",
+          "url": "https://doi.org/10.1101/2025.11.01.25339299",
+          "similarity": 0.841
+        },
+        {
+          "id": "10.64898/2026.03.24.26348030",
+          "title": "Lung adenocarcinoma WHO histological classes contain distinct immune cell profiles",
+          "source": "medrxiv",
+          "date": "2026-03-26",
+          "url": "https://doi.org/10.64898/2026.03.24.26348030",
+          "similarity": 0.8392
+        },
+        {
+          "id": "10.1101/2025.07.04.25330865",
+          "title": "Simultaneous quantification of multiple immune checkpoint interactions in melanoma",
+          "source": "medrxiv",
+          "date": "2026-05-15",
+          "url": "https://doi.org/10.1101/2025.07.04.25330865",
+          "similarity": 0.8809
+        },
+        {
+          "id": "10.1101/2025.05.01.25326820",
+          "title": "Generalizable AI predicts immunotherapy outcomes across cancers and treatments",
+          "source": "medrxiv",
+          "date": "2026-03-24",
+          "url": "https://doi.org/10.1101/2025.05.01.25326820",
+          "similarity": 0.8677
+        }
+      ]
     }
   ];
   const EDGES = [
@@ -31762,6 +32669,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   };
   const AL = window.PVAuthorLayer;
   const HAS_PARENT = !!(window.parent && window.parent !== window);
+  const EMB = AL.prepareEmbedded(null);
+  const HAS_EMB = !!EMB;
   const NODE_BY_ID = {};
   NODES.forEach((n) => {
     NODE_BY_ID[n.id] = n;
@@ -32159,18 +33068,69 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       } catch (err) {
       }
     };
+    const parentLive = () => HAS_PARENT && authorCapable;
+    const authorPendingRef = useRef(null);
+    const authorTimerRef = useRef(null);
+    const clearAuthorPending = () => {
+      authorPendingRef.current = null;
+      if (authorTimerRef.current) {
+        clearTimeout(authorTimerRef.current);
+        authorTimerRef.current = null;
+      }
+    };
+    const placeEmbedded = (clean) => {
+      const idxs = AL.searchEmbedded(EMB, clean, 5);
+      if (!idxs.length) {
+        setAuthorNote('No author named "' + clean + '" is indexed on this map.');
+        return;
+      }
+      applyAuthorRef.current(AL.embeddedPlace(EMB, idxs));
+    };
+    const expandEmbedded = (aid) => {
+      const msg = AL.embeddedExpand(EMB, aid);
+      if (msg) {
+        applyAuthorRef.current(msg);
+        return;
+      }
+      setAuthorMeta((prev) => Object.assign({}, prev, { [aid]: Object.assign({}, prev[aid], { loading: false, expanded: true, nearby: [] }) }));
+    };
+    const embeddedFallbackRef = useRef(null);
+    embeddedFallbackRef.current = () => {
+      const p = authorPendingRef.current;
+      clearAuthorPending();
+      if (!p || !HAS_EMB) return false;
+      if (p.kind === "query") placeEmbedded(p.q);
+      else expandEmbedded(p.id);
+      return true;
+    };
+    const armAuthorPending = (p) => {
+      clearAuthorPending();
+      if (!HAS_EMB) return;
+      authorPendingRef.current = p;
+      authorTimerRef.current = setTimeout(() => embeddedFallbackRef.current(), 6e3);
+    };
     const askAuthors = (q) => {
       const clean = AL.cleanQuery(q);
       if (clean.length < 2) return;
-      setAuthorNote('Looking for authors named "' + clean + '" on this map...');
-      postParent("pv:author-query", { q: clean });
+      if (parentLive()) {
+        setAuthorNote('Looking for authors named "' + clean + '" on this map...');
+        armAuthorPending({ kind: "query", q: clean });
+        postParent("pv:author-query", { q: clean });
+      } else if (HAS_EMB) {
+        placeEmbedded(clean);
+      }
     };
     const requestExpand = (node) => {
-      if (!HAS_PARENT || !node || node.type !== "author") return;
+      if (!node || node.type !== "author") return;
       const m = authorMetaRef.current[node.aid] || {};
       if (m.expanded || m.loading) return;
-      setAuthorMeta((prev) => Object.assign({}, prev, { [node.aid]: Object.assign({}, prev[node.aid], { loading: true }) }));
-      postParent("pv:author-click", { id: node.aid });
+      if (parentLive()) {
+        setAuthorMeta((prev) => Object.assign({}, prev, { [node.aid]: Object.assign({}, prev[node.aid], { loading: true }) }));
+        armAuthorPending({ kind: "click", id: node.aid });
+        postParent("pv:author-click", { id: node.aid });
+      } else if (HAS_EMB) {
+        expandEmbedded(node.aid);
+      }
     };
     const openAuthorPage = (node) => postParent("pv:open-author", { id: node.aid });
     const TYPE_ORDER = { theme: 0, input_article: 1, cluster: 2, paper: 3, subtheme: 4 };
@@ -32182,7 +33142,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       }
       const q = query.toLowerCase();
       const results = NODES.filter((n) => (n.label || n.id).toLowerCase().includes(q)).sort((a, b) => (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9)).slice(0, 8);
-      if (authorCapable) {
+      if (authorCapable || HAS_EMB) {
         const onMap = authorNodes.filter((n) => (n.label || "").toLowerCase().includes(q)).slice(0, 4);
         results.unshift(...onMap);
         if (query.trim().length >= 3) results.push({ id: "__find_author__", type: "find_author", label: AL.cleanQuery(query) });
@@ -32937,9 +33897,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             });
             return next;
           });
+          embeddedFallbackRef.current();
           return;
         }
         if (d.type === "pv:author-nodes") {
+          clearAuthorPending();
           setAuthorCapable(true);
           applyAuthorRef.current(d);
         }
@@ -33248,7 +34210,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         value: searchQuery,
         onChange: (e) => handleSearch(e.target.value),
         onKeyDown: (e) => {
-          if (e.key === "Enter" && authorCapable && searchQuery.trim().length >= 3) {
+          if (e.key === "Enter" && (authorCapable || HAS_EMB) && searchQuery.trim().length >= 3) {
             askAuthors(searchQuery);
             setSearchQuery("");
             setSearchResults([]);
@@ -33730,7 +34692,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       })), /* @__PURE__ */ React.createElement("div", { style: head }, "Nearby deepthinkers"), (meta.nearby || []).length > 0 ? (meta.nearby || []).slice(0, 14).map((nb) => {
         const there = onMap(nb.id);
         return there ? /* @__PURE__ */ React.createElement("button", { key: nb.id, type: "button", "data-nearby": nb.id, onClick: () => focusAuthor(there), style: btn }, nb.name, nb.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", nb.reason) : null) : /* @__PURE__ */ React.createElement("div", { key: nb.id, style: { ...btn, cursor: "default", opacity: 0.6 } }, nb.name, nb.reason ? " \xB7 " + nb.reason : "");
-      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the deepthinkers near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, "Show nearby deepthinkers") : null, /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
+      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the deepthinkers near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, "Show nearby deepthinkers") : null, HAS_PARENT ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
         marginTop: "14px",
         fontSize: "12.5px",
         padding: "7px 14px",
@@ -33740,7 +34702,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         background: "transparent",
         color: "#6366f1",
         fontFamily: "inherit"
-      } }, "Open author page"));
+      } }, "Open author page") : null);
     })(), (selectedNode.type === "input_article" || selectedNode.type === "paper") && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, selectedNode.author_list?.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "12.5px", color: theme.textMuted, margin: "0 0 10px", lineHeight: 1.5 } }, selectedNode.author_list.slice(0, 8).join(", "), selectedNode.author_list.length > 8 ? " and " + (selectedNode.author_list.length - 8) + " more" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" } }, selectedNode.url ? /* @__PURE__ */ React.createElement("a", { href: selectedNode.url, target: "_blank", rel: "noopener", style: {
       fontSize: "12px",
       padding: "6px 12px",
@@ -33748,7 +34710,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(99, 102, 241, 0.1)",
       color: "#6366f1",
       textDecoration: "none"
-    } }, String(selectedNode.url).indexOf("doi.org") >= 0 ? "DOI" : "arXiv", " \u2197") : null, selectedNode.source ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", color: theme.textMuted, fontFamily: "JetBrains Mono" } }, selectedNode.source, selectedNode.date ? " \xB7 " + selectedNode.date : "") : null)), selectedNode.similar_papers?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4DA} Top Related Publications (", selectedNode.similar_papers.length, ")"), selectedNode.similar_papers.slice(0, 5).map((paper, i) => {
+    } }, String(selectedNode.url).indexOf("doi.org") >= 0 ? "DOI" : "arXiv", " \u2197") : null, selectedNode.source ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", color: theme.textMuted, fontFamily: "JetBrains Mono" } }, selectedNode.source, selectedNode.date ? " \xB7 " + selectedNode.date : "") : null)), selectedNode.similar_papers?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4DA} ", selectedNode.type === "theme" ? "Most relevant publications" : "Top Related Publications", " (", selectedNode.type === "theme" ? Math.min(8, selectedNode.similar_papers.length) : selectedNode.similar_papers.length, ")"), selectedNode.similar_papers.slice(0, selectedNode.type === "theme" ? 8 : 5).map((paper, i) => {
       const pmid = String(paper.pmid || "").replace("ID: ", "").replace(".0", "");
       const refId2 = String(paper.id || pmid || "");
       const href = paper.url || (pmid ? "https://pubmed.ncbi.nlm.nih.gov/" + pmid : "");
@@ -33760,7 +34722,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         borderRadius: "10px",
         padding: "14px",
         marginBottom: "10px"
-      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "JetBrains Mono", fontSize: "12px", color: "#6366f1" } }, srcLabel2, " ", refId2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", background: "rgba(34, 197, 94, 0.2)", color: "#22c55e", padding: "2px 8px", borderRadius: "4px" } }, similarity, "% match")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, marginBottom: "4px", lineHeight: 1.4 } }, paper.article_title || paper.title || "Title unavailable"), /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: paper.authors_detail, authorsFallback: paper.authors, theme, darkMode }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: {
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "JetBrains Mono", fontSize: "12px", color: "#6366f1", overflowWrap: "anywhere" } }, srcLabel2, paper.date ? " " + String(paper.date).slice(0, 4) : "", " ", refId2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", background: "rgba(34, 197, 94, 0.2)", color: "#22c55e", padding: "2px 8px", borderRadius: "4px" } }, similarity, "% match")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, marginBottom: "4px", lineHeight: 1.4 } }, paper.article_title || paper.title || "Title unavailable"), /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: paper.authors_detail, authorsFallback: paper.authors, theme, darkMode }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: {
         fontSize: "12px",
         padding: "6px 12px",
         background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(99, 102, 241, 0.1)",

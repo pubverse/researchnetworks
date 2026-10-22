@@ -362,3 +362,63 @@ a.chip-btn{text-decoration:none;color:inherit}
 .space-map iframe:fullscreen{height:100vh;border-radius:0}
 .space-status{margin:0;min-height:1.4em;flex:1 1 220px}
 @media(max-width:720px){.space-map iframe{height:clamp(420px,70vh,640px)}}
+
+/* ---- Search scope control: Authors | Funders | Subjects | All ---- */
+.scope-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0 0 12px}
+.scope-lab{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.scope-row .seg button{min-height:40px;padding:6px 16px}
+@media(max-width:460px){.scope-row .seg{display:flex;width:100%}.scope-row .seg button{flex:1 1 0;padding:6px 4px}}
+
+/* ---- Author network (js/author_graph.js) ---- */
+.ag-bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;margin:0 0 8px}
+.ag-hint{margin:0;flex:1 1 260px}
+.ag-tools{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-s);overflow:hidden;background:var(--panel)}
+.ag-btn{border:0;background:var(--panel);min-width:44px;min-height:40px;padding:0 12px;font-family:var(--font);font-size:1.1rem;color:var(--blue-d);cursor:pointer}
+.ag-btn+.ag-btn{border-left:1px solid var(--line)}
+.ag-btn.ag-fit{font-size:.86rem}
+.ag-btn:hover{background:var(--blue-l)}
+.ag-btn:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.ag-stage{position:relative;width:100%;border:1px solid var(--line);border-radius:var(--r);background:var(--paper);overflow:hidden;touch-action:pan-x pan-y}
+.ag-stage:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.ag-svg{display:block;width:100%;user-select:none;-webkit-user-select:none;cursor:grab}
+.ag-svg:active{cursor:grabbing}
+.ag-link{stroke:#b9b4ab;stroke-opacity:.75;fill:none}
+.ag-link-co{stroke:var(--blue);stroke-opacity:.7}
+.ag-link-near{stroke-dasharray:3 4;stroke-opacity:.5}
+.ag-link.is-dim{stroke-opacity:.08}
+.ag-link.is-lit{stroke-opacity:1;stroke:var(--ink)}
+.ag-node{cursor:pointer}
+.ag-hit{fill:transparent}
+.ag-shape-topic{fill:#f3dfc3;stroke:var(--warn);stroke-width:1.6}
+.ag-center .ag-shape-person{fill:var(--blue-d);stroke:#fff;stroke-width:3}
+.ag-co .ag-shape-person{fill:var(--good);stroke:#fff;stroke-width:1.5}
+.ag-dt .ag-shape-person{fill:#fff;stroke:#6b4fa0;stroke-width:2.2;stroke-dasharray:none}
+.ag-node.is-expanded .ag-shape-person{stroke-width:3.4}
+.ag-label{display:none;font-family:var(--font);font-size:11.5px;fill:var(--ink);paint-order:stroke;stroke:var(--paper);stroke-width:3.5px;stroke-linejoin:round;pointer-events:none}
+.ag-node.has-label .ag-label{display:block}
+.ag-topic .ag-label{font-size:11px;fill:#6a4313}
+.ag-center .ag-label{font-weight:600}
+.ag-node.is-dim{opacity:.22}
+.ag-node.is-lit .ag-shape-person,.ag-node.is-lit .ag-shape-topic{stroke:var(--ink);stroke-width:2.6}
+.ag-node.is-selected .ag-shape-person,.ag-node.is-selected .ag-shape-topic{stroke:var(--ink);stroke-width:3.4}
+.ag-node.is-focus .ag-hit{stroke:var(--blue);stroke-width:2;stroke-dasharray:3 2;fill:rgba(74,144,217,.08)}
+.ag-node:hover .ag-shape-person,.ag-node:hover .ag-shape-topic{stroke:var(--ink)}
+.ag-legend{display:flex;flex-wrap:wrap;gap:6px 18px;list-style:none;margin:10px 0 0;padding:0;font-size:.82rem;color:var(--muted)}
+.ag-legend li{display:inline-flex;align-items:center;gap:6px}
+.lg-center{fill:var(--blue-d)} .lg-topic{fill:#f3dfc3;stroke:var(--warn);stroke-width:1.4}
+.lg-co{fill:var(--good)} .lg-dt{fill:#fff;stroke:#6b4fa0;stroke-width:2}
+.ag-panel{margin-top:10px;padding:12px 14px;border:1px solid var(--line);border-radius:var(--r-s);background:var(--panel);min-height:3.2em}
+.ag-panel .ag-ph{font-family:var(--serif);font-size:1.05rem;margin:0 0 4px}
+.ag-panel p{margin:0 0 6px}
+.ag-panel .btn-row{margin-top:6px}
+.ag-loading{padding:20px 0}
+@media(prefers-reduced-motion:no-preference){.ag-node{transition:opacity .18s}.ag-link{transition:stroke-opacity .18s}}
+@media(max-width:720px){.ag-btn{min-width:44px}.ag-panel .btn.sm{min-height:44px}}
+
+/* The tab bar on a phone: "Course Plot (submit your idea or abstract)" is wider than the other three tabs
+   together, so the bar wraps instead of scrolling (a scrolling bar hid History and clipped the label).
+   The long tab drops to its own row, last; the full wording stays in the tab and in the heading. */
+@media(max-width:600px){
+  .tabs{flex-wrap:wrap;overflow:visible}
+  .tabs button[data-tab="score"]{order:2;flex:1 1 100%;text-align:left;white-space:normal;border-top:1px solid var(--line)}
+}

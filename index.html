@@ -6,7 +6,7 @@
   <title>PubVerse</title>
   <meta name="description" content="PubVerse evaluates research ideas on substance, not signal, so the ones that matter are recognized sooner.">
   <link rel="icon" href="assets/pubverse_mark.png">
-  <link rel="stylesheet" href="css/app.css?v=5">
+  <link rel="stylesheet" href="css/app.css?v=7">
   <style>
     /* Page-local layout helpers only. Presentational, nothing about how scoring works. */
     .row{display:flex;gap:14px;align-items:center}
@@ -388,7 +388,7 @@
           <button data-tab="search" class="active">Search</button>
           <button data-tab="compass">Compass</button>
           <button data-tab="score" aria-describedby="coursePlotHint"
-                  title="Ranks a pasted abstract or idea against prior work.">Course Plot (your abstract)</button>
+                  title="Ranks a pasted abstract or idea against prior work.">Course Plot (submit your idea or abstract)</button>
           <button data-tab="history">History</button>
         </div>
         <span class="sr-only" id="coursePlotHint">Ranks a pasted abstract or idea against prior work.</span>
@@ -403,6 +403,15 @@
               <p class="muted">Search by name, and a slip in the spelling is fine, or by ORCID iD. Each author comes with their publication record, their papers, and the people working near them.</p>
             </div>
             <form id="searchForm" role="search" autocomplete="off" aria-label="Search authors, funders and subjects">
+              <div class="scope-row">
+                <span class="scope-lab" id="searchScopeLab">Search in</span>
+                <div class="seg" id="searchScope" role="group" aria-labelledby="searchScopeLab">
+                  <button type="button" data-scope="authors" aria-pressed="false">Authors</button>
+                  <button type="button" data-scope="funders" aria-pressed="false">Funders</button>
+                  <button type="button" data-scope="topics" aria-pressed="false">Subjects</button>
+                  <button type="button" data-scope="all" aria-pressed="true">All</button>
+                </div>
+              </div>
               <label for="searchQ">Name, funder or subject</label>
               <div class="search-big">
                 <input id="searchQ" type="search" maxlength="120" spellcheck="false" autocapitalize="none"
@@ -502,7 +511,7 @@
         <section class="tabpane" data-tab="score">
           <div class="card">
             <div class="section-intro">
-              <h2>Course Plot (your abstract)
+              <h2>Course Plot (submit your idea or abstract)
                 <span class="tiphost"><button type="button" class="info" id="abstractInfo" aria-describedby="abstractInfoTip"
                         aria-label="What to include">i</button><span class="tip" id="abstractInfoTip" role="tooltip">Include a hypothesis, the methods, and an impact statement. Abstracts that state all three are read more accurately, because each is scored separately.</span></span>
               </h2>
@@ -515,8 +524,8 @@
                 <input id="sTitle" type="text" autocomplete="off" placeholder="Working title of the paper">
               </div>
               <div class="field">
-                <label for="sAbstract">Abstract <span class="req" aria-hidden="true">*</span></label>
-                <textarea id="sAbstract" required placeholder="Paste the abstract here"></textarea>
+                <label for="sAbstract">Abstract or idea <span class="req" aria-hidden="true">*</span></label>
+                <textarea id="sAbstract" required placeholder="Paste your abstract, or describe your idea in a few sentences"></textarea>
                 <div class="counter" id="sCounter">0 / 1000 words</div>
                 <div class="err" id="scoreErr"></div>
               </div>
@@ -656,7 +665,8 @@
   <script src="js/api.js?v=10"></script>
   <script src="js/ui.js?v=5"></script>
   <script src="js/compass.js?v=15"></script>
-  <script src="js/search.js?v=4"></script>
+  <script src="js/author_graph.js?v=3"></script>
+  <script src="js/search.js?v=5"></script>
   <script>
   /* Landing page glue. All transport lives in js/api.js, all shared widgets in
      js/ui.js. This file only wires elements to those helpers. */

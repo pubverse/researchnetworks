@@ -8,7 +8,8 @@
      - the author and funder views, shown inside the Search tab.
 
    Views are hash routes so they can be linked and the Back button works:
-     #search?q=...   results            #author/A123   an author     #funder/F123   a funder
+     #search?q=...   results (&in=authors|funders|topics narrows them to one kind)
+     #author/A123   an author (network graph on top, the text beneath)     #funder/F123   a funder
      #space/<slug>   a research-space map (optionally ?author=A123 to place that author on load)
      #compass  #score  #history          the other tabs
    Every string that came from the server is escaped before it touches innerHTML, and only ids that
@@ -148,6 +149,29 @@
   var resultsEl = $('#searchResults'), qEl = $('#searchQ');
   var searchHash = '';          // the route the Search tab is showing, restored when its tab is clicked
   var lastResults = '';         // the last results route, for the "Back to results" link
+  var scope = 'all';            // Authors | Funders | Subjects | All: what the Search tab and the nav box look for
+  var SCOPES = { authors: 'authors', funders: 'funders', topics: 'topics', all: 'authors,funders,topics' };
+  var SCOPE_TEXT = {
+    all:     { label: 'Name, funder or subject', ph: 'A name, a funder such as NIH, or a subject', noun: 'authors, funders or subjects' },
+    authors: { label: 'Author name or ORCID iD', ph: 'A researcher\u2019s name, or an ORCID iD', noun: 'authors' },
+    funders: { label: 'Funder name', ph: 'A funder such as NIH or Wellcome', noun: 'funders' },
+    topics:  { label: 'Subject', ph: 'A topic or field, such as epigenetics', noun: 'subjects' }
+  };
+  function scopeParam() { return scope === 'all' ? '' : '&in=' + scope; }
+  function setScope(v, opts) {
+    if (!SCOPES[v]) v = 'all';
+    scope = v;
+    Array.prototype.forEach.call(document.querySelectorAll('#searchScope button[data-scope]'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-scope') === v ? 'true' : 'false');
+    });
+    var t = SCOPE_TEXT[v], lab = $('label[for="searchQ"]');
+    if (lab) lab.textContent = t.label;
+    if (qEl) qEl.placeholder = t.ph;
+    if (navInput) {
+      navInput.placeholder = v === 'all' ? 'Search authors, funders, subjects' : 'Search ' + t.noun;
+      navInput.setAttribute('aria-label', 'Search ' + (v === 'all' ? 'authors, funders and subjects' : t.noun));
+    }
+  }
   var viewSeq = 0;              // bumps on every view change; a late answer for an old view is dropped
   var authed = false, routingClick = false;
 
@@ -181,7 +205,7 @@
   function parseRoute(h) {
     h = String(h || '').replace(/^#/, '');
     var m;
-    if (!h || h === 'search') return { tab: 'search', view: 'home' };
+    if (!h || h === 'search') return { tab: 'search', view: 'home', scope: 'all' };
     if ((m = /^author\/(A\d{1,12})$/.exec(h))) return { tab: 'search', view: 'author', id: m[1] };
     if ((m = /^topic\/((?:topic|subfield)-\d{1,9})$/.exec(h))) return { tab: 'search', view: 'topic', id: m[1] };
     if ((m = /^funder\/(F\d{1,12})$/.exec(h))) return { tab: 'search', view: 'funder', id: m[1] };
@@ -189,10 +213,11 @@
       return { tab: 'search', view: 'space', id: m[1], author: m[2] || '' };
     }
     if (h.indexOf('search?') === 0) {
-      var q = '';
-      try { q = new URLSearchParams(h.slice(7)).get('q') || ''; } catch (e) { q = ''; }
+      var q = '', kind = 'all';
+      try { var sp = new URLSearchParams(h.slice(7)); q = sp.get('q') || ''; kind = sp.get('in') || 'all'; } catch (e) { q = ''; }
       q = q.trim().slice(0, Q_MAX);
-      return q ? { tab: 'search', view: 'results', q: q } : { tab: 'search', view: 'home' };
+      if (!SCOPES[kind]) kind = 'all';
+      return q ? { tab: 'search', view: 'results', q: q, scope: kind } : { tab: 'search', view: 'home', scope: kind };
     }
     if (h === 'compass' || h === 'score' || h === 'history') return { tab: h };
     return null;   // an in-page anchor or something we do not own: leave the page alone
@@ -206,6 +231,7 @@
     if (r.tab !== 'search') return;
     searchHash = (location.hash && location.hash !== '#') ? location.hash : '';
     viewSeq++;
+    if (r.view === 'home' || r.view === 'results') setScope(r.scope || 'all');
     if (r.view === 'home') showHome();
     else if (r.view === 'results') { lastResults = location.hash; runSearch(r.q); }
     else if (r.view === 'author') openAuthor(r.id);
@@ -317,7 +343,18 @@
     var q = (qEl && qEl.value || '').trim().slice(0, Q_MAX);
     if (!q) { showErr('Type a name, a funder or a subject to search for.'); if (qEl) qEl.focus(); return; }
     clearErr();
-    go('#search?q=' + encodeURIComponent(q));
+    go('#search?q=' + encodeURIComponent(q) + scopeParam());
+  });
+  // The scope control: a click changes what is searched. With a query already typed it searches again.
+  on($('#searchScope'), 'click', function (e) {
+    var b = e.target.closest && e.target.closest('button[data-scope]');
+    if (!b) return;
+    var v = b.getAttribute('data-scope');
+    if (v === scope) return;
+    setScope(v);
+    var q = (qEl && qEl.value || '').trim().slice(0, Q_MAX);
+    if (q && (resultsEl && resultsEl.innerHTML)) go('#search?q=' + encodeURIComponent(q) + scopeParam());
+    else if (ta && ta.close) ta.close();
   });
   function orcidSearch() {
     var f = $('#searchOrcid');
@@ -328,7 +365,8 @@
       return;
     }
     clearErr();
-    go('#search?q=' + encodeURIComponent(o));
+    setScope(scope === 'all' || scope === 'authors' ? scope : 'authors');
+    go('#search?q=' + encodeURIComponent(o) + scopeParam());
   }
   on($('#searchOrcidBtn'), 'click', orcidSearch);
   on($('#searchOrcid'), 'keydown', function (e) {
@@ -342,6 +380,7 @@
     setTitle('Search');
     if (homeEl) homeEl.hidden = false;
     if (viewEl) { viewEl.hidden = true; viewEl.innerHTML = ''; }
+    destroyGraph();
     if (qEl && qEl.value.trim() !== q) qEl.value = q;
     var o = normOrcid(q), of = $('#searchOrcid');
     if (o && of) { of.value = o; var adv = $('#searchAdv'); if (adv) adv.open = true; }
@@ -349,11 +388,12 @@
     resultsEl.innerHTML = spinnerHtml('Searching');
     resultsEl.setAttribute('aria-busy', 'true');
     status('Searching.');
-    cached('search:' + q, function () { return api.search(q, { limit: 20, types: 'authors,funders,topics' }); }).then(function (res) {
+    var sc = scope;
+    cached('search:' + sc + ':' + q, function () { return api.search(q, { limit: sc === 'all' ? 20 : 25, types: SCOPES[sc] }); }).then(function (res) {
       if (my !== viewSeq) return;
       resultsEl.removeAttribute('aria-busy');
       if (!res || res.ok === false) { var t = errorText(res); resultsEl.innerHTML = errHtml(t); status(t); return; }
-      resultsEl.innerHTML = resultsHtml(res, q);
+      resultsEl.innerHTML = resultsHtml(res, q, sc);
       var A = (res.authors || []).length, F = (res.funders || []).length, T = (res.topics || []).length;
       status(A + F + T ? [A + ' ' + plural(A, 'author'), F + ' ' + plural(F, 'funder'), T + ' ' + plural(T, 'subject')].join(', ') + ' found.'
                        : 'No matches.');
@@ -408,7 +448,8 @@
       '<h3 id="' + id + '">' + esc(label) + count + '</h3>' + (note || '') +
       '<ol class="sr-list">' + itemsHtml + '</ol></section>';
   }
-  function resultsHtml(res, q) {
+  function resultsHtml(res, q, sc) {
+    sc = sc || 'all';
     var A = (res.authors || []).filter(Boolean), F = (res.funders || []).filter(Boolean);
     var T = (res.topics || []).filter(function (t) { return t && nameOf(t); });
     var est = res.estimated || {};
@@ -416,7 +457,8 @@
     if (!A.length && !F.length && !T.length) {
       return '<p class="sr-empty">' + (orcidMode
         ? 'No author with the ORCID iD <b>' + esc(normOrcid(q) || q) + '</b> is in the index yet.'
-        : 'Nothing matches <b>' + esc(q) + '</b>. Check the spelling, try fewer words, or search by ORCID under Advanced.') +
+        : 'Nothing matches <b>' + esc(q) + '</b> in ' + esc(sc === 'all' ? 'authors, funders or subjects' : SCOPE_TEXT[sc].noun) + '. Check the spelling, try fewer words' +
+          (sc === 'all' || sc === 'authors' ? ', or search by ORCID under Advanced' : '') + (sc === 'all' ? '.' : ', or choose All.')) +
         '</p>';
     }
     var html = '';
@@ -479,10 +521,54 @@
       if (my !== viewSeq) return;
       if (!res || res.ok === false || !res.author) { viewFailed(res); return; }
       renderAuthor(id, res);
+      var graph = activeGraph;
       cached('nearby:' + id, function () { return api.authorNearby(id); }).then(function (nb) {
         if (my !== viewSeq) return;
         renderNearby(nb);
+        if (graph && graph === activeGraph) graph.addNearby(nb);
       });
+    });
+  }
+
+  /* The network on top of the author page (js/author_graph.js). It is given the author's own topics,
+     plus two callbacks that read the same routes the page already uses: one person's profile and
+     neighbors (when the reader clicks them out), and a profile's topics (fallback when the API does
+     not name the topics a co-author shares). */
+  var activeGraph = null;
+  function destroyGraph() {
+    if (activeGraph) { try { activeGraph.destroy(); } catch (e) { /* already gone */ } }
+    activeGraph = null;
+  }
+  function topicsOf(a) {
+    return (a.top_topics || a.topics || []).filter(function (t) { return t && nameOf(t); })
+      .map(function (t) { return { id: t.id != null ? t.id : null, name: nameOf(t), n: t.n != null ? t.n : 0, share: t.share }; });
+  }
+  function mountGraph(id, a) {
+    var host = $('#avGraph');
+    if (!host || !window.PV || !PV.authorGraph) return;
+    destroyGraph();
+    activeGraph = PV.authorGraph.mount(host, {
+      center: { id: id, name: nameOf(a) || 'This author', institution: a.institution, h_index: a.h_index, credibility: a.credibility },
+      topics: topicsOf(a),
+      maxNodes: 120,
+      fetchPerson: function (pid) {
+        return Promise.all([cached('author:' + pid, function () { return api.author(pid); }),
+                            cached('nearby:' + pid, function () { return api.authorNearby(pid); })]).then(function (r) {
+          var au = r[0], nb = r[1];
+          if (!au || au.ok === false || !au.author) return null;
+          var out = { ok: true, topics: topicsOf(au.author), coauthors: [], same_space: [] };
+          if (nb && nb.ok !== false) { out.coauthors = nb.coauthors || []; out.same_space = nb.same_space || []; }
+          return out;
+        });
+      },
+      fetchTopics: function (pid) {
+        return cached('author:' + pid, function () { return api.author(pid); }).then(function (r) {
+          return r && r.author ? topicsOf(r.author) : null;
+        });
+      },
+      openAuthor: function (pid) { go('#author/' + pid); },
+      openCompass: function (name) { openInCompass(name); },
+      topicHref: function (t) { return t && t.id != null && isFinite(Number(t.id)) ? '#topic/topic-' + Number(t.id) : ''; }
     });
   }
 
@@ -535,6 +621,10 @@
         '<div class="chips">' + chips.slice(0, 12).join('') + '</div></section>';
     }
 
+    html += '<section class="av-sec ag-sec" aria-labelledby="avNetH"><h3 id="avNetH">Network</h3>' +
+      '<p class="mini muted">' + esc(name) + ' at the center, their subthemes around them, and the people who share those subthemes. ' +
+      'The lists below hold the same information as text.</p><div id="avGraph"></div></section>';
+
     html += '<div id="avMaps"></div>';
 
     html += '<section class="av-sec" aria-labelledby="avPapersH">' +
@@ -561,6 +651,7 @@
     html += '</article>';
     viewEl.innerHTML = html;
     focusHeading();
+    mountGraph(id, a);
     fillAuthorMaps(id, (a.top_subfields || a.subfields || []));
 
     // Sort toggle: refetch rather than re-sort, because "newest" is a different top 50.
@@ -774,6 +865,7 @@
 
   var spaceFrame = null, spaceTimers = [];
   function releaseSpaceFrame() {
+    destroyGraph();
     spaceTimers.forEach(clearTimeout);
     spaceTimers = [];
     if (spaceFrame && window.PV && PV.mapBridge) PV.mapBridge.detach(spaceFrame);
@@ -918,7 +1010,7 @@
         return '<span class="ta-main">' + esc(nameOf(it)) + '</span>' +
           '<span class="ta-meta">' + esc(LEVEL[it.level] || 'Subject') + (it.parent ? ' in ' + esc(it.parent) : '') + (topicIdOf(it) && (it.level === 'topic' || it.level === 'subfield') ? ' &middot; people in this area' : ' &middot; open in Compass') + '</span>';
       }
-      return '<span class="ta-main">See all results for “' + esc(x.q) + '”</span>';
+      return '<span class="ta-main">See all ' + (scope === 'all' ? '' : esc(SCOPE_TEXT[scope].noun) + ' ') + 'results for “' + esc(x.q) + '”</span>';
     }
     function render(res, q) {
       items = []; idx = -1;
@@ -939,13 +1031,14 @@
       var F = (res.funders || []).filter(function (f) { return f && funderIdOf(f); });
       var T = (res.topics || []).filter(function (t) { return t && nameOf(t); });
       if (!A.length && !F.length && !T.length) {
-        status('No authors, funders or subjects match “' + q + '”.', 'empty');
+        status('Nothing matches “' + q + '” in ' + SCOPE_TEXT[scope].noun + '.', 'empty');
         announce('No matches.');
         return;
       }
-      group('Authors', A.slice(0, 5), 'author');
-      group('Funders', F.slice(0, 3), 'funder');
-      group('Subjects', T.slice(0, 3), 'topic');
+      var many = scope !== 'all';
+      group('Authors', A.slice(0, many ? 8 : 5), 'author');
+      group('Funders', F.slice(0, many ? 8 : 3), 'funder');
+      group('Subjects', T.slice(0, many ? 8 : 3), 'topic');
       var i = items.length;
       items.push({ kind: 'all', q: q });
       html += '<div class="ta-opt ta-all" role="option" id="' + menu.id + 'O' + i + '" data-i="' + i + '" aria-selected="false">' +
@@ -982,7 +1075,7 @@
         if (topicIdOf(x.it) && (x.it.level === 'topic' || x.it.level === 'subfield')) go('#topic/' + topicIdOf(x.it));
         else openInCompass(nameOf(x.it));
       }
-      else go('#search?q=' + encodeURIComponent(x.q));
+      else go('#search?q=' + encodeURIComponent(x.q) + scopeParam());
     }
     function submitAll() {
       var q = input.value.trim().slice(0, Q_MAX);
@@ -990,12 +1083,12 @@
       close();
       closeOverlay(false);
       input.blur();
-      go('#search?q=' + encodeURIComponent(q));
+      go('#search?q=' + encodeURIComponent(q) + scopeParam());
     }
     function fetchQ(q) {
       var my = ++seq;
       status('Searching…', 'loading');
-      api.search(q, { limit: 5, types: 'authors,funders,topics', timeout: 8000 }).then(function (res) {
+      api.search(q, { limit: scope === 'all' ? 5 : 8, types: SCOPES[scope], timeout: 8000 }).then(function (res) {
         if (my !== seq || document.activeElement !== input) return;
         if (!res || res.ok === false) {
           var t = errorText(res);

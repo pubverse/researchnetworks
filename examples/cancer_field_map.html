@@ -563,11 +563,126 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     });
   }
 
+  /* ---- Embedded author index (authors_embedded.json, schema v1; written at map-build time) ----
+   * The published map carries a top-K author list per cluster so an anonymous reader can find and place
+   * authors with no parent page. It feeds the SAME validateAuthorNodes/buildAuthors path as a parent's
+   * pv:author-nodes message: these functions only turn the index into that message shape. */
+  var MAX_EMB_PLACE = 5;
+  var MAX_EMB_NEIGHBORS = 12;
+
+  function fold(s) {
+    var t = String(s === null || s === undefined ? '' : s);
+    try { t = t.normalize('NFKD'); } catch (err) { /* very old engines */ }
+    return t.replace(/[^\x00-\x7f]/g, '').toLowerCase().split(/[^a-z0-9]+/)
+      .filter(function (x) { return x.length >= 2; });
+  }
+
+  /* Returns null (no usable index) or {emb, idToIdx, keys}. */
+  function prepareEmbedded(emb) {
+    if (!emb || typeof emb !== 'object' || emb.v !== 1 || !Array.isArray(emb.authors) || !emb.authors.length) return null;
+    var idToIdx = {};
+    emb.authors.forEach(function (a, i) { if (a && typeof a.id === 'string') idToIdx[a.id] = i; });
+    var names = (emb.names && typeof emb.names === 'object') ? emb.names : {};
+    return { emb: emb, idToIdx: idToIdx, names: names, keys: Object.keys(names) };
+  }
+
+  /* Author indices whose name matches q: every query token must match; the LAST token may be a prefix.
+   * Order = credibility (the index is stored credibility-descending, so ascending index). */
+  function searchEmbedded(E, q, limit) {
+    if (!E) return [];
+    var toks = fold(cleanQuery(q));
+    if (!toks.length) return [];
+    var sets = [];
+    for (var i = 0; i < toks.length; i++) {
+      var last = i === toks.length - 1, hit = {}, any = false;
+      var add = function (list) {
+        if (!Array.isArray(list)) return;
+        for (var j = 0; j < list.length; j++) { hit[list[j]] = true; any = true; }
+      };
+      if (Object.prototype.hasOwnProperty.call(E.names, toks[i])) add(E.names[toks[i]]);
+      if (last) {
+        for (var k = 0; k < E.keys.length; k++) {
+          if (E.keys[k].length > toks[i].length && E.keys[k].lastIndexOf(toks[i], 0) === 0) add(E.names[E.keys[k]]);
+        }
+      }
+      if (!any) return [];
+      sets.push(hit);
+    }
+    var out = Object.keys(sets[0]).map(Number).filter(function (n) {
+      for (var m = 1; m < sets.length; m++) if (!sets[m][n]) return false;
+      return n >= 0 && n < E.emb.authors.length;
+    }).sort(function (a, b) { return a - b; });
+    return out.slice(0, limit || MAX_EMB_PLACE);
+  }
+
+  /* cluster reference in `cl`: an index into the index's `clusters` table (a plain node id is also taken) */
+  function embKey(E, ref) {
+    if (typeof ref === 'number') return (E.emb.clusters && E.emb.clusters[ref]) || '';
+    return typeof ref === 'string' ? ref : '';
+  }
+  /* `dt` reason: 0 = co-author, N >= 2 = shares N of your topics (a verbatim string is also taken) */
+  function embReason(r) {
+    if (typeof r === 'number') return r === 0 ? 'co-author' : 'shares ' + Math.round(r) + ' of your topics on this map';
+    return typeof r === 'string' ? r : '';
+  }
+
+  function embRecord(E, idx, extra) {
+    var a = E.emb.authors[idx];
+    var rec = {
+      id: a.id, name: a.n, institution: a.i || '', country: a.c || '',
+      h_index: a.h, orcid: a.o || '', credibility: typeof a.cr === 'number' ? a.cr / 100 : null,
+      n_papers_on_map: a.p,
+      clusters: (a.cl || []).map(function (c) { return { key: embKey(E, c[0]), share: c[1] }; })
+    };
+    if (extra) for (var k in extra) rec[k] = extra[k];
+    return rec;
+  }
+
+  /* pv:author-nodes (place) for the matches of a name query. */
+  function embeddedPlace(E, idxs) {
+    if (!E || !idxs.length) return null;
+    return { type: 'pv:author-nodes', mode: 'place', anchor: E.emb.authors[idxs[0]].id,
+             authors: idxs.slice(0, MAX_EMB_PLACE).map(function (i) { return embRecord(E, i); }), edges: [] };
+  }
+
+  /* pv:author-nodes (expand) for a click on author `id`: its embedded deepthinkers (co-authors first)
+   * with the clusters they share with it, and a weighted edge to each embedded co-author. */
+  function embeddedExpand(E, id) {
+    if (!E || !Object.prototype.hasOwnProperty.call(E.idToIdx, id)) return null;
+    var ai = E.idToIdx[id], a = E.emb.authors[ai];
+    var mine = {};
+    (a.cl || []).forEach(function (c) { mine[embKey(E, c[0])] = true; });
+    var shared = {};
+    (a.co || []).forEach(function (c) { shared[c[0]] = c[1]; });
+    var maxShared = 1;
+    Object.keys(shared).forEach(function (k) { if (shared[k] > maxShared) maxShared = shared[k]; });
+    var authors = [embRecord(E, ai)], edges = [], seen = {};
+    seen[ai] = true;
+    (a.dt || []).forEach(function (d) {
+      if (authors.length > MAX_EMB_NEIGHBORS) return;
+      var bi = d[0];
+      if (typeof bi !== 'number' || !E.emb.authors[bi] || seen[bi]) return;
+      seen[bi] = true;
+      var b = E.emb.authors[bi];
+      var reason = embReason(d[1]);
+      var isCo = reason === 'co-author';
+      var common = (b.cl || []).filter(function (c) { return mine[embKey(E, c[0])]; });
+      var rec = embRecord(E, bi, { reason: reason, link: isCo ? 'co' : 'space' });
+      if (common.length) rec.clusters = common.map(function (c) { return { key: embKey(E, c[0]), share: c[1] }; });
+      authors.push(rec);
+      if (isCo) edges.push({ source: a.id, target: b.id, kind: 'coauthor',
+                             weight: Math.max(0.2, (shared[bi] || 1) / maxShared) });
+    });
+    return { type: 'pv:author-nodes', mode: 'expand', anchor: a.id, authors: authors, edges: edges };
+  }
+
   var api = {
     AUTHOR_ID_RE: AUTHOR_ID_RE, MAX_PER_MESSAGE: MAX_PER_MESSAGE, MAX_TOTAL: MAX_TOTAL,
     MAX_QUERY: MAX_QUERY, text: text, cleanQuery: cleanQuery, nodeId: nodeId,
     validateAuthorNodes: validateAuthorNodes, buildAuthors: buildAuthors,
-    mergeAuthors: mergeAuthors, pruneEdges: pruneEdges
+    mergeAuthors: mergeAuthors, pruneEdges: pruneEdges,
+    fold: fold, prepareEmbedded: prepareEmbedded, searchEmbedded: searchEmbedded,
+    embeddedPlace: embeddedPlace, embeddedExpand: embeddedExpand
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PVAuthorLayer = api;
@@ -12284,7 +12399,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 6,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 39,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.1101/2025.10.23.684070",
+          "title": "GDF15 regulates necroptotic cell death through direct interaction with RIPK3",
+          "source": "biorxiv",
+          "date": "2025-10-23",
+          "url": "https://doi.org/10.1101/2025.10.23.684070",
+          "similarity": 0.88
+        },
+        {
+          "id": "10.64898/2025.12.17.694873",
+          "title": "SMAD4 loss drives cancer chromosomal instability through transcription-replication conflict-induced replication stress",
+          "source": "biorxiv",
+          "date": "2025-12-19",
+          "url": "https://doi.org/10.64898/2025.12.17.694873",
+          "similarity": 0.8719
+        },
+        {
+          "id": "10.64898/2026.08.26.747171",
+          "title": "Closing the fusion-detection gap in single-cell RNA-seq with a scalable, probe-based workflow",
+          "source": "biorxiv",
+          "date": "2026-08-29",
+          "url": "https://doi.org/10.64898/2026.08.26.747171",
+          "similarity": 0.8699
+        },
+        {
+          "id": "10.64898/2026.03.17.711781",
+          "title": "Unbiased Single-Cell Transcriptome-Proteome Co-Profiling Reveals Malignant Dormancy and Post-Transcriptional Buffering of CTCs",
+          "source": "biorxiv",
+          "date": "2026-03-18",
+          "url": "https://doi.org/10.64898/2026.03.17.711781",
+          "similarity": 0.8614
+        },
+        {
+          "id": "10.64898/2026.01.12.699082",
+          "title": "NFATc3 enhances DREAM complex-driven tumorigenesis",
+          "source": "biorxiv",
+          "date": "2026-01-12",
+          "url": "https://doi.org/10.64898/2026.01.12.699082",
+          "similarity": 0.8599
+        },
+        {
+          "id": "2608.07865",
+          "title": "MAPK Pathway Activity and Heme Biosynthesis Gene Expression in IDH-Wildtype Glioblastoma: A Purity-Adjusted, Discovery-Validation Analysis",
+          "source": "arxiv",
+          "date": "2026-08-08",
+          "url": "https://arxiv.org/abs/2608.07865",
+          "similarity": 0.8596
+        },
+        {
+          "id": "10.64898/2026.04.29.721655",
+          "title": "Extra-lineage tissue programs define the transcription states of human pancreatic cancer",
+          "source": "biorxiv",
+          "date": "2026-05-04",
+          "url": "https://doi.org/10.64898/2026.04.29.721655",
+          "similarity": 0.8668
+        },
+        {
+          "id": "10.64898/2026.03.29.26349383",
+          "title": "Cancer-Type Specific Prognostic Impact of Concurrent TP53 and KRAS Alterations: A Multi-Cohort Genomic Analysis",
+          "source": "medrxiv",
+          "date": "2026-03-30",
+          "url": "https://doi.org/10.64898/2026.03.29.26349383",
+          "similarity": 0.8631
+        }
+      ]
     },
     {
       "id": "theme::T1",
@@ -12306,7 +12487,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 8,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 28,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.06.30.735606",
+          "title": "Colorectal cancers with distinct metastatic potential trigger divergent early T cell responses",
+          "source": "biorxiv",
+          "date": "2026-07-04",
+          "url": "https://doi.org/10.64898/2026.06.30.735606",
+          "similarity": 0.8928
+        },
+        {
+          "id": "10.1101/2025.10.17.683169",
+          "title": "Mutational scanning reveals substrate-assisted autoregulation of the WNT destruction complex",
+          "source": "biorxiv",
+          "date": "2025-10-18",
+          "url": "https://doi.org/10.1101/2025.10.17.683169",
+          "similarity": 0.8876
+        },
+        {
+          "id": "10.1101/2025.11.04.686665",
+          "title": "A switch from histone methyltransferase-EZH2 to demethylase KDM6A activity marks reinitiation of proliferation of drug treated colorectal cancer cells",
+          "source": "biorxiv",
+          "date": "2025-11-06",
+          "url": "https://doi.org/10.1101/2025.11.04.686665",
+          "similarity": 0.8872
+        },
+        {
+          "id": "10.64898/2026.04.27.721174",
+          "title": "Enantiomer-Dependent Biological Activity of Cysteine-Coated Ceria Nanoparticles in Colorectal Cancer Cells",
+          "source": "biorxiv",
+          "date": "2026-04-30",
+          "url": "https://doi.org/10.64898/2026.04.27.721174",
+          "similarity": 0.8824
+        },
+        {
+          "id": "10.64898/2026.08.13.743895",
+          "title": "Prevalence of Colorectal Cancer Molecular Profiles Is Not Captured by a Single Age Threshold",
+          "source": "biorxiv",
+          "date": "2026-08-18",
+          "url": "https://doi.org/10.64898/2026.08.13.743895",
+          "similarity": 0.8797
+        },
+        {
+          "id": "10.64898/2026.01.09.697991",
+          "title": "Genotype-phenotype mapping identifies fetal-like CD55+ immunoregulatory cancer cells as mediators of immune escape in colorectal cancer",
+          "source": "biorxiv",
+          "date": "2026-01-09",
+          "url": "https://doi.org/10.64898/2026.01.09.697991",
+          "similarity": 0.879
+        },
+        {
+          "id": "10.64898/2026.07.02.736165",
+          "title": "Integrative Proteomic Analysis Implicates Inhibition of Intracellular Protein Trafficking in Therapy-Induced Migrastasis in Prostate Cancer",
+          "source": "biorxiv",
+          "date": "2026-07-03",
+          "url": "https://doi.org/10.64898/2026.07.02.736165",
+          "similarity": 0.8828
+        },
+        {
+          "id": "10.64898/2026.06.29.735319",
+          "title": "RegulomeXplorer: Interactive exploration of drug effects on subcellularly resolved proteomes",
+          "source": "biorxiv",
+          "date": "2026-07-03",
+          "url": "https://doi.org/10.64898/2026.06.29.735319",
+          "similarity": 0.8677
+        }
+      ]
     },
     {
       "id": "theme::T2",
@@ -12328,7 +12575,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 16,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "2607.23626",
+          "title": "Segmentation Robustness and Predictive Utility in Glioblastoma Radiomics: Evidence for a Trade-off in Survival Modelling",
+          "source": "arxiv",
+          "date": "2026-07-26",
+          "url": "https://arxiv.org/abs/2607.23626",
+          "similarity": 0.8643
+        },
+        {
+          "id": "10.64898/2026.01.05.697006",
+          "title": "A modular patient-derived organoid-xenograft platform reveals molecular and clinical trajectories of prostate cancer progression",
+          "source": "biorxiv",
+          "date": "2026-01-05",
+          "url": "https://doi.org/10.64898/2026.01.05.697006",
+          "similarity": 0.8616
+        },
+        {
+          "id": "2605.03319",
+          "title": "A joint longitudinal-survival framework for dynamic treatment regimen evaluation in sequential multiple assignment randomized trials",
+          "source": "arxiv",
+          "date": "2026-05-05",
+          "url": "https://arxiv.org/abs/2605.03319",
+          "similarity": 0.8601
+        },
+        {
+          "id": "2602.11520",
+          "title": "Locally Interpretable Individualized Treatment Rules for Black-Box Decision Models",
+          "source": "arxiv",
+          "date": "2026-02-12",
+          "url": "https://arxiv.org/abs/2602.11520",
+          "similarity": 0.8568
+        },
+        {
+          "id": "2606.12140",
+          "title": "Time-Conditioned and Multi-Time Survival Prediction from 2D PET/CT Projections in Lung Cancer",
+          "source": "arxiv",
+          "date": "2026-06-10",
+          "url": "https://arxiv.org/abs/2606.12140",
+          "similarity": 0.8543
+        },
+        {
+          "id": "10.64898/2026.01.23.26344621",
+          "title": "Prognostic Risk Refinement using Artificial Intelligence in HR+/HER2- Early Breast Cancer: Implications for CDK4/6 Eligibility Criteria",
+          "source": "medrxiv",
+          "date": "2026-01-25",
+          "url": "https://doi.org/10.64898/2026.01.23.26344621",
+          "similarity": 0.8526
+        },
+        {
+          "id": "10.64898/2026.06.20.26356121",
+          "title": "Socioeconomic Determinants of Guideline-Concordant Therapy for Early-Stage Non-Small Cell Lung Cancer: A Population-Based Analysis from Appalachian and Non-Appalachian Ohio, 2004-2015",
+          "source": "medrxiv",
+          "date": "2026-06-23",
+          "url": "https://doi.org/10.64898/2026.06.20.26356121",
+          "similarity": 0.8565
+        },
+        {
+          "id": "10.64898/2026.07.13.26357901",
+          "title": "Screen-Detected and Diagnostic Breast Cancers Show Distinct Treatment Pathways and Quality Indicator Performance",
+          "source": "medrxiv",
+          "date": "2026-07-16",
+          "url": "https://doi.org/10.64898/2026.07.13.26357901",
+          "similarity": 0.8536
+        }
+      ]
     },
     {
       "id": "theme::T3",
@@ -12350,7 +12663,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 14,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.06.03.729847",
+          "title": "HOPE: Interpretable Histology Analysis with Spatial Omics-Derived Signatures for Precision Oncology",
+          "source": "biorxiv",
+          "date": "2026-06-06",
+          "url": "https://doi.org/10.64898/2026.06.03.729847",
+          "similarity": 0.8954
+        },
+        {
+          "id": "10.64898/2026.05.05.723013",
+          "title": "Deep learning localizes focal biology implicated in therapeutic resistance within routine histology",
+          "source": "biorxiv",
+          "date": "2026-05-08",
+          "url": "https://doi.org/10.64898/2026.05.05.723013",
+          "similarity": 0.8832
+        },
+        {
+          "id": "10.64898/2026.07.09.737584",
+          "title": "Spatial Topology Reveals Biologically Distinct Recurrent Motifs in Colorectal Cancer",
+          "source": "biorxiv",
+          "date": "2026-07-15",
+          "url": "https://doi.org/10.64898/2026.07.09.737584",
+          "similarity": 0.877
+        },
+        {
+          "id": "2601.18640",
+          "title": "TwinPurify: Purifying gene expression data to reveal tumor-intrinsic transcriptional programs via self-supervised learning",
+          "source": "arxiv",
+          "date": "2026-01-26",
+          "url": "https://arxiv.org/abs/2601.18640",
+          "similarity": 0.8765
+        },
+        {
+          "id": "10.1101/2025.10.23.684013",
+          "title": "Deep Learning Bridges Histology and Transcriptomics to Predict Molecular Subtypes and Outcomes in Muscle-Invasive Bladder Cancer",
+          "source": "biorxiv",
+          "date": "2025-10-24",
+          "url": "https://doi.org/10.1101/2025.10.23.684013",
+          "similarity": 0.871
+        },
+        {
+          "id": "10.64898/2026.08.15.745016",
+          "title": "A Five-Gene Stromal-EMT Signature Predicts Prognosis, Immunotherapy Resistance, and Therapeutic Vulnerability in Bladder Cancer",
+          "source": "biorxiv",
+          "date": "2026-08-20",
+          "url": "https://doi.org/10.64898/2026.08.15.745016",
+          "similarity": 0.8697
+        },
+        {
+          "id": "10.64898/2026.06.06.730520",
+          "title": "Cycling persister clones with elevated NR2F1-mediated cholesterol biosynthesis cause chemotherapy resistance",
+          "source": "biorxiv",
+          "date": "2026-06-10",
+          "url": "https://doi.org/10.64898/2026.06.06.730520",
+          "similarity": 0.8878
+        },
+        {
+          "id": "10.64898/2026.04.04.716464",
+          "title": "Mature tumoroids recapitulate clinically relevant drug response through extended 3D culture in PDAC",
+          "source": "biorxiv",
+          "date": "2026-04-07",
+          "url": "https://doi.org/10.64898/2026.04.04.716464",
+          "similarity": 0.8853
+        }
+      ]
     },
     {
       "id": "theme::T4",
@@ -12372,7 +12751,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 3,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 14,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.04.30.721530",
+          "title": "In vivo CRISPR-based screen identifies ZC3H12C as a mediator of CAR-T cell dysfunction in solid tumors",
+          "source": "biorxiv",
+          "date": "2026-05-02",
+          "url": "https://doi.org/10.64898/2026.04.30.721530",
+          "similarity": 0.9117
+        },
+        {
+          "id": "10.64898/2026.08.18.745642",
+          "title": "Tumor-tropic E. coli engineered as living T and NK cell engagers",
+          "source": "biorxiv",
+          "date": "2026-08-20",
+          "url": "https://doi.org/10.64898/2026.08.18.745642",
+          "similarity": 0.9037
+        },
+        {
+          "id": "10.64898/2026.08.03.742600",
+          "title": "Multidirectional Cellular Plasticity in Ewing Sarcoma Reveals a Tumor-CAF Continuum and Novel Immunotherapeutic Targets",
+          "source": "biorxiv",
+          "date": "2026-08-04",
+          "url": "https://doi.org/10.64898/2026.08.03.742600",
+          "similarity": 0.9035
+        },
+        {
+          "id": "10.64898/2025.12.02.690421",
+          "title": "Proteomic profiling of the neuroblastoma secretome identifies extracellular vesicles as drivers of T cell suppression",
+          "source": "biorxiv",
+          "date": "2025-12-03",
+          "url": "https://doi.org/10.64898/2025.12.02.690421",
+          "similarity": 0.8992
+        },
+        {
+          "id": "10.64898/2026.03.09.26347765",
+          "title": "Combined talimogene laherparepvec and binimetinib in patients with NRAS-mutated melanoma induces anti-tumor immunity",
+          "source": "medrxiv",
+          "date": "2026-03-14",
+          "url": "https://doi.org/10.64898/2026.03.09.26347765",
+          "similarity": 0.8913
+        },
+        {
+          "id": "10.64898/2026.08.13.742806",
+          "title": "Protein design to broadly reprogram engineered T cell function",
+          "source": "biorxiv",
+          "date": "2026-08-17",
+          "url": "https://doi.org/10.64898/2026.08.13.742806",
+          "similarity": 0.8881
+        },
+        {
+          "id": "10.64898/2026.04.30.721983",
+          "title": "Network-based analysis of glioblastoma identifies patient communities and cluster-specific biomarkers",
+          "source": "biorxiv",
+          "date": "2026-05-05",
+          "url": "https://doi.org/10.64898/2026.04.30.721983",
+          "similarity": 0.9335
+        },
+        {
+          "id": "10.64898/2026.09.18.752741",
+          "title": "Radiation therapy synergizes with mRNA vaccination to overcome microglia-mediated suppression of dendritic cell migration and T cell priming in glioblastoma",
+          "source": "biorxiv",
+          "date": "2026-09-22",
+          "url": "https://doi.org/10.64898/2026.09.18.752741",
+          "similarity": 0.914
+        }
+      ]
     },
     {
       "id": "theme::T5",
@@ -12394,7 +12839,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 2,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 10,
-      "bfs_degree": 0
+      "bfs_degree": 0,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.05.28.728591",
+          "title": "Personalized reference genome-based pipeline reveals comprehensive haplotype-resolved views of cancer genomes",
+          "source": "biorxiv",
+          "date": "2026-05-30",
+          "url": "https://doi.org/10.64898/2026.05.28.728591",
+          "similarity": 0.8867
+        },
+        {
+          "id": "10.64898/2026.09.15.26363174",
+          "title": "Genomic foundation model-derived disruption profiling links somatic mutations to cancer biology and clinical outcomes",
+          "source": "medrxiv",
+          "date": "2026-09-16",
+          "url": "https://doi.org/10.64898/2026.09.15.26363174",
+          "similarity": 0.8804
+        },
+        {
+          "id": "10.64898/2026.03.24.26348030",
+          "title": "Lung adenocarcinoma WHO histological classes contain distinct immune cell profiles",
+          "source": "medrxiv",
+          "date": "2026-03-26",
+          "url": "https://doi.org/10.64898/2026.03.24.26348030",
+          "similarity": 0.8774
+        },
+        {
+          "id": "10.64898/2026.01.20.700565",
+          "title": "CRISPR-enhanced assessment of variants of unknown significance nominates oncology therapeutic targets and drug repositioning opportunities",
+          "source": "biorxiv",
+          "date": "2026-01-23",
+          "url": "https://doi.org/10.64898/2026.01.20.700565",
+          "similarity": 0.8764
+        },
+        {
+          "id": "10.1101/2025.10.12.681753",
+          "title": "Joint analysis of expression and variation at single cell resolution by scVar",
+          "source": "biorxiv",
+          "date": "2025-10-14",
+          "url": "https://doi.org/10.1101/2025.10.12.681753",
+          "similarity": 0.8693
+        },
+        {
+          "id": "10.64898/2026.04.13.718204",
+          "title": "Single-crypt evolutionary trajectories of human sporadic and hereditary colorectal precancers",
+          "source": "biorxiv",
+          "date": "2026-04-14",
+          "url": "https://doi.org/10.64898/2026.04.13.718204",
+          "similarity": 0.8679
+        },
+        {
+          "id": "10.64898/2026.07.28.740856",
+          "title": "Genomic alterations enable BRCA1 methylation loss and promoter bypass to drive resistance in high-grade serous ovarian cancer",
+          "source": "biorxiv",
+          "date": "2026-07-30",
+          "url": "https://doi.org/10.64898/2026.07.28.740856",
+          "similarity": 0.8645
+        },
+        {
+          "id": "10.64898/2025.11.25.25340882",
+          "title": "Rapid Autopsy Multi-Omic Analysis Identifies Divergent Evolutionary Trajectories and DNA Damage Resistance Mechanisms in FGFR2-Driven Cholangiocarcinoma",
+          "source": "medrxiv",
+          "date": "2025-12-04",
+          "url": "https://doi.org/10.64898/2025.11.25.25340882",
+          "similarity": 0.8758
+        }
+      ]
     },
     {
       "id": "theme::T6",
@@ -12416,7 +12927,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 8,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.01.14.699525",
+          "title": "Biomimetic model for the identification of distinctive microenvironmental factors in glioblastoma radiosensitivity",
+          "source": "biorxiv",
+          "date": "2026-01-15",
+          "url": "https://doi.org/10.64898/2026.01.14.699525",
+          "similarity": 0.891
+        },
+        {
+          "id": "10.64898/2026.01.05.697775",
+          "title": "Drug-tolerant persister cells reallocate carbon sources to fuel antioxidant metabolism for survival",
+          "source": "biorxiv",
+          "date": "2026-01-06",
+          "url": "https://doi.org/10.64898/2026.01.05.697775",
+          "similarity": 0.8836
+        },
+        {
+          "id": "10.64898/2026.09.11.750952",
+          "title": "Rac1 and CHK1 Converge on Abi-1 to Regulate DNA Repair Dependency and Treatment Response in Human Cancers",
+          "source": "biorxiv",
+          "date": "2026-09-18",
+          "url": "https://doi.org/10.64898/2026.09.11.750952",
+          "similarity": 0.8805
+        },
+        {
+          "id": "10.64898/2026.05.12.724504",
+          "title": "Comparative analyses of prolonged stress responses of breast carcinoma cells after hypofractionated irradiation in vitro and in vivo",
+          "source": "biorxiv",
+          "date": "2026-05-13",
+          "url": "https://doi.org/10.64898/2026.05.12.724504",
+          "similarity": 0.8669
+        },
+        {
+          "id": "10.64898/2026.05.18.725896",
+          "title": "MTDH-SND1 disruption sensitizes ovarian cancer to ferroptosis and PARP inhibition",
+          "source": "biorxiv",
+          "date": "2026-05-20",
+          "url": "https://doi.org/10.64898/2026.05.18.725896",
+          "similarity": 0.8632
+        },
+        {
+          "id": "10.64898/2026.08.16.745132",
+          "title": "Pyrogallol Modulates Abscopal Tumour and Gut Microbial Responses to Localized Irradiation in an Ehrlich Ascites Carcinoma Model",
+          "source": "biorxiv",
+          "date": "2026-08-21",
+          "url": "https://doi.org/10.64898/2026.08.16.745132",
+          "similarity": 0.8627
+        },
+        {
+          "id": "10.64898/2026.01.22.700997",
+          "title": "Forecasting tumor growth kinetics and hypoxia levels in mice using mathematical modelling",
+          "source": "biorxiv",
+          "date": "2026-01-24",
+          "url": "https://doi.org/10.64898/2026.01.22.700997",
+          "similarity": 0.8907
+        },
+        {
+          "id": "10.64898/2025.12.27.696676",
+          "title": "Phenotypic Plasticity and Competition Shape Therapy Sequencing in HER2+/HER2- Breast Cancer: A Mathematical Framework",
+          "source": "biorxiv",
+          "date": "2025-12-27",
+          "url": "https://doi.org/10.64898/2025.12.27.696676",
+          "similarity": 0.8847
+        }
+      ]
     },
     {
       "id": "theme::T7",
@@ -12438,7 +13015,73 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "run_hits": 0,
       "titled_by": "qwen3.8-q8-mtp:latest",
       "degree": 7,
-      "bfs_degree": 2
+      "bfs_degree": 2,
+      "similar_papers": [
+        {
+          "id": "10.64898/2026.03.24.26348030",
+          "title": "Lung adenocarcinoma WHO histological classes contain distinct immune cell profiles",
+          "source": "medrxiv",
+          "date": "2026-03-26",
+          "url": "https://doi.org/10.64898/2026.03.24.26348030",
+          "similarity": 0.8904
+        },
+        {
+          "id": "10.64898/2026.03.19.712993",
+          "title": "Elevated YBX1 mRNA expression is associated with a genomi-cally unstable and clinically aggressive cancer state: a pan-cancer analysis",
+          "source": "biorxiv",
+          "date": "2026-03-23",
+          "url": "https://doi.org/10.64898/2026.03.19.712993",
+          "similarity": 0.8875
+        },
+        {
+          "id": "10.64898/2026.01.06.693992",
+          "title": "A Pan-Cancer Single-Cell Compendium of Intratumoural Heterogeneity.",
+          "source": "biorxiv",
+          "date": "2026-01-07",
+          "url": "https://doi.org/10.64898/2026.01.06.693992",
+          "similarity": 0.8864
+        },
+        {
+          "id": "10.1101/2025.11.27.685767",
+          "title": "ONCOchannelome: A computational framework for investigating altered ion channels across tumor types",
+          "source": "biorxiv",
+          "date": "2025-11-29",
+          "url": "https://doi.org/10.1101/2025.11.27.685767",
+          "similarity": 0.8845
+        },
+        {
+          "id": "10.1101/2025.10.30.685599",
+          "title": "Transcriptional Profiling of Commonly Used Liver Cancer Cell Lines Reveals Disease-Specific Modeling Potential and Authentication Concerns",
+          "source": "biorxiv",
+          "date": "2025-10-31",
+          "url": "https://doi.org/10.1101/2025.10.30.685599",
+          "similarity": 0.8802
+        },
+        {
+          "id": "10.64898/2026.08.31.748296",
+          "title": "A pan-cohort transcriptional landscape of breast cancer maps subtype and microenvironmental programs",
+          "source": "biorxiv",
+          "date": "2026-09-04",
+          "url": "https://doi.org/10.64898/2026.08.31.748296",
+          "similarity": 0.8795
+        },
+        {
+          "id": "10.64898/2026.05.03.722461",
+          "title": "Integrated Multi-Omics Analysis for the Identification of Disease-Associated Variations and Prognostic Biomarkers in Triple-Negative Breast Cancer (TNBC)",
+          "source": "biorxiv",
+          "date": "2026-05-06",
+          "url": "https://doi.org/10.64898/2026.05.03.722461",
+          "similarity": 0.8901
+        },
+        {
+          "id": "10.64898/2026.09.04.749312",
+          "title": "An Oxidative Stress-Associated Seven-Gene Prognostic Signature in Lung Adenocarcinoma: Integrative Transcriptomic Analysis Across Public Cohorts",
+          "source": "biorxiv",
+          "date": "2026-09-15",
+          "url": "https://doi.org/10.64898/2026.09.04.749312",
+          "similarity": 0.8866
+        }
+      ]
     }
   ];
   const EDGES = [
@@ -19926,6 +20569,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   };
   const AL = window.PVAuthorLayer;
   const HAS_PARENT = !!(window.parent && window.parent !== window);
+  const EMB = AL.prepareEmbedded(null);
+  const HAS_EMB = !!EMB;
   const NODE_BY_ID = {};
   NODES.forEach((n) => {
     NODE_BY_ID[n.id] = n;
@@ -20323,18 +20968,69 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       } catch (err) {
       }
     };
+    const parentLive = () => HAS_PARENT && authorCapable;
+    const authorPendingRef = useRef(null);
+    const authorTimerRef = useRef(null);
+    const clearAuthorPending = () => {
+      authorPendingRef.current = null;
+      if (authorTimerRef.current) {
+        clearTimeout(authorTimerRef.current);
+        authorTimerRef.current = null;
+      }
+    };
+    const placeEmbedded = (clean) => {
+      const idxs = AL.searchEmbedded(EMB, clean, 5);
+      if (!idxs.length) {
+        setAuthorNote('No author named "' + clean + '" is indexed on this map.');
+        return;
+      }
+      applyAuthorRef.current(AL.embeddedPlace(EMB, idxs));
+    };
+    const expandEmbedded = (aid) => {
+      const msg = AL.embeddedExpand(EMB, aid);
+      if (msg) {
+        applyAuthorRef.current(msg);
+        return;
+      }
+      setAuthorMeta((prev) => Object.assign({}, prev, { [aid]: Object.assign({}, prev[aid], { loading: false, expanded: true, nearby: [] }) }));
+    };
+    const embeddedFallbackRef = useRef(null);
+    embeddedFallbackRef.current = () => {
+      const p = authorPendingRef.current;
+      clearAuthorPending();
+      if (!p || !HAS_EMB) return false;
+      if (p.kind === "query") placeEmbedded(p.q);
+      else expandEmbedded(p.id);
+      return true;
+    };
+    const armAuthorPending = (p) => {
+      clearAuthorPending();
+      if (!HAS_EMB) return;
+      authorPendingRef.current = p;
+      authorTimerRef.current = setTimeout(() => embeddedFallbackRef.current(), 6e3);
+    };
     const askAuthors = (q) => {
       const clean = AL.cleanQuery(q);
       if (clean.length < 2) return;
-      setAuthorNote('Looking for authors named "' + clean + '" on this map...');
-      postParent("pv:author-query", { q: clean });
+      if (parentLive()) {
+        setAuthorNote('Looking for authors named "' + clean + '" on this map...');
+        armAuthorPending({ kind: "query", q: clean });
+        postParent("pv:author-query", { q: clean });
+      } else if (HAS_EMB) {
+        placeEmbedded(clean);
+      }
     };
     const requestExpand = (node) => {
-      if (!HAS_PARENT || !node || node.type !== "author") return;
+      if (!node || node.type !== "author") return;
       const m = authorMetaRef.current[node.aid] || {};
       if (m.expanded || m.loading) return;
-      setAuthorMeta((prev) => Object.assign({}, prev, { [node.aid]: Object.assign({}, prev[node.aid], { loading: true }) }));
-      postParent("pv:author-click", { id: node.aid });
+      if (parentLive()) {
+        setAuthorMeta((prev) => Object.assign({}, prev, { [node.aid]: Object.assign({}, prev[node.aid], { loading: true }) }));
+        armAuthorPending({ kind: "click", id: node.aid });
+        postParent("pv:author-click", { id: node.aid });
+      } else if (HAS_EMB) {
+        expandEmbedded(node.aid);
+      }
     };
     const openAuthorPage = (node) => postParent("pv:open-author", { id: node.aid });
     const TYPE_ORDER = { theme: 0, input_article: 1, cluster: 2, paper: 3, subtheme: 4 };
@@ -20346,7 +21042,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       }
       const q = query.toLowerCase();
       const results = NODES.filter((n) => (n.label || n.id).toLowerCase().includes(q)).sort((a, b) => (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9)).slice(0, 8);
-      if (authorCapable) {
+      if (authorCapable || HAS_EMB) {
         const onMap = authorNodes.filter((n) => (n.label || "").toLowerCase().includes(q)).slice(0, 4);
         results.unshift(...onMap);
         if (query.trim().length >= 3) results.push({ id: "__find_author__", type: "find_author", label: AL.cleanQuery(query) });
@@ -21101,9 +21797,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             });
             return next;
           });
+          embeddedFallbackRef.current();
           return;
         }
         if (d.type === "pv:author-nodes") {
+          clearAuthorPending();
           setAuthorCapable(true);
           applyAuthorRef.current(d);
         }
@@ -21412,7 +22110,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         value: searchQuery,
         onChange: (e) => handleSearch(e.target.value),
         onKeyDown: (e) => {
-          if (e.key === "Enter" && authorCapable && searchQuery.trim().length >= 3) {
+          if (e.key === "Enter" && (authorCapable || HAS_EMB) && searchQuery.trim().length >= 3) {
             askAuthors(searchQuery);
             setSearchQuery("");
             setSearchResults([]);
@@ -21894,7 +22592,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       })), /* @__PURE__ */ React.createElement("div", { style: head }, "Nearby deepthinkers"), (meta.nearby || []).length > 0 ? (meta.nearby || []).slice(0, 14).map((nb) => {
         const there = onMap(nb.id);
         return there ? /* @__PURE__ */ React.createElement("button", { key: nb.id, type: "button", "data-nearby": nb.id, onClick: () => focusAuthor(there), style: btn }, nb.name, nb.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", nb.reason) : null) : /* @__PURE__ */ React.createElement("div", { key: nb.id, style: { ...btn, cursor: "default", opacity: 0.6 } }, nb.name, nb.reason ? " \xB7 " + nb.reason : "");
-      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the deepthinkers near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, "Show nearby deepthinkers") : null, /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
+      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the deepthinkers near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, "Show nearby deepthinkers") : null, HAS_PARENT ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
         marginTop: "14px",
         fontSize: "12.5px",
         padding: "7px 14px",
@@ -21904,7 +22602,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         background: "transparent",
         color: "#6366f1",
         fontFamily: "inherit"
-      } }, "Open author page"));
+      } }, "Open author page") : null);
     })(), (selectedNode.type === "input_article" || selectedNode.type === "paper") && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, selectedNode.author_list?.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "12.5px", color: theme.textMuted, margin: "0 0 10px", lineHeight: 1.5 } }, selectedNode.author_list.slice(0, 8).join(", "), selectedNode.author_list.length > 8 ? " and " + (selectedNode.author_list.length - 8) + " more" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" } }, selectedNode.url ? /* @__PURE__ */ React.createElement("a", { href: selectedNode.url, target: "_blank", rel: "noopener", style: {
       fontSize: "12px",
       padding: "6px 12px",
@@ -21912,7 +22610,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(99, 102, 241, 0.1)",
       color: "#6366f1",
       textDecoration: "none"
-    } }, String(selectedNode.url).indexOf("doi.org") >= 0 ? "DOI" : "arXiv", " \u2197") : null, selectedNode.source ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", color: theme.textMuted, fontFamily: "JetBrains Mono" } }, selectedNode.source, selectedNode.date ? " \xB7 " + selectedNode.date : "") : null)), selectedNode.similar_papers?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4DA} Top Related Publications (", selectedNode.similar_papers.length, ")"), selectedNode.similar_papers.slice(0, 5).map((paper, i) => {
+    } }, String(selectedNode.url).indexOf("doi.org") >= 0 ? "DOI" : "arXiv", " \u2197") : null, selectedNode.source ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", color: theme.textMuted, fontFamily: "JetBrains Mono" } }, selectedNode.source, selectedNode.date ? " \xB7 " + selectedNode.date : "") : null)), selectedNode.similar_papers?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4DA} ", selectedNode.type === "theme" ? "Most relevant publications" : "Top Related Publications", " (", selectedNode.type === "theme" ? Math.min(8, selectedNode.similar_papers.length) : selectedNode.similar_papers.length, ")"), selectedNode.similar_papers.slice(0, selectedNode.type === "theme" ? 8 : 5).map((paper, i) => {
       const pmid = String(paper.pmid || "").replace("ID: ", "").replace(".0", "");
       const refId2 = String(paper.id || pmid || "");
       const href = paper.url || (pmid ? "https://pubmed.ncbi.nlm.nih.gov/" + pmid : "");
@@ -21924,7 +22622,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         borderRadius: "10px",
         padding: "14px",
         marginBottom: "10px"
-      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "JetBrains Mono", fontSize: "12px", color: "#6366f1" } }, srcLabel2, " ", refId2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", background: "rgba(34, 197, 94, 0.2)", color: "#22c55e", padding: "2px 8px", borderRadius: "4px" } }, similarity, "% match")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, marginBottom: "4px", lineHeight: 1.4 } }, paper.article_title || paper.title || "Title unavailable"), /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: paper.authors_detail, authorsFallback: paper.authors, theme, darkMode }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: {
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "JetBrains Mono", fontSize: "12px", color: "#6366f1", overflowWrap: "anywhere" } }, srcLabel2, paper.date ? " " + String(paper.date).slice(0, 4) : "", " ", refId2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", background: "rgba(34, 197, 94, 0.2)", color: "#22c55e", padding: "2px 8px", borderRadius: "4px" } }, similarity, "% match")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, marginBottom: "4px", lineHeight: 1.4 } }, paper.article_title || paper.title || "Title unavailable"), /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: paper.authors_detail, authorsFallback: paper.authors, theme, darkMode }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: {
         fontSize: "12px",
         padding: "6px 12px",
         background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(99, 102, 241, 0.1)",
