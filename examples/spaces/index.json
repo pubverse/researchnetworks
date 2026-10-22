@@ -39,5 +39,55 @@
   "n_papers": 1072,
   "n_clusters": 60,
   "n_themes": 8
+ },
+ {
+  "slug": "sf1910",
+  "name": "Oceanography",
+  "subfield_ids": [
+   1910
+  ],
+  "n_papers": 406,
+  "n_clusters": 26,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1707",
+  "name": "Computer Vision and Pattern Recognition",
+  "subfield_ids": [
+   1707
+  ],
+  "n_papers": 24604,
+  "n_clusters": 457,
+  "n_themes": 16
+ },
+ {
+  "slug": "sf1103",
+  "name": "Animal Science and Zoology",
+  "subfield_ids": [
+   1103
+  ],
+  "n_papers": 407,
+  "n_clusters": 23,
+  "n_themes": 7
+ },
+ {
+  "slug": "sf2723",
+  "name": "Immunology and Allergy",
+  "subfield_ids": [
+   2723
+  ],
+  "n_papers": 451,
+  "n_clusters": 28,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1203",
+  "name": "Language and Linguistics",
+  "subfield_ids": [
+   1203
+  ],
+  "n_papers": 455,
+  "n_clusters": 25,
+  "n_themes": 8
  }
 ]
