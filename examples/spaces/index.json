@@ -89,5 +89,15 @@
   "n_papers": 455,
   "n_clusters": 25,
   "n_themes": 8
+ },
+ {
+  "slug": "sf2740",
+  "name": "Pulmonary and Respiratory Medicine",
+  "subfield_ids": [
+   2740
+  ],
+  "n_papers": 463,
+  "n_clusters": 30,
+  "n_themes": 8
  }
 ]
