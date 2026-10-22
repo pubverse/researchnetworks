@@ -288,6 +288,10 @@
     funder: function (id) {
       return request('/api/funders/' + encodeURIComponent(id), { meta: true });
     },
+    // People working in one topic or subfield (id like topic-123 or subfield-45), most credible first.
+    topicPeople: function (id, limit) {
+      return request('/api/topics/' + encodeURIComponent(id) + '/people?limit=' + (limit || 25), { meta: true });
+    },
     // Bylines for papers the page already shows (Compass needles), by DOI or arXiv id, at most 50.
     paperAuthors: function (ids) {
       var list = (ids || []).filter(Boolean).slice(0, 50).map(function (x) { return encodeURIComponent(x); });

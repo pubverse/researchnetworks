@@ -232,7 +232,7 @@ button.tipdot:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 .nav.search-open{z-index:80}
 
 .ta-menu{position:absolute;left:0;top:calc(100% + 6px);width:max(100%,24rem);max-width:calc(100vw - 32px);
-  max-height:min(28rem,70vh);overflow:auto;padding:6px;background:var(--panel);border:1px solid var(--line);
+  max-height:min(34rem,80vh);overflow:auto;padding:6px;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--r);box-shadow:var(--shadow-lg);z-index:5}
 .ta-menu[hidden]{display:none}
 .ta-group{display:block;padding:10px 10px 4px;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
@@ -348,3 +348,8 @@ button.chip:focus-visible,a.chip:focus-visible{outline:2px solid var(--blue);out
 .nav-search.open input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}
 .fact dt{overflow-wrap:normal;word-break:normal}
 .fact dt{font-size:.68rem;letter-spacing:.05em}
+
+/* Funder coverage: short visible text beside every funder count (the full note is for screen readers). */
+.cov{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:0 7px;white-space:nowrap}
+a.chip-btn{text-decoration:none;color:inherit}
+.person-list .orcid-badge{align-self:flex-start;margin:2px 0}

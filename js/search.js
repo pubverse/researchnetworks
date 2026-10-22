@@ -87,6 +87,17 @@
     var id = x && (x.id || x.author_id);
     return AUTHOR_RE.test(String(id || '')) ? String(id) : '';
   }
+  var TOPIC_RE = /^(?:topic|subfield)-\d{1,9}$/;
+  // Only topic and subfield hits have a page of their own; domains and fields still open the Compass.
+  function topicIdOf(x) {
+    var id = x && x.id;
+    return TOPIC_RE.test(String(id || '')) ? String(id) : '';
+  }
+  var COV_NOTE = 'Funding metadata covers about a third of papers; counts are a floor.';
+  // Short visible text beside a funder count, with the full note as text a screen reader reads.
+  function covMark(note) {
+    return ' <span class="cov">partial data<span class="sr-only">. ' + esc(note || COV_NOTE) + '</span></span>';
+  }
   function funderIdOf(x) {
     var id = x && (x.id || x.funder_id);
     return FUNDER_RE.test(String(id || '')) ? String(id) : '';
@@ -171,6 +182,7 @@
     var m;
     if (!h || h === 'search') return { tab: 'search', view: 'home' };
     if ((m = /^author\/(A\d{1,12})$/.exec(h))) return { tab: 'search', view: 'author', id: m[1] };
+    if ((m = /^topic\/((?:topic|subfield)-\d{1,9})$/.exec(h))) return { tab: 'search', view: 'topic', id: m[1] };
     if ((m = /^funder\/(F\d{1,12})$/.exec(h))) return { tab: 'search', view: 'funder', id: m[1] };
     if (h.indexOf('search?') === 0) {
       var q = '';
@@ -194,6 +206,7 @@
     else if (r.view === 'results') { lastResults = location.hash; runSearch(r.q); }
     else if (r.view === 'author') openAuthor(r.id);
     else if (r.view === 'funder') openFunder(r.id);
+    else if (r.view === 'topic') openTopic(r.id);
     if (opts && opts.scroll) scrollToTabs();
   }
 
@@ -367,8 +380,8 @@
       '<div class="sr-line">' + (id ? '<a class="sr-name" href="#funder/' + id + '">' + esc(name) + '</a>'
                                      : '<span class="sr-name">' + esc(name) + '</span>') + '</div>' +
       (sub.length ? '<div class="sr-sub">' + sub.join(' &middot; ') + '</div>' : '') +
-      (f.works_count != null ? '<div class="sr-facts"><b>' + num(f.works_count) + '</b> funded ' +
-        plural(f.works_count, 'paper') + ' in the index</div>' : '') +
+      (f.works_count != null ? '<div class="sr-facts">at least <b>' + num(f.works_count) + '</b> funded ' +
+        plural(f.works_count, 'paper') + ' in the index' + covMark(f.coverage_note) + '</div>' : '') +
       '</li>';
   }
   var LEVEL = { domain: 'Domain', field: 'Field', subfield: 'Subfield', topic: 'Topic' };
@@ -376,6 +389,11 @@
     var name = nameOf(t);
     if (!name) return '';
     var meta = [LEVEL[t.level] || '', t.parent ? 'in ' + t.parent : ''].filter(Boolean).join(' ');
+    var tid = topicIdOf(t);
+    if (tid && (t.level === 'topic' || t.level === 'subfield')) {
+      return '<li class="sr-item sr-topic"><a class="chip chip-btn" href="#topic/' + tid + '">' + esc(name) +
+        (meta ? ' <span class="chip-meta">' + esc(meta) + '</span>' : '') + '</a></li>';
+    }
     return '<li class="sr-item sr-topic">' + subjectChip(name, meta) + '</li>';
   }
   function groupHtml(id, label, est, shown, itemsHtml, note) {
@@ -402,10 +420,11 @@
         '<p class="mini muted sr-note">Ranked by name match, then by publication record. ' +
         '<a href="docs.html#search">How authors are ranked</a></p>');
     }
-    if (F.length) html += groupHtml('srFunders', 'Funders', est.funders, F.length, F.map(funderItem).join(''));
+    if (F.length) html += groupHtml('srFunders', 'Funders', est.funders, F.length, F.map(funderItem).join(''),
+      '<p class="mini muted sr-note">' + esc((F[0] && F[0].coverage_note) || COV_NOTE) + '</p>');
     if (T.length) {
       html += groupHtml('srTopics', 'Subjects', est.topics, T.length, T.map(topicItem).join(''),
-        '<p class="mini muted sr-note">Choose one to open it in the Compass.</p>');
+        '<p class="mini muted sr-note">Choose a topic or subfield to see the people in it; other levels open in the Compass.</p>');
     }
     return html;
   }
@@ -437,8 +456,8 @@
 
   var CRED_NOTE = 'Search ranks authors by name match first, then by a credibility measure from 0 to 100 built ' +
     'only from the public publication record: 45% citations (log scale), 35% h-index, 10% for having an ' +
-    'ORCID iD, and 10% for last-author and corresponding-author papers, each as a percentile among indexed ' +
-    'authors. Profiles that look like several people merged under one name count a quarter. It orders search ' +
+    'ORCID iD, and 10% for last-author and corresponding-author papers, each against fixed anchors so a ' +
+    'score means the same after every rebuild. Profiles that look like several people merged under one name count a quarter. It orders search ' +
     'results only; it is never part of a PubVerse novelty, methods or impact score.';
 
   function fact(k, v, title) {
@@ -523,11 +542,11 @@
       html += '<section class="av-sec" aria-labelledby="avFundH"><h3 id="avFundH">Funders</h3><div class="chips">' +
         funders.slice(0, 8).map(function (f) {
           var fid = funderIdOf(f);
-          var n = f.n != null ? ' <span class="chip-meta">' + num(f.n) + ' ' + plural(f.n, 'paper') + '</span>' : '';
+          var n = f.n != null ? ' <span class="chip-meta">at least ' + num(f.n) + ' ' + plural(f.n, 'paper') + covMark(f.coverage_note) + '</span>' : '';
           return fid ? '<a class="chip" href="#funder/' + fid + '">' + esc(nameOf(f)) + n + '</a>'
                      : '<span class="chip">' + esc(nameOf(f)) + n + '</span>';
         }).join('') + '</div>' +
-        '<p class="mini muted">Funding metadata covers about a third of papers; unlisted does not mean unfunded.</p></section>';
+        '<p class="mini muted">' + esc(funders[0].coverage_note || COV_NOTE) + ' Unlisted does not mean unfunded.</p></section>';
     }
     html += '</article>';
     viewEl.innerHTML = html;
@@ -628,13 +647,13 @@
       (aliases.length ? '<p class="mini muted">Also known as ' + aliases.map(esc).join('; ') + '</p>' : '') +
       '</header>' +
       '<section class="av-sec"><dl class="facts">' +
-        fact('Funded papers', num(f.works_count)) +
+        fact('Funded papers (at least)', num(f.works_count) + covMark(f.coverage_note)) +
         (f.cited_by_count != null ? fact('Citations to them', num(f.cited_by_count)) : '') +
       '</dl></section>';
     if (subs.length) {
       html += '<section class="av-sec" aria-labelledby="fvSubs"><h3 id="fvSubs">Top subfields</h3><div class="chips">' +
         subs.slice(0, 10).map(function (s) {
-          return subjectChip(nameOf(s), s.n != null ? num(s.n) + ' ' + plural(s.n, 'paper') : '');
+          return subjectChip(nameOf(s), s.n != null ? 'at least ' + num(s.n) + ' ' + plural(s.n, 'paper') : '');
         }).join('') + '</div></section>';
     }
     if (people.length) {
@@ -643,14 +662,60 @@
           var aid = authorIdOf(p), n = nameOf(p) || 'Unnamed author';
           var meta = [];
           if (p.institution) meta.push(esc(p.institution));
-          if (p.n != null) meta.push(num(p.n) + ' funded ' + plural(p.n, 'paper'));
+          if (p.n != null) meta.push('at least ' + num(p.n) + ' funded ' + plural(p.n, 'paper'));
           return '<li>' + (aid ? '<a href="#author/' + aid + '">' + esc(n) + '</a>' : esc(n)) +
             (meta.length ? '<span class="mini muted">' + meta.join(' &middot; ') + '</span>' : '') + '</li>';
         }).join('') + '</ul></section>';
     }
-    html += '<p class="coverage-note">' + esc(res.coverage_note ||
-      'Funding metadata covers about a third of papers; arXiv carries none. Unlisted does not mean unfunded.') + '</p>';
+    html += '<p class="coverage-note">' + esc(f.coverage_note || res.coverage_note || COV_NOTE) +
+      ' arXiv carries none. Unlisted does not mean unfunded.</p>';
     html += '</article>';
+    viewEl.innerHTML = html;
+    focusHeading();
+  }
+
+  /* -------------------------------------------------------------- topic view */
+
+  function openTopic(id) {
+    var my = viewSeq;
+    beginView('Loading the people in this area');
+    cached('topic:' + id, function () { return api.topicPeople(id, 25); }).then(function (res) {
+      if (my !== viewSeq) return;
+      if (!res || res.ok === false || !res.topic) { viewFailed(res); return; }
+      renderTopic(res);
+    });
+  }
+  function renderTopic(res) {
+    var t = res.topic || {};
+    var name = nameOf(t) || 'Unnamed subject';
+    setTitle(name);
+    var people = (res.people || []).filter(Boolean);
+    var sub = [LEVEL[t.level] || 'Subject'];
+    if (t.parent) sub.push('in ' + t.parent);
+    var html = backLink() + '<article class="card av" aria-labelledby="tvName">' +
+      '<header class="av-head"><h2 id="tvName">' + esc(name) + '</h2>' +
+      '<p class="av-sub">' + sub.map(esc).join(' ') + '</p></header>' +
+      '<section class="av-sec"><dl class="facts">' +
+        (t.works_count != null ? fact('Papers', num(t.works_count)) : '') +
+      '</dl><p><button type="button" class="btn" id="tvCompass" data-subject="' + esc(name) + '">Open in Compass</button></p></section>' +
+      '<section class="av-sec" aria-labelledby="tvPeople"><h3 id="tvPeople">People in this area</h3>';
+    if (!people.length) {
+      html += '<p class="muted">No credible authors are listed for this area yet.</p>';
+    } else {
+      html += '<ul class="person-list">' + people.map(function (p) {
+        var aid = authorIdOf(p), n = nameOf(p) || 'Unnamed author';
+        var meta = [];
+        var place = placeLine(p.institution, p.country);
+        if (place) meta.push(place);
+        if (p.h_index != null) meta.push('h-index ' + num(p.h_index));
+        return '<li>' + (aid ? '<a href="#author/' + aid + '">' + esc(n) + '</a>' : esc(n)) +
+          (normOrcid(p.orcid) ? ' ' + orcidBadge(p.orcid, false) : '') +
+          (meta.length ? '<span class="mini muted">' + meta.join(' &middot; ') + '</span>' : '') + '</li>';
+      }).join('') + '</ul>' +
+      '<p class="mini muted">Ordered by credibility, from the public publication record. ' +
+      '<a href="docs.html#search">How authors are ranked</a></p>';
+    }
+    html += '</section></article>';
     viewEl.innerHTML = html;
     focusHeading();
   }
@@ -725,11 +790,11 @@
       if (x.kind === 'funder') {
         var al = (it.aliases || []).map(nameOf).filter(Boolean).slice(0, 2);
         return '<span class="ta-main">' + esc(nameOf(it)) + '</span>' +
-          '<span class="ta-meta">' + (al.length ? esc(al.join(', ')) + ' &middot; ' : '') + num(it.works_count) + ' funded papers</span>';
+          '<span class="ta-meta">' + (al.length ? esc(al.join(', ')) + ' &middot; ' : '') + 'at least ' + num(it.works_count) + ' funded papers' + covMark(it.coverage_note) + '</span>';
       }
       if (x.kind === 'topic') {
         return '<span class="ta-main">' + esc(nameOf(it)) + '</span>' +
-          '<span class="ta-meta">' + esc(LEVEL[it.level] || 'Subject') + (it.parent ? ' in ' + esc(it.parent) : '') + ' &middot; open in Compass</span>';
+          '<span class="ta-meta">' + esc(LEVEL[it.level] || 'Subject') + (it.parent ? ' in ' + esc(it.parent) : '') + (topicIdOf(it) && (it.level === 'topic' || it.level === 'subfield') ? ' &middot; people in this area' : ' &middot; open in Compass') + '</span>';
       }
       return '<span class="ta-main">See all results for “' + esc(x.q) + '”</span>';
     }
@@ -791,7 +856,10 @@
       input.blur();
       if (x.kind === 'author') go('#author/' + authorIdOf(x.it));
       else if (x.kind === 'funder') go('#funder/' + funderIdOf(x.it));
-      else if (x.kind === 'topic') openInCompass(nameOf(x.it));
+      else if (x.kind === 'topic') {
+        if (topicIdOf(x.it) && (x.it.level === 'topic' || x.it.level === 'subfield')) go('#topic/' + topicIdOf(x.it));
+        else openInCompass(nameOf(x.it));
+      }
       else go('#search?q=' + encodeURIComponent(x.q));
     }
     function submitAll() {
