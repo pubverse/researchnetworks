@@ -417,7 +417,8 @@
     if (orcidMode) html += '<p class="mini muted">Exact match on ORCID iD ' + esc(normOrcid(q) || q) + '.</p>';
     if (A.length) {
       html += groupHtml('srAuthors', 'Authors', est.authors, A.length, A.map(authorItem).join(''),
-        '<p class="mini muted sr-note">Ranked by name match, then by publication record. ' +
+        '<p class="mini muted sr-note">Ranked by name match, then by publication record' +
+        (res.data_as_of ? ' (data through ' + esc(res.data_as_of) + ')' : '') + '. ' +
         '<a href="docs.html#search">How authors are ranked</a></p>');
     }
     if (F.length) html += groupHtml('srFunders', 'Funders', est.funders, F.length, F.map(funderItem).join(''),
@@ -708,11 +709,13 @@
         var place = placeLine(p.institution, p.country);
         if (place) meta.push(place);
         if (p.h_index != null) meta.push('h-index ' + num(p.h_index));
+        if (p.first_year && p.last_year) meta.push('papers ' + esc(p.first_year) + '&ndash;' + esc(p.last_year));
         return '<li>' + (aid ? '<a href="#author/' + aid + '">' + esc(n) + '</a>' : esc(n)) +
           (normOrcid(p.orcid) ? ' ' + orcidBadge(p.orcid, false) : '') +
           (meta.length ? '<span class="mini muted">' + meta.join(' &middot; ') + '</span>' : '') + '</li>';
       }).join('') + '</ul>' +
-      '<p class="mini muted">Ordered by credibility, from the public publication record. ' +
+      '<p class="mini muted">People with a paper since ' + esc(res.active_since || '') + ', ordered by credibility ' +
+      'from the public publication record' + (res.data_as_of ? ' (data through ' + esc(res.data_as_of) + ')' : '') + '. ' +
       '<a href="docs.html#search">How authors are ranked</a></p>';
     }
     html += '</section></article>';
