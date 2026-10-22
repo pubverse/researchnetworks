@@ -31537,7 +31537,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   });
   const HAS_THEMES = NODES.some((n) => n.type === "theme");
   const THEME_MAX = Math.max(1, ...NODES.filter((n) => n.type === "theme").map((n) => n.corpus_size || 1));
-  const LEGACY_DEPTH = 2;
+  const LEGACY_DEPTH_DEFAULT = BAND && BAND.field ? 2 : 1;
   const REDUCED_MOTION = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const SUB_NEIGH = {};
   EDGES.forEach((e) => {
@@ -31838,6 +31838,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const [hidden, setHidden] = useState(["methods"]);
     const [gran, setGran] = useState(HAS_THEMES ? "themes" : "detail");
     const [expanded, setExpanded] = useState([]);
+    const [legacyDepth, setLegacyDepth] = useState(LEGACY_DEPTH_DEFAULT);
+    const [pinned, setPinned] = useState([]);
+    const clearPins = () => setPinned((p) => p.length ? [] : p);
     const [bandMin, setBandMin] = useState(
       BAND && BAND.default !== void 0 ? BAND.default : -99
     );
@@ -31846,6 +31849,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const d = BAND_DIM_BY_KEY[key];
       if (!d) return;
       setBandDimKey(key);
+      clearPins();
       setBandMin(d.default !== void 0 ? d.default : d.min !== void 0 ? d.min : -99);
       frameNodes(allVisibleIds, true);
     };
@@ -31934,16 +31938,16 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           } else if ((n.type === "paper" || n.type === "subtheme") && gran !== "detail") {
             return false;
           }
-        } else if ((n.bfs_degree || 0) > LEGACY_DEPTH) {
+        } else if ((n.bfs_degree || 0) > legacyDepth) {
           return false;
         }
-        if (n.type === "paper" && !bandPass(n)) return false;
+        if (n.type === "paper" && !bandPass(n) && pinned.indexOf(n.id) < 0) return false;
         if (hidden.length && classHidden(n, hidden)) return false;
         return true;
       });
       const ids = new Set(base.map((n) => n.id));
       return base.filter((n) => n.type !== "subtheme" || (SUB_NEIGH[n.id] || []).filter((c) => ids.has(c)).length >= 2);
-    }, [gran, expanded, bandMin, bandDir, bandDimKey, hidden]);
+    }, [gran, expanded, bandMin, bandDir, bandDimKey, hidden, legacyDepth, pinned]);
     const bandPassCount = useMemo(
       () => NODES.filter((n) => n.type === "paper" && bandPass(n)).length,
       [bandMin, bandDir, bandDimKey]
@@ -31958,10 +31962,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       if (node.type === "cluster" && !node.theme) setGran("detail");
       const t = node.theme;
       if (HAS_THEMES && t) setExpanded((e) => e.indexOf(t) >= 0 ? e : e.concat([t]));
+      if (node.type === "paper" && !bandPass(node)) setPinned((p) => p.indexOf(node.id) >= 0 ? p : p.concat([node.id]));
+      if (!HAS_THEMES && (node.bfs_degree || 0) > legacyDepth) setLegacyDepth(node.bfs_degree);
     };
     const revealRebuilds = (node) => {
       if (classHidden(node, hidden)) return true;
       if (gran !== "detail" && (node.type === "paper" || node.type === "subtheme" || node.type === "cluster" && !node.theme)) return true;
+      if (node.type === "paper" && !bandPass(node) && pinned.indexOf(node.id) < 0) return true;
+      if (!HAS_THEMES && (node.bfs_degree || 0) > legacyDepth) return true;
       return !!(HAS_THEMES && node.theme && expanded.indexOf(node.theme) < 0);
     };
     const themeFrameIds = (t) => ["theme::" + t].concat(filteredRef.current.filter((n) => n.type === "cluster" && n.theme === t).map((n) => n.id));
@@ -32646,9 +32654,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           style: { cursor: "pointer" },
           onClick: (e) => {
             e.stopPropagation();
-            if (!(node.type === "theme" && isMobile)) setSelectedNode(node);
+            const phoneToggle = node.type === "theme" && isMobile && gran === "themes";
+            if (!phoneToggle) setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
-            else if (!(node.type === "theme" && isMobile)) keepInView(node.id);
+            else if (!phoneToggle) keepInView(node.id);
           },
           onMouseEnter: () => setHoveredNode(node),
           onMouseLeave: () => setHoveredNode(null)
@@ -33097,6 +33106,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         value: bandMin,
         "aria-label": "Field fit band",
         onChange: (e) => {
+          clearPins();
           setBandMin(parseFloat(e.target.value));
           frameNodes(allVisibleIds, true);
         },
@@ -33107,7 +33117,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       {
         key: pair[0],
         type: "button",
-        onClick: () => setBandDir(pair[0]),
+        onClick: () => {
+          clearPins();
+          setBandDir(pair[0]);
+        },
         "aria-pressed": bandDir === pair[0],
         style: {
           flex: 1,
