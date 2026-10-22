@@ -19710,6 +19710,23 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }
   });
   const clusterClass = (n) => n.subtype === "computational" || n.subtype === "experimental" ? "methods" : n.subtype;
+  const THEME_METHODS_ONLY = {};
+  (() => {
+    const other = {}, meth = {};
+    NODES.forEach((n) => {
+      if (n.type !== "cluster" || !n.theme) return;
+      if (clusterClass(n) === "methods") meth[n.theme] = true;
+      else other[n.theme] = true;
+    });
+    Object.keys(meth).forEach((t) => {
+      if (!other[t]) THEME_METHODS_ONLY[t] = true;
+    });
+  })();
+  const classHidden = (n, hid) => {
+    const cls = n.type === "cluster" ? clusterClass(n) : n.type;
+    if (hid.indexOf(cls) < 0) return false;
+    return !(n.type === "cluster" && cls === "methods" && n.theme && THEME_METHODS_ONLY[n.theme]);
+  };
   const GRANS = [
     { key: "themes", label: "Themes", tip: "The big areas of the field, with your needles attached. Click a theme to open it." },
     { key: "topics", label: "Topics", tip: "Every theme opened into its problem statements and outcomes." },
@@ -19994,6 +20011,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       if (!d) return;
       setBandDimKey(key);
       setBandMin(d.default !== void 0 ? d.default : d.min !== void 0 ? d.min : -99);
+      frameNodes(allVisibleIds, true);
     };
     const bandTipText = bandDim && bandDim.ctx ? ((bandDim.note || "") + " " + BAND_TIP_TAIL + " " + (BAND && BAND.dims_caveat || "")).trim() : BAND_TIP_DEFAULT;
     const isFieldMap = !!(BAND && BAND.field);
@@ -20084,10 +20102,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           return false;
         }
         if (n.type === "paper" && !bandPass(n)) return false;
-        if (hidden.length) {
-          const cls = n.type === "cluster" ? clusterClass(n) : n.type;
-          if (hidden.indexOf(cls) >= 0) return false;
-        }
+        if (hidden.length && classHidden(n, hidden)) return false;
         return true;
       });
       const ids = new Set(base.map((n) => n.id));
@@ -20098,65 +20113,229 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       [bandMin, bandDir, bandDimKey]
     );
     const epochRef = useRef(0);
+    const filteredRef = useRef(filteredNodes);
+    filteredRef.current = filteredNodes;
     const revealNode = (node) => {
       const cls = node.type === "cluster" ? clusterClass(node) : node.type;
-      setHidden((h) => h.filter((k) => k !== cls));
+      setHidden((h) => classHidden(node, h) ? h.filter((k) => k !== cls) : h);
       if (node.type === "paper" || node.type === "subtheme") setGran("detail");
       if (node.type === "cluster" && !node.theme) setGran("detail");
       const t = node.theme;
       if (HAS_THEMES && t) setExpanded((e) => e.indexOf(t) >= 0 ? e : e.concat([t]));
     };
-    const afterLayout = (cb) => {
-      const e0 = epochRef.current;
-      let n = 0;
-      const iv = setInterval(() => {
-        n++;
-        const rebuilt = epochRef.current !== e0 || n >= 2;
-        if (rebuilt && simSettledRef.current || n >= 16) {
-          clearInterval(iv);
-          cb();
+    const revealRebuilds = (node) => {
+      if (classHidden(node, hidden)) return true;
+      if (gran !== "detail" && (node.type === "paper" || node.type === "subtheme" || node.type === "cluster" && !node.theme)) return true;
+      return !!(HAS_THEMES && node.theme && expanded.indexOf(node.theme) < 0);
+    };
+    const themeFrameIds = (t) => ["theme::" + t].concat(filteredRef.current.filter((n) => n.type === "cluster" && n.theme === t).map((n) => n.id));
+    const allVisibleIds = () => filteredRef.current.map((n) => n.id);
+    const visBandRef = useRef(null);
+    visBandRef.current = visBand;
+    const FIT_K_MAX = 1.1;
+    const freeArea = () => {
+      const svg = svgRef.current;
+      if (!svg) return null;
+      const sr = svg.getBoundingClientRect();
+      if (sr.width < 10 || sr.height < 10) return null;
+      const area = {
+        l: Math.max(sr.left, 0),
+        r: Math.min(sr.right, window.innerWidth),
+        t: Math.max(sr.top, 0),
+        b: Math.min(sr.bottom, window.innerHeight)
+      };
+      const vb = visBandRef.current;
+      if (vb) {
+        area.t = Math.max(area.t, vb.top);
+        area.b = Math.min(area.b, vb.bottom);
+      }
+      const gap = sr.width < 768 ? 6 : 10;
+      const obs = [];
+      document.querySelectorAll("[data-map-overlay]").forEach((el) => {
+        if (el.getAttribute("data-open") === "0") return;
+        const par = el.offsetParent;
+        if (!par) return;
+        const pr = par.getBoundingClientRect();
+        const l = pr.left + par.clientLeft + el.offsetLeft, t = pr.top + par.clientTop + el.offsetTop;
+        const o = { l: l - gap, t: t - gap, r: l + el.offsetWidth + gap, b: t + el.offsetHeight + gap };
+        if (o.r > area.l && o.l < area.r && o.b > area.t && o.t < area.b) obs.push(o);
+      });
+      return { sr, area, obs };
+    };
+    const freeRects = (F) => {
+      const xs = [F.area.l, F.area.r], ys = [F.area.t, F.area.b];
+      F.obs.forEach((o) => {
+        [o.l, o.r].forEach((x) => {
+          if (x > F.area.l && x < F.area.r) xs.push(x);
+        });
+        [o.t, o.b].forEach((y) => {
+          if (y > F.area.t && y < F.area.b) ys.push(y);
+        });
+      });
+      xs.sort((a, b) => a - b);
+      ys.sort((a, b) => a - b);
+      const out = [];
+      for (let i = 0; i < xs.length; i++) for (let j = i + 1; j < xs.length; j++)
+        for (let a = 0; a < ys.length; a++) for (let b = a + 1; b < ys.length; b++) {
+          const R = { l: xs[i], r: xs[j], t: ys[a], b: ys[b] };
+          if (!F.obs.some((o) => o.l < R.r && o.r > R.l && o.t < R.b && o.b > R.t)) out.push(R);
         }
-      }, 250);
+      return out;
     };
-    const fitIds = (ids) => {
-      const pts = ids.map((id) => positionsRef.current[id]).filter(Boolean);
-      if (!pts.length) return;
-      const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
-      const pad = 150;
-      const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-      animateViewBox({
-        x: minX - pad,
-        y: minY - pad,
-        w: Math.max(ZOOM_MIN_W, maxX - minX + pad * 2),
-        h: Math.max(ZOOM_MIN_W * 0.75, maxY - minY + pad * 2)
-      });
+    const toScreen = (p, v, sr) => {
+      const k = Math.min(sr.width / v.w, sr.height / v.h);
+      return {
+        k,
+        x: sr.left + (sr.width - v.w * k) / 2 + (p.x - v.x) * k,
+        y: sr.top + (sr.height - v.h * k) / 2 + (p.y - v.y) * k
+      };
     };
-    const flyTo = (node) => {
-      afterLayout(() => {
-        const p = positionsRef.current[node.id];
+    const cameraFor = (ids, around) => {
+      const P = positionsRef.current;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      ids.forEach((id) => {
+        const p = P[id];
         if (!p) return;
-        animateViewBox({
-          x: p.x - DEFAULT_VB.w / 4,
-          y: p.y - DEFAULT_VB.h / 4,
-          w: DEFAULT_VB.w / 2,
-          h: DEFAULT_VB.h / 2
-        }, 500);
+        const n = NODE_BY_ID[id];
+        const r = (around || 0) + (n ? getNodeSize(n) : 20) + 8;
+        x0 = Math.min(x0, p.x - r);
+        x1 = Math.max(x1, p.x + r);
+        y0 = Math.min(y0, p.y - r);
+        y1 = Math.max(y1, p.y + r);
       });
+      if (!isFinite(x0)) return null;
+      const F = freeArea();
+      if (!F) return null;
+      const W = F.sr.width, H = F.sr.height, phone = W < 768;
+      const mx = phone ? 14 : 36, mt = phone ? 12 : 22, mb = phone ? 28 : 46;
+      const bw = Math.max(x1 - x0, 1), bh = Math.max(y1 - y0, 1);
+      const kMax = Math.min(FIT_K_MAX, W / ZOOM_MIN_W), kMin = W / ZOOM_MAX_W;
+      let best = null;
+      freeRects(F).forEach((R) => {
+        const iw = R.r - R.l - 2 * mx, ih = R.b - R.t - mt - mb;
+        if (iw < 60 || ih < 60) return;
+        const k2 = Math.min(kMax, iw / bw, ih / bh), a = iw * ih;
+        if (!best || k2 > best.k + 1e-9 || Math.abs(k2 - best.k) <= 1e-9 && a > best.a) best = { k: k2, a, R };
+      });
+      if (!best) {
+        const R = F.area;
+        best = { R, k: Math.min(kMax, Math.max(1, R.r - R.l - 2 * mx) / bw, Math.max(1, R.b - R.t - mt - mb) / bh) };
+      }
+      const k = Math.max(kMin, best.k);
+      const sx = (best.R.l + best.R.r) / 2 - F.sr.left;
+      const sy = best.R.t + mt + (best.R.b - best.R.t - mt - mb) / 2 - F.sr.top;
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      return { x: cx - sx / k, y: cy - sy / k, w: W / k, h: H / k };
+    };
+    const followRef = useRef(null);
+    const stopFollow = () => {
+      if (followRef.current) cancelAnimationFrame(followRef.current.raf);
+      followRef.current = null;
+    };
+    const userCamera = () => {
+      stopFollow();
+      hasAutoCentered.current = true;
+    };
+    const frameNodes = (getIds, expectRebuild, around) => {
+      stopFollow();
+      hasAutoCentered.current = true;
+      const f = {
+        raf: 0,
+        e0: epochRef.current,
+        eSeen: epochRef.current,
+        eAt: performance.now(),
+        t0: performance.now(),
+        vb: null
+      };
+      followRef.current = f;
+      const step = (now) => {
+        if (followRef.current !== f) return;
+        f.raf = requestAnimationFrame(step);
+        const waited = now - f.t0;
+        if (epochRef.current !== f.eSeen) {
+          f.eSeen = epochRef.current;
+          f.eAt = now;
+        }
+        if (expectRebuild && f.eSeen === f.e0 && waited < 1500) return;
+        if (waited < 34) return;
+        const target = cameraFor(getIds(), around);
+        if (!target) {
+          if (waited > 3e3) stopFollow();
+          return;
+        }
+        if (simSettledRef.current && now - f.eAt > 50 || waited > 2e4) {
+          stopFollow();
+          animateViewBox(target, 450);
+          return;
+        }
+        if (REDUCED_MOTION) return;
+        const v = f.vb || { ...viewBoxRef.current }, a = 0.12;
+        f.vb = {
+          x: v.x + (target.x - v.x) * a,
+          y: v.y + (target.y - v.y) * a,
+          w: v.w + (target.w - v.w) * a,
+          h: v.h + (target.h - v.h) * a
+        };
+        setViewBox(f.vb);
+      };
+      f.raf = requestAnimationFrame(step);
+    };
+    const keepInView = (id) => {
+      stopFollow();
+      const f = { raf: 0, t0: performance.now() };
+      followRef.current = f;
+      const step = (now) => {
+        if (followRef.current !== f) return;
+        if (now - f.t0 < 34) {
+          f.raf = requestAnimationFrame(step);
+          return;
+        }
+        followRef.current = null;
+        const p = positionsRef.current[id], F = freeArea(), v = viewBoxRef.current;
+        if (!p || !F) return;
+        const s = toScreen(p, v, F.sr);
+        const m = F.sr.width < 768 ? 24 : 48;
+        const rects = freeRects(F);
+        if (rects.some((R2) => s.x >= R2.l + m && s.x <= R2.r - m && s.y >= R2.t + m && s.y <= R2.b - m)) return;
+        let R = null;
+        rects.forEach((r) => {
+          if (!R || (r.r - r.l) * (r.b - r.t) > (R.r - R.l) * (R.b - R.t)) R = r;
+        });
+        if (!R) return;
+        const tx = Math.max(R.l + m, Math.min(s.x, R.r - m)), ty = Math.max(R.t + m, Math.min(s.y, R.b - m));
+        animateViewBox({ ...v, x: v.x + (s.x - tx) / s.k, y: v.y + (s.y - ty) / s.k }, 350);
+      };
+      f.raf = requestAnimationFrame(step);
     };
     const focusNode = (node) => {
+      const t = HAS_THEMES ? node.theme : null;
+      const opening = !!t && gran === "themes" && expanded.indexOf(t) < 0;
+      const rebuild = revealRebuilds(node);
       revealNode(node);
       setSelectedNode(node);
-      flyTo(node);
+      if (t && (node.type === "theme" || opening)) {
+        frameNodes(() => themeFrameIds(t).concat(node.type === "theme" ? [] : [node.id]), rebuild);
+      } else {
+        frameNodes(() => [node.id], rebuild, 240);
+      }
     };
     const focusRef = useRef(null);
     focusRef.current = focusNode;
     const toggleTheme = (t) => {
       const open = expanded.indexOf(t) >= 0;
       setExpanded(open ? expanded.filter((x) => x !== t) : expanded.concat([t]));
-      if (!open) {
-        const ids = ["theme::" + t].concat(NODES.filter((n) => n.type === "cluster" && n.theme === t && hidden.indexOf(clusterClass(n)) < 0).map((n) => n.id));
-        afterLayout(() => fitIds(ids));
-      }
+      if (!open) frameNodes(() => themeFrameIds(t), true);
+      else keepInView("theme::" + t);
+    };
+    const pickGran = (k) => {
+      if (k === gran) return;
+      setGran(k);
+      frameNodes(allVisibleIds, true);
+    };
+    const collapseAll = () => {
+      if (!expanded.length) return;
+      setExpanded([]);
+      frameNodes(allVisibleIds, true);
     };
     const filteredNodeIds = useMemo(() => new Set(filteredNodes.map((n) => n.id)), [filteredNodes]);
     const filteredEdges = useMemo(() => {
@@ -20379,6 +20558,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, []);
     const handleWheel = (e) => {
       e.preventDefault();
+      userCamera();
       const scale = e.deltaY > 0 ? 1.1 : 0.9;
       setViewBox((v) => {
         const newW = Math.max(ZOOM_MIN_W, Math.min(ZOOM_MAX_W, v.w * scale));
@@ -20406,6 +20586,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       });
     };
     const zoomIn = () => {
+      userCamera();
       const newW = Math.max(ZOOM_MIN_W, viewBox.w * 0.8);
       const newH = Math.max(ZOOM_MIN_W * 0.75, viewBox.h * 0.8);
       animateViewBox({
@@ -20416,6 +20597,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       });
     };
     const zoomOut = () => {
+      userCamera();
       const newW = Math.min(ZOOM_MAX_W, viewBox.w * 1.25);
       const newH = Math.min(ZOOM_MAX_W * 0.75, viewBox.h * 1.25);
       animateViewBox({
@@ -20426,21 +20608,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       });
     };
     const fitToView = () => {
-      const positions = Object.values(nodePositions);
-      if (positions.length === 0) return;
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      positions.forEach((p) => {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      });
-      const padding = 150;
-      const w = Math.max(ZOOM_MIN_W, maxX - minX + padding * 2);
-      const h = Math.max(ZOOM_MIN_W * 0.75, maxY - minY + padding * 2);
-      animateViewBox({ x: minX - padding, y: minY - padding, w, h });
+      stopFollow();
+      const target = cameraFor(Object.keys(positionsRef.current));
+      if (target) animateViewBox(target);
     };
     const centerOnInput = () => {
+      userCamera();
       const inputNode = filteredNodes.find((n) => n.type === "input_article");
       if (!inputNode) return;
       const pos = nodePositions[inputNode.id];
@@ -20453,6 +20626,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       });
     };
     const resetView = () => {
+      userCamera();
       const inputNode = filteredNodes.find((n) => n.type === "input_article");
       const pos = inputNode ? nodePositions[inputNode.id] : null;
       if (pos) {
@@ -20514,15 +20688,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         const w = norm(want);
         const node = NODES.find((n) => n.id === "paper::" + want || n.id === want || n.arxiv_id && String(n.arxiv_id) === want) || NODES.find((n) => (n.type === "input_article" || n.type === "paper") && norm(n.title) === w) || NODES.find((n) => (n.type === "input_article" || n.type === "paper") && norm(n.title).indexOf(w.slice(0, 60)) === 0);
         if (!node) return;
-        focusRef.current(node);
+        const run = () => focusRef.current(node);
+        if (ReactDOM.unstable_batchedUpdates) ReactDOM.unstable_batchedUpdates(run);
+        else run();
       };
       window.addEventListener("message", onMsg);
       return () => window.removeEventListener("message", onMsg);
     }, []);
-    useEffect(() => {
-      if (!isFieldMap) return;
-      hasAutoCentered.current = false;
-    }, [gran, bandMin, bandDimKey]);
     const getNodeColor = (node) => COLORS[node.subtype] || COLORS[node.type] || "#64748b";
     const getNodeSize = (node) => {
       if (node.type === "input_article") return 28;
@@ -20633,12 +20805,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           key: node.id,
           "data-node-id": node.id,
           "data-node-type": node.type,
+          "data-theme": node.theme || void 0,
           transform: `translate(${pos.x}, ${pos.y})`,
           style: { cursor: "pointer" },
           onClick: (e) => {
             e.stopPropagation();
             if (!(node.type === "theme" && isMobile)) setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
+            else if (!(node.type === "theme" && isMobile)) keepInView(node.id);
           },
           onMouseEnter: () => setHoveredNode(node),
           onMouseLeave: () => setHoveredNode(null)
@@ -20891,6 +21065,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         style: { width: "100%", height: "calc(100vh - 56px)", cursor: isDragging ? "grabbing" : "grab" },
         viewBox: `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`,
         onMouseDown: (e) => {
+          userCamera();
           pressRef.current = { x: e.clientX, y: e.clientY, moved: false };
           setIsDragging(true);
           setDragStart({ x: e.clientX, y: e.clientY });
@@ -20929,7 +21104,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         );
       }),
       filteredNodes.map(renderNode)
-    ), (!isMobile || showMobileMenu) && /* @__PURE__ */ React.createElement("div", { style: {
+    ), (!isMobile || showMobileMenu) && /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "legend", style: {
       position: "absolute",
       // MODIFIED FOR COMPASS. Below the fixed header: at 16px the top of this panel,
       // its title and first row, sat under the header's 56px.
@@ -20995,7 +21170,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       { label: "Method \u2194 Outcome", color: "#f59e0b" },
       { label: "Method \u2194 Problem statement", color: "#ef4444" },
       { label: "Outcome \u2194 Problem statement", color: "#a855f7" }
-    ].map((item) => /* @__PURE__ */ React.createElement("div", { key: item.label, style: { display: "flex", alignItems: "center", gap: "8px", padding: "2px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: "16px", height: "2px", background: item.color } }), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.label)))), isMobile && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${theme.border}`, fontSize: "11px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("div", null, "Nodes: ", filteredNodes.length, " | Edges: ", filteredEdges.length))), /* @__PURE__ */ React.createElement("div", { style: {
+    ].map((item) => /* @__PURE__ */ React.createElement("div", { key: item.label, style: { display: "flex", alignItems: "center", gap: "8px", padding: "2px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: "16px", height: "2px", background: item.color } }), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.label)))), isMobile && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${theme.border}`, fontSize: "11px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("div", null, "Nodes: ", filteredNodes.length, " | Edges: ", filteredEdges.length))), /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "controls", style: {
       position: "absolute",
       // MODIFIED FOR COMPASS. A field map stacks this ABOVE the zoom controls in the
       // bottom-right corner, which leaves the centre of the map clear.
@@ -21020,7 +21195,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         type: "button",
         role: "radio",
         "aria-checked": gran === g.key,
-        onClick: () => setGran(g.key),
+        onClick: () => pickGran(g.key),
         title: g.tip,
         style: {
           flex: 1,
@@ -21043,7 +21218,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       parts.push(cnt("input_article") + " needles");
       if (cnt("paper")) parts.push(cnt("paper") + " papers");
       return parts.join(" \xB7 ");
-    })()), gran === "themes" ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "6px", fontSize: "11px", color: theme.textMuted } }, expanded.length === 0 ? "Click a theme to open it." : /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => setExpanded([]), style: {
+    })()), gran === "themes" ? /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "6px", fontSize: "11px", color: theme.textMuted } }, expanded.length === 0 ? "Click a theme to open it." : /* @__PURE__ */ React.createElement("button", { type: "button", onClick: collapseAll, style: {
       background: "none",
       border: "none",
       padding: 0,
@@ -21085,7 +21260,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         step: "0.01",
         value: bandMin,
         "aria-label": "Field fit band",
-        onChange: (e) => setBandMin(parseFloat(e.target.value)),
+        onChange: (e) => {
+          setBandMin(parseFloat(e.target.value));
+          frameNodes(allVisibleIds, true);
+        },
         style: { width: "100%", cursor: "pointer", accentColor: "#e0a458" }
       }
     ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", fontSize: "10px", color: theme.textMuted, marginTop: "4px" } }, /* @__PURE__ */ React.createElement("span", null, Number(bandDim.min).toFixed(1), "\u03C3"), /* @__PURE__ */ React.createElement("span", null, Number(bandDim.max).toFixed(1), "\u03C3")), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "4px", marginTop: "8px" } }, [["inside", "Inside the field"], ["outside", "Outside it"]].map((pair) => /* @__PURE__ */ React.createElement(
@@ -21128,7 +21306,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         }
       },
       BAND_DIMS.map((d) => /* @__PURE__ */ React.createElement("option", { key: d.key, value: d.key }, d.label || d.key))
-    ) : null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "12px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#e0a458" } }, bandDir === "inside" ? "\u2265" : "\u2264", " ", Number(bandMin).toFixed(2), "\u03C3"), ": ", bandPassCount, " of ", bandDim.ordinary_total !== void 0 ? bandDim.ordinary_total : BAND.ordinary_total, " above-average papers,", " ", "all ", NODES.filter((n) => n.is_needle).length, " needles", HAS_THEMES && gran !== "detail" ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "4px", fontSize: "11px" } }, "Papers are drawn at Detail.") : null)) : null) : null), /* @__PURE__ */ React.createElement("div", { style: {
+    ) : null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "12px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#e0a458" } }, bandDir === "inside" ? "\u2265" : "\u2264", " ", Number(bandMin).toFixed(2), "\u03C3"), ": ", bandPassCount, " of ", bandDim.ordinary_total !== void 0 ? bandDim.ordinary_total : BAND.ordinary_total, " above-average papers,", " ", "all ", NODES.filter((n) => n.is_needle).length, " needles", HAS_THEMES && gran !== "detail" ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "4px", fontSize: "11px" } }, "Papers are drawn at Detail.") : null)) : null) : null), /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "zoom", style: {
       position: "absolute",
       bottom: isMobile ? "8px" : "16px",
       right: isMobile ? "8px" : "auto",
@@ -21156,7 +21334,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         justifyContent: "center"
       };
       return /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("button", { onClick: zoomIn, style: btnStyle, title: "Zoom in" }, "+"), /* @__PURE__ */ React.createElement("button", { onClick: zoomOut, style: btnStyle, title: "Zoom out" }, "\u2212"), !isMobile && /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", fontFamily: "JetBrains Mono", color: theme.textMuted, minWidth: "36px", textAlign: "center" } }, getZoomPercent(), "%"), /* @__PURE__ */ React.createElement("button", { onClick: fitToView, style: btnStyle, title: "Fit all nodes" }, "\u229E"), /* @__PURE__ */ React.createElement("button", { onClick: centerOnInput, style: { ...btnStyle, color: "#ef4444" }, title: "Center on input article" }, "\u2605"), /* @__PURE__ */ React.createElement("button", { onClick: resetView, style: btnStyle, title: "Reset view" }, "\u27F2"));
-    })()), /* @__PURE__ */ React.createElement("div", { style: {
+    })()), /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "detail", "data-open": selectedNode ? "1" : "0", style: {
       position: "absolute",
       // MODIFIED FOR COMPASS -- see visBand above. Desktop hangs off the top of the
       // visible band, mobile off its bottom; with no band both fall back to the frame
@@ -21176,9 +21354,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       // curve -- harmless when top never changed, visibly laggy now that it tracks the
       // scroll. It also carried a SECOND maxHeight below that silently overrode the
       // mobile 60vh with the desktop value.
-      transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+      transition: REDUCED_MOTION ? "none" : "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
       boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
-      maxHeight: isMobile ? visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "60vh" : visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "calc(100vh - " + (headerH + 32) + "px)",
+      // A phone's sheet takes at most 60% of what is on screen, as the standalone 60vh does;
+      // band-minus-32 let it cover nearly all of a short band, and the node the reader
+      // asked to see had nowhere left to be.
+      maxHeight: isMobile ? visBand ? Math.max(160, Math.round(0.6 * (visBand.bottom - Math.max(headerH, visBand.top)))) + "px" : "60vh" : visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "calc(100vh - " + (headerH + 32) + "px)",
       overflowY: "auto"
     } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "theme" ? "Theme" : selectedNode.type === "cluster" ? "Topic" : selectedNode.type === "subtheme" ? "Shared Term" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : "Needle"), selectedNode.subtype && selectedNode.type !== "theme" && /* @__PURE__ */ React.createElement("span", { style: {
       fontSize: "10px",
@@ -21222,7 +21403,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       } }, isOpen ? "Collapse this theme" : "Open this theme") : null, groups.map((g) => {
         const list = kids.filter((k) => clusterClass(k) === g[0]).sort((a, b) => (b.corpus_size || 0) - (a.corpus_size || 0));
         if (!list.length) return null;
-        const off = hidden.indexOf(g[0]) >= 0;
+        const off = hidden.indexOf(g[0]) >= 0 && !(g[0] === "methods" && THEME_METHODS_ONLY[selectedNode.theme]);
         return /* @__PURE__ */ React.createElement("div", { key: g[0], style: { marginTop: "14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "6px" } }, g[1], " (", list.length, ")", off ? " \xB7 hidden, show in the legend" : ""), list.slice(0, 6).map((k) => /* @__PURE__ */ React.createElement("button", { key: k.id, type: "button", onClick: () => focusNode(k), style: {
           display: "block",
           width: "100%",
