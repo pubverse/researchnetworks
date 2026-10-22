@@ -61,6 +61,7 @@
         <a href="#mission">Mission</a>
         <a href="#what">What PubVerse is</a>
         <a href="#grounding">Grounding</a>
+        <a href="#search">Search</a>
         <a href="#score">Scoring an abstract</a>
         <a href="#compass">The Compass</a>
         <a href="#needle">What a needle is</a>
@@ -95,6 +96,24 @@
         <p>The process works in three steps. First, PubVerse retrieves the most relevant prior work from its corpus of more than 116 million publications using semantic search over the full text of the scientific record. Second, it extracts the substance of each retrieved passage so the comparison is about findings and methods, not keyword overlap. Third, a local language model reads the retrieved evidence alongside the candidate abstract and produces a grounded verdict with citations to the specific prior work behind each claim.</p>
         <p>This means every result has receipts. On the Compass page, each needle carries an expandable section showing the prior work it was evaluated against, how close each prior sits in similarity, and a short passage describing what that prior did. An expert can verify or challenge any call in seconds by reading the same evidence the model used.</p>
         <p>When PubVerse cannot find relevant prior work in the database, it says so honestly. A paper whose contribution is absent from the retrieved work is not automatically scored as highly novel. PubVerse withholds its judgment rather than inflating a score on an uncontested claim, because the absence of a retrieved pre-emptor does not prove novelty. It may simply mean the relevant prior is not in the corpus or was not retrieved.</p>
+      </div>
+    </section>
+
+    <section id="search">
+      <div class="wrap prose">
+        <h2>Searching for authors, funders and subjects</h2>
+        <p>Search is the first tab, and the box in the top bar reaches it from anywhere (on a phone, it sits behind the magnifier button). Type a name, a funder or a subject. Matches appear as you type, grouped into authors, funders and subjects, and a small slip in the spelling is forgiven. Press Enter for the full list. To find one exact person, open Advanced and paste their ORCID iD, or its orcid.org link: an ORCID iD matches that person and nobody else, however their name is written. Typing an ORCID iD into the main box works the same way.</p>
+
+        <h3>Credibility</h3>
+        <p>When several authors match a name, they are ordered by how well the name matches, then by a credibility measure from 0 to 100 built only from the public publication record: 45 percent citations (on a log scale), 35 percent h-index, 10 percent for having an ORCID iD, and 10 percent for papers as last or corresponding author, each taken as a percentile among the indexed authors. An author's page shows the facts behind it, the h-index, works, citations, i10-index, last-author and corresponding-author papers and whether an ORCID iD is linked, with "How this is computed" one click away.</p>
+        <p>Some records in the bibliographic source merge several people who share a name into one profile, which inflates every count. A profile that looks like that (more than 2,000 works, a career longer than seventy years, or more than 150 papers a year) carries a note saying it may merge several people, and its credibility counts a quarter. Credibility orders search results and nothing else. It is not part of any novelty, methods or impact score, and the Course Plot and the Compass never see it.</p>
+
+        <h3>An author's page</h3>
+        <p>The page lists their papers, most cited first or newest first, with badges for first-author, last-author and corresponding-author papers and a link to each DOI. Their subjects are listed as their space: choose one to open it in the Compass and see what is new there. Nearby shows two kinds of neighbor: co-authors, ordered by how many papers they share, and credible authors working in the same topics or subfields who have not written with them. Their most frequent funders link to each funder's page.</p>
+
+        <h3>Funders</h3>
+        <p>A funder's page shows its other names, how many indexed papers acknowledge it, the subfields it funds most and the authors it funds most. Funding metadata covers about a third of papers, and arXiv preprints carry none, so a paper or a person missing from a funder's page is not evidence that they were unfunded.</p>
+        <p>Author, funder and citation records come from OpenAlex. The bylines on Compass needles come from the preprint servers, and a name links to an author's page only when the match is unambiguous.</p>
       </div>
     </section>
 

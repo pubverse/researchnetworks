@@ -210,3 +210,141 @@ button.tipdot:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
   font:400 12.5px/1.55 inherit;text-transform:none;letter-spacing:normal;
   box-shadow:0 8px 24px rgba(0,0,0,.12);
 }
+
+/* ---- search: nav typeahead, Search tab, author and funder views (js/search.js) ------------- */
+/* The nav box is a quiet pill until focused; its menu hangs from it, grouped Authors / Funders /
+   Subjects in the same idiom as the field picker. At phone width the box folds behind a round
+   button and opens as a full-width bar over the top of the page. */
+.nav-search{position:relative;flex:0 1 400px;min-width:0}
+.nav-search-box{display:flex;align-items:center;gap:8px;height:38px;padding:0 6px 0 12px;
+  border:1px solid var(--line);border-radius:999px;background:var(--panel);transition:border-color .15s,box-shadow .15s}
+.nav-search-box:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-l)}
+.nav-search-ico{display:flex;color:var(--muted);flex:0 0 auto}
+.nav-search input{border:0;padding:0;height:100%;background:transparent;font-size:.95rem;min-width:0;flex:1}
+.nav-search input:focus{box-shadow:none;border:0}
+.nav-search-close{display:none;flex:0 0 auto;width:36px;height:36px;border:0;background:none;border-radius:50%;
+  color:var(--muted);font-size:1.4rem;line-height:1;cursor:pointer;align-items:center;justify-content:center;padding:0}
+.nav-search-close:hover{color:var(--ink);background:var(--paper)}
+.nav-search-btn{display:none;width:38px;height:38px;flex:0 0 38px;border:1px solid var(--line);border-radius:50%;
+  background:var(--panel);color:var(--muted);align-items:center;justify-content:center;cursor:pointer;padding:0}
+.nav-search-btn:hover,.nav-search-btn[aria-expanded="true"]{color:var(--blue-d);border-color:var(--blue)}
+.nav-search-btn:focus-visible,.nav-search-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.nav.search-open{z-index:80}
+
+.ta-menu{position:absolute;left:0;top:calc(100% + 6px);width:max(100%,24rem);max-width:calc(100vw - 32px);
+  max-height:min(28rem,70vh);overflow:auto;padding:6px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--r);box-shadow:var(--shadow-lg);z-index:5}
+.ta-menu[hidden]{display:none}
+.ta-group{display:block;padding:10px 10px 4px;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.ta-opt{display:flex;flex-direction:column;gap:1px;padding:8px 10px;border-radius:var(--r-s);cursor:pointer;
+  border-left:2px solid transparent;overflow-wrap:anywhere}
+.ta-opt:hover,.ta-opt.active{background:var(--paper)}
+.ta-opt.active{border-left-color:var(--blue)}
+.ta-main{color:var(--ink);font-size:.95rem}
+.ta-meta{font-size:.78rem;color:var(--muted)}
+.ta-warn{color:var(--warn)}
+.ta-all{margin-top:4px;border-top:1px solid var(--line);border-radius:0 0 var(--r-s) var(--r-s)}
+.ta-all .ta-main{color:var(--blue-d)}
+.ta-status{padding:12px 10px;font-size:.9rem;color:var(--muted)}
+.ta-status.error{color:#8f2c3b}
+.orcid-dot{display:inline-block;font-size:.62rem;font-weight:600;line-height:1;padding:2px 4px;border-radius:4px;
+  vertical-align:2px;background:#eef6dc;color:#3d5c0b;border:1px solid #cfe3a0}
+
+/* Search tab */
+#tabsRoot{scroll-margin-top:76px}
+.search-big{display:flex;gap:10px;align-items:stretch}
+.search-big input{flex:1;min-width:0}
+.search-big .btn{flex:0 0 auto}
+.search-adv{margin-top:12px}
+.search-adv summary{display:inline-block;cursor:pointer;color:var(--blue-d);font-size:.92rem;padding:6px 0}
+.search-adv-body{margin-top:8px}
+.search-adv-body .mini{margin:6px 0 0}
+#searchResults{margin-top:6px}
+.search-spin{padding:22px}
+.sr-group{margin-top:22px}
+.sr-group h3{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.sr-count{font-family:var(--font);font-size:.8rem;color:var(--muted)}
+.sr-note{margin:0 0 6px}
+.sr-list{list-style:none;margin:0;padding:0}
+.sr-item{padding:12px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}
+.sr-name{font-weight:500;font-size:1.05rem}
+.sr-sub{color:var(--muted);font-size:.9rem}
+.sr-facts{font-size:.88rem;color:var(--muted)}
+.sr-facts b{color:var(--ink);font-weight:500}
+.sr-topics{font-size:.84rem;color:var(--muted);margin-top:2px}
+.sr-item.sr-topic{display:inline-block;border:0;padding:0}
+.sr-empty{color:var(--muted);margin:18px 0 0}
+.orcid-badge{display:inline-flex;align-items:center;gap:6px;font-size:.72rem;letter-spacing:.04em;padding:2px 9px;
+  border-radius:20px;background:#eef6dc;color:#3d5c0b;border:1px solid #cfe3a0;vertical-align:2px;white-space:nowrap}
+a.orcid-badge:hover{text-decoration:none;border-color:#9cc24a}
+.orcid-id{font-family:ui-monospace,Menlo,monospace;letter-spacing:0}
+.suspect-note{margin:6px 0 0;font-size:.85rem;color:var(--muted);font-style:italic}
+button.chip{font-family:var(--font);cursor:pointer;line-height:1.3;text-align:left}
+button.chip:focus-visible,a.chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.chip-meta{color:var(--muted);font-size:.76rem;margin-left:4px}
+.chips{display:flex;flex-wrap:wrap}
+
+/* author and funder views */
+.view-back{margin:0 0 12px;font-size:.92rem}
+.av{overflow-wrap:anywhere}
+.av-head h2{margin-bottom:4px}
+.av-head h2:focus{outline:none}
+.av-sub{margin:0;color:var(--muted)}
+.av-orcid{margin:8px 0 0}
+.av-sec{margin-top:26px}
+.av-sec h3{margin-bottom:10px}
+.av-papers-head{gap:10px;margin-bottom:6px}
+.av-papers-head h3{margin:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;margin:0}
+.fact{background:var(--paper);border:1px solid var(--line);border-radius:var(--r-s);padding:10px 12px;margin:0}
+.fact dt{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.fact dd{margin:2px 0 0;font-size:1.3rem;font-weight:300;color:var(--blue-d)}
+.howto{margin-top:12px;font-size:.9rem}
+.howto summary{display:inline-block;cursor:pointer;color:var(--blue-d);padding:4px 0}
+.howto p{max-width:68ch;margin:8px 0 0}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:var(--r-s);overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:6px 14px;min-height:36px;font-family:var(--font);font-size:.86rem;
+  color:var(--muted);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--blue-l);color:var(--blue-d)}
+.seg button:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.paper-list{list-style:none;margin:0;padding:0}
+.paper-list li{display:grid;grid-template-columns:3.2em minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.pl-year{color:var(--muted);font-variant-numeric:tabular-nums}
+.pl-body{min-width:0}
+.role-badge{display:inline-block;font-size:.7rem;letter-spacing:.04em;padding:1px 8px;border-radius:20px;
+  background:var(--blue-l);color:var(--blue-d);margin-right:4px;white-space:nowrap}
+.role-badge.corr{background:#e6f6ee;color:#1f6e4a}
+.nearby{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px}
+.nearby h4{font-family:var(--font);font-size:.74rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+  font-weight:500;margin:0 0 6px}
+.person-list{list-style:none;margin:0;padding:0}
+.person-list li{display:flex;flex-direction:column;padding:7px 0;border-top:1px solid var(--line)}
+.coverage-note{margin:24px 0 0;padding:10px 14px;background:var(--paper);border-left:3px solid var(--line);
+  border-radius:0 var(--r-s) var(--r-s) 0;font-size:.88rem;color:var(--muted)}
+
+/* Compass needle rows: who wrote it, under the title. */
+.needle-authors{margin-top:4px;font-size:.8rem;color:var(--muted);line-height:1.45}
+.needle-authors[hidden]{display:none}
+
+@media(max-width:720px){
+  .nav-search{display:none}
+  .nav-search-btn{display:inline-flex}
+  .nav-search.open{display:block;position:fixed;top:0;left:0;right:0;flex:none;max-width:none;z-index:2;
+    padding:9px 16px;background:var(--bg);border-bottom:1px solid var(--line)}
+  .nav-search.open .nav-search-box{height:44px}
+  .nav-search.open .nav-search-close{display:inline-flex}
+  .nav-search.open .ta-menu{left:16px;right:16px;width:auto;max-width:none;max-height:calc(100vh - 96px)}
+  .ta-opt{min-height:44px;justify-content:center}
+  .nearby{grid-template-columns:minmax(0,1fr)}
+}
+@media(max-width:460px){
+  .search-big{flex-direction:column}
+  .search-big .btn{width:100%}
+}
+.role-badge.retracted{background:#fbe9ec;color:#8f2c3b}
+.needle-authors-n{white-space:nowrap}
+/* The open phone search has its own close button; the browser's clear (x) beside it read as a second one. */
+.nav-search.open input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none}
+.fact dt{overflow-wrap:normal;word-break:normal}
+.fact dt{font-size:.68rem;letter-spacing:.05em}

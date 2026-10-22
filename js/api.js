@@ -116,18 +116,30 @@
       try { data = JSON.parse(text); } catch (e) { data = null; }
     }
 
+    // opts.meta (search calls only): a failed answer also carries its HTTP status and any
+    // Retry-After, because "search is down" (503) and "slow down" (429) read differently to a person
+    // and a passed-through { ok:false } body would otherwise arrive without either.
+    function withMeta(out) {
+      if (opts.meta && !res.ok && out && typeof out === 'object') {
+        if (out.status == null) out.status = res.status;
+        var ra = res.headers && res.headers.get ? res.headers.get('Retry-After') : null;
+        if (ra && out.retryAfter == null) out.retryAfter = ra;
+      }
+      return out;
+    }
+
     if (data !== null && typeof data === 'object') {
       // Backend told us the outcome explicitly (score, promote, compass validate).
-      if (typeof data.ok !== 'undefined') return data;
+      if (typeof data.ok !== 'undefined') return withMeta(data);
       // Plain success body with no ok flag: { role }, { username, ... }, a list.
       if (res.ok) return data;
       // Error body without an ok flag.
-      return { ok: false, status: res.status, message: pickMessage(data, res.status) };
+      return withMeta({ ok: false, status: res.status, message: pickMessage(data, res.status) });
     }
 
     // No JSON body came back.
     if (res.ok) return { ok: true };
-    return { ok: false, status: res.status, message: statusMessage(res.status) };
+    return withMeta({ ok: false, status: res.status, message: statusMessage(res.status) });
   }
 
   // Build a download URL for a compass export, used as an <a href download>. A
@@ -251,6 +263,35 @@
     },
     compassDeleteTopic: function (id) {
       return request('/api/compass/topics/' + encodeURIComponent(id), { method: 'DELETE' });
+    },
+
+    // search: authors, funders and subjects. All GET (safe to retry once), all with meta so the
+    // page can tell "unavailable" (503) from "too many searches" (429).
+    // opts: { types: 'authors,funders,topics', limit: 8, timeout }
+    search: function (q, opts) {
+      opts = opts || {};
+      var p = new URLSearchParams();
+      p.set('q', String(q == null ? '' : q).slice(0, 120));
+      if (opts.types) p.set('types', opts.types);
+      if (opts.limit) p.set('limit', String(opts.limit));
+      return request('/api/search?' + p.toString(), { meta: true, timeout: opts.timeout || 12000 });
+    },
+    // One author: profile, papers (top 50 by citations, or newest first with sort 'year').
+    author: function (id, sort) {
+      return request('/api/authors/' + encodeURIComponent(id) + (sort ? '?sort=' + encodeURIComponent(sort) : ''),
+                     { meta: true });
+    },
+    // Co-authors and credible authors working in the same topics or subfields.
+    authorNearby: function (id) {
+      return request('/api/authors/' + encodeURIComponent(id) + '/nearby', { meta: true });
+    },
+    funder: function (id) {
+      return request('/api/funders/' + encodeURIComponent(id), { meta: true });
+    },
+    // Bylines for papers the page already shows (Compass needles), by DOI or arXiv id, at most 50.
+    paperAuthors: function (ids) {
+      var list = (ids || []).filter(Boolean).slice(0, 50).map(function (x) { return encodeURIComponent(x); });
+      return request('/api/papers/authors?ids=' + list.join(','), { meta: true });
     }
   };
 })();

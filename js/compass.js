@@ -539,6 +539,90 @@
     } catch (e) {}
   }
 
+  /* ---------- needle bylines (from the author index, best effort) ---------- */
+  // The handle /api/papers/authors knows a needle by: its DOI, else its arXiv id. Worked-example
+  // needles carry a bare arXiv id in url ('2608.13821') and an empty doi; live ones may carry either.
+  function paperKey(n) {
+    if (!n) return '';
+    var d = String(n.doi || '').trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, '').replace(/^doi:/i, '');
+    var m = d.match(/^10\.48550\/arxiv\.(\d{4}\.\d{4,5})/i);
+    if (m) return m[1];
+    if (/^10\.\d{3,9}\/\S+$/.test(d)) return d.toLowerCase();
+    var cands = [n.url, n.id];
+    for (var i = 0; i < cands.length; i++) {
+      var s = String(cands[i] || '').trim();
+      if (!s) continue;
+      m = s.match(/^(?:arxiv:)?(\d{4}\.\d{4,5})(?:v\d+)?$/i) ||
+          s.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5})/i) ||
+          s.match(/10\.48550\/arxiv\.(\d{4}\.\d{4,5})/i);
+      if (m) return m[1];
+      m = s.match(/(10\.\d{3,9}\/[^\s?#]+)/);
+      // A bioRxiv/medRxiv page URL carries the version (and maybe .full/.pdf) after the DOI.
+      if (m) return (/rxiv\.org\/content\//i.test(s) ? m[1].replace(/(v\d+)?(\.full)?(\.pdf)?$/i, '') : m[1]).toLowerCase();
+    }
+    return '';
+  }
+  function bylineSlot(n) {
+    var k = paperKey(n);
+    return k ? '<div class="needle-authors" data-akey="' + esc(k) + '" hidden></div>' : '';
+  }
+  // Up to six names in byline order; a resolved author links to their page in the Search tab. A
+  // long byline keeps its first five and its last author, the two ends people read a byline by.
+  // total is the full byline length (the server sends the head of a long byline plus its last name).
+  function bylineHtml(list, total) {
+    var people = list.filter(function (p) { return p && p.name; }).slice().sort(function (a, b) {
+      return (+a.position || 0) - (+b.position || 0);
+    });
+    if (!people.length) return '';
+    total = Math.max(+total || 0, people.length);
+    function name(p) {
+      var id = String(p.author_id || '');
+      return /^A\d{1,12}$/.test(id) ? '<a href="#author/' + id + '">' + esc(p.name) + '</a>' : esc(p.name);
+    }
+    if (total <= 6) return people.map(name).join(', ');
+    var last = people[people.length - 1];
+    var lastIsLast = (+last.position || 0) >= total - 1 && people.length > 5;
+    return people.slice(0, 5).map(name).join(', ') +
+      (lastIsLast ? ', &hellip;, ' + name(last) : ' and others') +
+      ' <span class="needle-authors-n">(' + total + ' authors)</span>';
+  }
+  // Fills the slots after the table is drawn. Any failure (an older backend without the route, the
+  // search service down, a slow answer) leaves the slots hidden: a byline is a convenience, and
+  // the needle card is complete without it.
+  var bylineSeq = 0;
+  function fillBylines(dash) {
+    if (!dash || !api || typeof api.paperAuthors !== 'function') return;
+    var slots = Array.prototype.slice.call(dash.querySelectorAll('.needle-authors[data-akey]'));
+    var keys = [], seen = Object.create(null);
+    slots.forEach(function (sl) {
+      var k = sl.getAttribute('data-akey');
+      if (k && !seen[k]) { seen[k] = 1; keys.push(k); }
+    });
+    if (!keys.length) return;
+    var my = ++bylineSeq;
+    var batches = [];
+    for (var i = 0; i < keys.length; i += 50) batches.push(keys.slice(i, i + 50));
+    batches.forEach(function (batch) {
+      Promise.resolve(api.paperAuthors(batch)).then(function (r) {
+        if (my !== bylineSeq || !r || r.ok === false || !r.papers || typeof r.papers !== 'object') return;
+        var lc = Object.create(null), nc = Object.create(null), counts = r.counts || {};
+        Object.keys(r.papers).forEach(function (k) {
+          lc[String(k).toLowerCase()] = r.papers[k];
+          nc[String(k).toLowerCase()] = counts[k];
+        });
+        slots.forEach(function (sl) {
+          var key = String(sl.getAttribute('data-akey')).toLowerCase();
+          var list = lc[key];
+          if (!Array.isArray(list) || !list.length) return;
+          var h = bylineHtml(list, nc[key]);
+          if (!h) return;
+          sl.innerHTML = h;
+          sl.hidden = false;
+        });
+      }).catch(function () { /* quiet on purpose, see above */ });
+    });
+  }
+
   /* ---------- dashboard rendering (shared by example + live run) ---------- */
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -870,7 +954,7 @@
         '</tr></thead><tbody>';
       needles.forEach(function (n) {
         html += '<tr class="needle-row" data-pid="' + esc(String(n.id || '')) + '">' +
-          '<td>' + titleCell(n) + '</td>' +
+          '<td>' + titleCell(n) + bylineSlot(n) + '</td>' +
           '<td class="nowrap">' + sourceCell(n) + '</td>' +
           '<td class="nowrap">' + esc(n.date) + '</td>' +
           '<td>' + scoreCell(n.novelty) + '</td>' +
@@ -914,6 +998,7 @@
     dash.innerHTML = html;
     dash.hidden = false;
     dash.classList.add('fade-in');
+    fillBylines(dash);
 
     /* Long verdicts are collapsed to a few lines with a "…" trail rather than cut. The judge's
        reasoning against the retrieved prior work is the substance of the card, and a table of
