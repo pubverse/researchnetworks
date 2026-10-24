@@ -21575,6 +21575,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       "button",
       {
         onClick: () => setShowMobileMenu(!showMobileMenu),
+        "aria-label": "Legend and filters",
+        "aria-expanded": showMobileMenu,
+        "data-mobile-legend-toggle": "1",
+        title: "Legend and filters",
         style: {
           background: "transparent",
           border: `1px solid ${theme.border}`,
