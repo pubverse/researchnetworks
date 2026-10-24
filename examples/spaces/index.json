@@ -1,14 +1,14 @@
 [
  {
   "slug": "oncology",
-  "name": "Oncology and Cancer Research",
+  "name": "Oncology",
   "subfield_ids": [
    2730,
    1306
   ],
   "n_papers": 5015,
-  "n_clusters": 92,
-  "n_themes": 8
+  "n_clusters": 188,
+  "n_themes": 11
  },
  {
   "slug": "sf1311",
@@ -17,8 +17,8 @@
    1311
   ],
   "n_papers": 7045,
-  "n_clusters": 131,
-  "n_themes": 9
+  "n_clusters": 272,
+  "n_themes": 14
  },
  {
   "slug": "sf2705",
@@ -27,8 +27,8 @@
    2705
   ],
   "n_papers": 2306,
-  "n_clusters": 72,
-  "n_themes": 8
+  "n_clusters": 125,
+  "n_themes": 9
  },
  {
   "slug": "sf2303",
@@ -37,7 +37,7 @@
    2303
   ],
   "n_papers": 1072,
-  "n_clusters": 60,
+  "n_clusters": 62,
   "n_themes": 8
  },
  {
@@ -99,5 +99,835 @@
   "n_papers": 463,
   "n_clusters": 30,
   "n_themes": 8
+ },
+ {
+  "slug": "sf2506",
+  "name": "Metals and Alloys",
+  "subfield_ids": [
+   2506
+  ],
+  "n_papers": 471,
+  "n_clusters": 28,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3204",
+  "name": "Developmental and Educational Psychology",
+  "subfield_ids": [
+   3204
+  ],
+  "n_papers": 476,
+  "n_clusters": 30,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1302",
+  "name": "Aging",
+  "subfield_ids": [
+   1302
+  ],
+  "n_papers": 492,
+  "n_clusters": 30,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2732",
+  "name": "Orthopedics and Sports Medicine",
+  "subfield_ids": [
+   2732
+  ],
+  "n_papers": 493,
+  "n_clusters": 33,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2739",
+  "name": "Public Health, Environmental and Occupational Health",
+  "subfield_ids": [
+   2739
+  ],
+  "n_papers": 507,
+  "n_clusters": 35,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2731",
+  "name": "Ophthalmology",
+  "subfield_ids": [
+   2731
+  ],
+  "n_papers": 513,
+  "n_clusters": 32,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1313",
+  "name": "Molecular Medicine",
+  "subfield_ids": [
+   1313
+  ],
+  "n_papers": 513,
+  "n_clusters": 35,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2205",
+  "name": "Civil and Structural Engineering",
+  "subfield_ids": [
+   2205
+  ],
+  "n_papers": 520,
+  "n_clusters": 37,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2712",
+  "name": "Endocrinology, Diabetes and Metabolism",
+  "subfield_ids": [
+   2712
+  ],
+  "n_papers": 526,
+  "n_clusters": 33,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2302",
+  "name": "Ecological Modeling",
+  "subfield_ids": [
+   2302
+  ],
+  "n_papers": 540,
+  "n_clusters": 40,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2803",
+  "name": "Biological Psychiatry",
+  "subfield_ids": [
+   2803
+  ],
+  "n_papers": 545,
+  "n_clusters": 36,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2404",
+  "name": "Microbiology",
+  "subfield_ids": [
+   2404
+  ],
+  "n_papers": 552,
+  "n_clusters": 32,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3207",
+  "name": "Social Psychology",
+  "subfield_ids": [
+   3207
+  ],
+  "n_papers": 577,
+  "n_clusters": 35,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2729",
+  "name": "Obstetrics and Gynecology",
+  "subfield_ids": [
+   2729
+  ],
+  "n_papers": 580,
+  "n_clusters": 38,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1802",
+  "name": "Information Systems and Management",
+  "subfield_ids": [
+   1802
+  ],
+  "n_papers": 587,
+  "n_clusters": 38,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1902",
+  "name": "Atmospheric Science",
+  "subfield_ids": [
+   1902
+  ],
+  "n_papers": 635,
+  "n_clusters": 44,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2605",
+  "name": "Computational Mathematics",
+  "subfield_ids": [
+   2605
+  ],
+  "n_papers": 659,
+  "n_clusters": 34,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2738",
+  "name": "Psychiatry and Mental health",
+  "subfield_ids": [
+   2738
+  ],
+  "n_papers": 677,
+  "n_clusters": 45,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1109",
+  "name": "Insect Science",
+  "subfield_ids": [
+   1109
+  ],
+  "n_papers": 679,
+  "n_clusters": 41,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3202",
+  "name": "Applied Psychology",
+  "subfield_ids": [
+   3202
+  ],
+  "n_papers": 688,
+  "n_clusters": 47,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2713",
+  "name": "Epidemiology",
+  "subfield_ids": [
+   2713
+  ],
+  "n_papers": 727,
+  "n_clusters": 49,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3605",
+  "name": "Health Information Management",
+  "subfield_ids": [
+   3605
+  ],
+  "n_papers": 750,
+  "n_clusters": 53,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1908",
+  "name": "Geophysics",
+  "subfield_ids": [
+   1908
+  ],
+  "n_papers": 781,
+  "n_clusters": 48,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2806",
+  "name": "Developmental Neuroscience",
+  "subfield_ids": [
+   2806
+  ],
+  "n_papers": 923,
+  "n_clusters": 48,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1800",
+  "name": "General Decision Sciences",
+  "subfield_ids": [
+   1800
+  ],
+  "n_papers": 955,
+  "n_clusters": 56,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3203",
+  "name": "Clinical Psychology",
+  "subfield_ids": [
+   3203
+  ],
+  "n_papers": 955,
+  "n_clusters": 56,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2718",
+  "name": "Health Informatics",
+  "subfield_ids": [
+   2718
+  ],
+  "n_papers": 1016,
+  "n_clusters": 69,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2808",
+  "name": "Neurology",
+  "subfield_ids": [
+   2808
+  ],
+  "n_papers": 1026,
+  "n_clusters": 63,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1606",
+  "name": "Physical and Theoretical Chemistry",
+  "subfield_ids": [
+   1606
+  ],
+  "n_papers": 1032,
+  "n_clusters": 60,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3600",
+  "name": "General Health Professions",
+  "subfield_ids": [
+   3600
+  ],
+  "n_papers": 1087,
+  "n_clusters": 55,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2003",
+  "name": "Finance",
+  "subfield_ids": [
+   2003
+  ],
+  "n_papers": 1094,
+  "n_clusters": 53,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2802",
+  "name": "Behavioral Neuroscience",
+  "subfield_ids": [
+   2802
+  ],
+  "n_papers": 1237,
+  "n_clusters": 62,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2403",
+  "name": "Immunology",
+  "subfield_ids": [
+   2403
+  ],
+  "n_papers": 1273,
+  "n_clusters": 62,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2202",
+  "name": "Aerospace Engineering",
+  "subfield_ids": [
+   2202
+  ],
+  "n_papers": 1291,
+  "n_clusters": 70,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1309",
+  "name": "Developmental Biology",
+  "subfield_ids": [
+   1309
+  ],
+  "n_papers": 1326,
+  "n_clusters": 76,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1706",
+  "name": "Computer Science Applications",
+  "subfield_ids": [
+   1706
+  ],
+  "n_papers": 1331,
+  "n_clusters": 71,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2204",
+  "name": "Biomedical Engineering",
+  "subfield_ids": [
+   2204
+  ],
+  "n_papers": 1341,
+  "n_clusters": 76,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2809",
+  "name": "Sensory Systems",
+  "subfield_ids": [
+   2809
+  ],
+  "n_papers": 1342,
+  "n_clusters": 78,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2614",
+  "name": "Theoretical Computer Science",
+  "subfield_ids": [
+   2614
+  ],
+  "n_papers": 1396,
+  "n_clusters": 49,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1105",
+  "name": "Ecology, Evolution, Behavior and Systematics",
+  "subfield_ids": [
+   1105
+  ],
+  "n_papers": 1489,
+  "n_clusters": 73,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf3205",
+  "name": "Experimental and Cognitive Psychology",
+  "subfield_ids": [
+   3205
+  ],
+  "n_papers": 1678,
+  "n_clusters": 91,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1305",
+  "name": "Biotechnology",
+  "subfield_ids": [
+   1305
+  ],
+  "n_papers": 1707,
+  "n_clusters": 110,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf3105",
+  "name": "Instrumentation",
+  "subfield_ids": [
+   3105
+  ],
+  "n_papers": 1729,
+  "n_clusters": 91,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1304",
+  "name": "Biophysics",
+  "subfield_ids": [
+   1304
+  ],
+  "n_papers": 1762,
+  "n_clusters": 94,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf1704",
+  "name": "Computer Graphics and Computer-Aided Design",
+  "subfield_ids": [
+   1704
+  ],
+  "n_papers": 1764,
+  "n_clusters": 99,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2206",
+  "name": "Computational Mechanics",
+  "subfield_ids": [
+   2206
+  ],
+  "n_papers": 1851,
+  "n_clusters": 93,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2728",
+  "name": "Neurology",
+  "subfield_ids": [
+   2728
+  ],
+  "n_papers": 1864,
+  "n_clusters": 101,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2210",
+  "name": "Mechanical Engineering",
+  "subfield_ids": [
+   2210
+  ],
+  "n_papers": 1870,
+  "n_clusters": 93,
+  "n_themes": 8
+ },
+ {
+  "slug": "sf2741",
+  "name": "Radiology, Nuclear Medicine and Imaging",
+  "subfield_ids": [
+   2741
+  ],
+  "n_papers": 1887,
+  "n_clusters": 117,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1110",
+  "name": "Plant Science",
+  "subfield_ids": [
+   1110
+  ],
+  "n_papers": 2079,
+  "n_clusters": 109,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1315",
+  "name": "Structural Biology",
+  "subfield_ids": [
+   1315
+  ],
+  "n_papers": 2080,
+  "n_clusters": 119,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf2002",
+  "name": "Economics and Econometrics",
+  "subfield_ids": [
+   2002
+  ],
+  "n_papers": 2259,
+  "n_clusters": 114,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf2725",
+  "name": "Infectious Diseases",
+  "subfield_ids": [
+   2725
+  ],
+  "n_papers": 2272,
+  "n_clusters": 108,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1303",
+  "name": "Biochemistry",
+  "subfield_ids": [
+   1303
+  ],
+  "n_papers": 2312,
+  "n_clusters": 108,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1804",
+  "name": "Statistics, Probability and Uncertainty",
+  "subfield_ids": [
+   1804
+  ],
+  "n_papers": 2453,
+  "n_clusters": 127,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf2504",
+  "name": "Electronic, Optical and Magnetic Materials",
+  "subfield_ids": [
+   2504
+  ],
+  "n_papers": 2562,
+  "n_clusters": 124,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf2207",
+  "name": "Control and Systems Engineering",
+  "subfield_ids": [
+   2207
+  ],
+  "n_papers": 2649,
+  "n_clusters": 123,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf2804",
+  "name": "Cellular and Molecular Neuroscience",
+  "subfield_ids": [
+   2804
+  ],
+  "n_papers": 2769,
+  "n_clusters": 122,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1307",
+  "name": "Cell Biology",
+  "subfield_ids": [
+   1307
+  ],
+  "n_papers": 2867,
+  "n_clusters": 127,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1803",
+  "name": "Management Science and Operations Research",
+  "subfield_ids": [
+   1803
+  ],
+  "n_papers": 3200,
+  "n_clusters": 150,
+  "n_themes": 10
+ },
+ {
+  "slug": "sf1312",
+  "name": "Molecular Biology",
+  "subfield_ids": [
+   1312
+  ],
+  "n_papers": 3620,
+  "n_clusters": 171,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf1711",
+  "name": "Signal Processing",
+  "subfield_ids": [
+   1711
+  ],
+  "n_papers": 3710,
+  "n_clusters": 174,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf1708",
+  "name": "Hardware and Architecture",
+  "subfield_ids": [
+   1708
+  ],
+  "n_papers": 3873,
+  "n_clusters": 174,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf2612",
+  "name": "Numerical Analysis",
+  "subfield_ids": [
+   2612
+  ],
+  "n_papers": 3987,
+  "n_clusters": 123,
+  "n_themes": 9
+ },
+ {
+  "slug": "sf1709",
+  "name": "Human-Computer Interaction",
+  "subfield_ids": [
+   1709
+  ],
+  "n_papers": 4367,
+  "n_clusters": 212,
+  "n_themes": 12
+ },
+ {
+  "slug": "sf1710",
+  "name": "Information Systems",
+  "subfield_ids": [
+   1710
+  ],
+  "n_papers": 5878,
+  "n_clusters": 207,
+  "n_themes": 12
+ },
+ {
+  "slug": "sf2208",
+  "name": "Electrical and Electronic Engineering",
+  "subfield_ids": [
+   2208
+  ],
+  "n_papers": 6232,
+  "n_clusters": 242,
+  "n_themes": 13
+ },
+ {
+  "slug": "sf1712",
+  "name": "Software",
+  "subfield_ids": [
+   1712
+  ],
+  "n_papers": 6279,
+  "n_clusters": 256,
+  "n_themes": 13
+ },
+ {
+  "slug": "sf3109",
+  "name": "Statistical and Nonlinear Physics",
+  "subfield_ids": [
+   3109
+  ],
+  "n_papers": 6409,
+  "n_clusters": 182,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf2607",
+  "name": "Discrete Mathematics and Combinatorics",
+  "subfield_ids": [
+   2607
+  ],
+  "n_papers": 6475,
+  "n_clusters": 137,
+  "n_themes": 10
+ },
+ {
+  "slug": "sf1705",
+  "name": "Computer Networks and Communications",
+  "subfield_ids": [
+   1705
+  ],
+  "n_papers": 6588,
+  "n_clusters": 209,
+  "n_themes": 12
+ },
+ {
+  "slug": "sf2604",
+  "name": "Applied Mathematics",
+  "subfield_ids": [
+   2604
+  ],
+  "n_papers": 6746,
+  "n_clusters": 162,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf2805",
+  "name": "Cognitive Neuroscience",
+  "subfield_ids": [
+   2805
+  ],
+  "n_papers": 7586,
+  "n_clusters": 265,
+  "n_themes": 13
+ },
+ {
+  "slug": "sf2613",
+  "name": "Statistics and Probability",
+  "subfield_ids": [
+   2613
+  ],
+  "n_papers": 8871,
+  "n_clusters": 212,
+  "n_themes": 12
+ },
+ {
+  "slug": "sf3107",
+  "name": "Atomic and Molecular Physics, and Optics",
+  "subfield_ids": [
+   3107
+  ],
+  "n_papers": 9449,
+  "n_clusters": 269,
+  "n_themes": 14
+ },
+ {
+  "slug": "sf2610",
+  "name": "Mathematical Physics",
+  "subfield_ids": [
+   2610
+  ],
+  "n_papers": 10356,
+  "n_clusters": 189,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf2608",
+  "name": "Geometry and Topology",
+  "subfield_ids": [
+   2608
+  ],
+  "n_papers": 10780,
+  "n_clusters": 166,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf1703",
+  "name": "Computational Theory and Mathematics",
+  "subfield_ids": [
+   1703
+  ],
+  "n_papers": 11556,
+  "n_clusters": 283,
+  "n_themes": 14
+ },
+ {
+  "slug": "sf2602",
+  "name": "Algebra and Number Theory",
+  "subfield_ids": [
+   2602
+  ],
+  "n_papers": 12243,
+  "n_clusters": 186,
+  "n_themes": 11
+ },
+ {
+  "slug": "sf3104",
+  "name": "Condensed Matter Physics",
+  "subfield_ids": [
+   3104
+  ],
+  "n_papers": 13363,
+  "n_clusters": 299,
+  "n_themes": 14
+ },
+ {
+  "slug": "sf3106",
+  "name": "Nuclear and High Energy Physics",
+  "subfield_ids": [
+   3106
+  ],
+  "n_papers": 15914,
+  "n_clusters": 306,
+  "n_themes": 14
+ },
+ {
+  "slug": "sf3103",
+  "name": "Astronomy and Astrophysics",
+  "subfield_ids": [
+   3103
+  ],
+  "n_papers": 22660,
+  "n_clusters": 370,
+  "n_themes": 16
+ },
+ {
+  "slug": "sf1702",
+  "name": "Artificial Intelligence",
+  "subfield_ids": [
+   1702
+  ],
+  "n_papers": 83014,
+  "n_clusters": 666,
+  "n_themes": 16
  }
 ]
