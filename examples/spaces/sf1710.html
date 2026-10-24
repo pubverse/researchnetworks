@@ -25159,19 +25159,35 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         textDecoration: "none",
         fontWeight: 500
       } }, "View on PubMed \u2192");
-    })(), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "12px", color: theme.textMuted } }, "Connections: ", selectedNode.degree)))))), hoveredNode && !selectedNode && /* @__PURE__ */ React.createElement("div", { style: {
-      position: "fixed",
-      left: mousePos.x + 15,
-      top: mousePos.y + 15,
-      background: theme.panelBg,
-      border: `1px solid ${theme.border}`,
-      borderRadius: "8px",
-      padding: "10px 14px",
-      fontSize: "13px",
-      pointerEvents: "none",
-      zIndex: 100,
-      maxWidth: "280px"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type === "author" ? "Author" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"))));
+    })(), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "12px", color: theme.textMuted } }, "Connections: ", selectedNode.degree)))))), hoveredNode && !selectedNode && (() => {
+      const hn = hoveredNode;
+      const kind = hn.type === "cluster" ? getSubtypeLabel(hn.subtype) : hn.type === "theme" ? "Theme" : hn.type === "subtheme" ? "Shared term" : hn.type === "author" ? "Author" : hn.type;
+      const pubs = (hn.similar_papers || []).slice(0, 3);
+      const summary = String(hn.overview || hn.summary || "").trim();
+      const short = summary.length > 220 ? summary.slice(0, 220).replace(/\s+\S*$/, "") + "\u2026" : summary;
+      const left = Math.min(mousePos.x + 15, Math.max(0, window.innerWidth - 340));
+      const top = Math.min(mousePos.y + 15, Math.max(0, window.innerHeight - 300));
+      return /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "hover", onMouseLeave: () => setHoveredNode(null), style: {
+        position: "fixed",
+        left,
+        top,
+        background: theme.panelBg,
+        border: `1px solid ${theme.border}`,
+        borderRadius: "8px",
+        padding: "10px 14px",
+        fontSize: "13px",
+        pointerEvents: "auto",
+        zIndex: 100,
+        width: "320px",
+        maxWidth: "calc(100vw - 24px)"
+      } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "2px", color: theme.text } }, hn.unique_title || hn.title || hn.label || hn.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: short ? "6px" : "4px" } }, kind), short ? /* @__PURE__ */ React.createElement("div", { style: { color: theme.text, fontSize: "12px", lineHeight: 1.4, marginBottom: pubs.length ? "8px" : "4px" } }, short) : null, pubs.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { borderTop: `1px solid ${theme.border}`, paddingTop: "6px", marginBottom: "6px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "4px" } }, "Top publications"), pubs.map((paper, i) => {
+        const pmid = String(paper.pmid || "").replace("ID: ", "").replace(".0", "");
+        const href = paper.url || (pmid ? "https://pubmed.ncbi.nlm.nih.gov/" + pmid : "");
+        const title = paper.article_title || paper.title || "Title unavailable";
+        const yr = paper.date ? String(paper.date).slice(0, 4) : "";
+        return /* @__PURE__ */ React.createElement("div", { key: i, style: { fontSize: "12px", lineHeight: 1.35, marginBottom: "4px", color: theme.text } }, href ? /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: { color: theme.text, textDecoration: "underline", textDecorationColor: "#6366f1" } }, title) : title, /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, yr ? " (" + yr + ")" : ""));
+      })), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hn.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"));
+    })()));
   }
   const rootEl = document.getElementById("root");
   if (!SHELL) {
