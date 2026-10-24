@@ -6,7 +6,7 @@
   <title>PubVerse - Documentation</title>
   <meta name="description" content="What PubVerse is, how to score an abstract, how the Compass finds needles, and answers to common questions. Affiliated with fortytwodegrees.org.">
   <link rel="icon" href="assets/pubverse_mark.png">
-  <link rel="stylesheet" href="css/app.css?v=4">
+  <link rel="stylesheet" href="css/app.css?v=5">
   <!-- Page-scoped layout only. The design system lives in css/app.css; nothing
        here changes the shared look, it just spaces out a long reading page. -->
   <style>
@@ -131,7 +131,9 @@
         <p>Choosing a topic or subfield opens a page for it with the most credible people working in that area, each linking to their own page, and an "Open in Compass" button that carries the subject over to the Compass. Broader levels, domains and fields, open in the Compass directly.</p>
 
         <h3>An author's page</h3>
-        <p>The page opens with a network picture. The author sits at the center and their main topics, drawn as diamonds, sit around them. Co-authors (filled green circles, joined to the author by a blue line that thickens with the papers they share) and nearby researchers who work on the same topics but have not written with them (open purple circles) are joined by a thin line to every one of those topics they share, so you can see who bridges which subjects. Click a person to bring out their own topics and neighbors; what is already drawn stays, and past about 120 nodes the oldest branch you opened folds away. Click a topic to light up everyone on it, with buttons for its topic page and for the Compass. The buttons beside the picture zoom in, zoom out and fit everything; Ctrl with the mouse wheel also zooms, and on a phone two fingers pinch. With the keyboard, Tab to the picture, use the arrow keys to move between nodes, Enter to choose one and Escape to clear. With reduced motion turned on in your system, the picture is laid out once and does not animate. The same people and topics are listed as text below the picture. The network only redraws what the page already shows; it uses no private data and nothing in it is part of any score.</p>
+        <p>The page opens with the author's map, drawn the same way as the research-space maps and the Compass field map: same shapes, colors, legend, panels and search. The author sits at the center. Around them are the <b>contexts</b> they work in on the research-space maps where they are placed: problem statements (pentagons), outcomes (triangles) and methods (hexagons, computational or experimental), grouped under their themes. Click a context or a theme to read its overview and its top related publications, exactly as on a space map. Two kinds of people are drawn, and the legend keeps them apart: <b>context authors</b> share one of those problem statements, outcomes or methods with the author, and the panel says which; <b>co-authors</b> have published with the author (the line is thicker the more papers they share). A person who is both is listed as a co-author, and the contexts they share are shown too. If the author is placed on several spaces, a selector above the map switches between them (the three with the most of their papers are offered). Click a person for their panel, with institution, h-index, ORCID, credibility and shared contexts; <b>Expand</b> adds that person's contexts and people, up to a size cap. An author who is on no space map yet (their papers are newer than March 2026, or their field is not mapped) shows a note and the co-author ring only. The same information is listed as text below, and nothing on the map is part of any score.</p>
+        <h3>Exporting an author</h3>
+        <p>Below the map, <b>Export (Excel)</b> downloads a workbook with four sheets: the author, their papers (title, year, venue, DOI, citations, role, corresponding, topic), their co-authors (with shared works) and their context authors (with the contexts they share and their kind). <b>CSV</b> downloads one of those three lists on its own, and <b>BibTeX</b> downloads their papers as citation entries. Exports need a signed-in account, like the rest of search, and contain no email addresses or social handles.</p>
         <p>The page lists their papers, most cited first or newest first, with badges for first-author, last-author and corresponding-author papers and a link to each DOI. Their subjects are listed as their space: choose one to open it in the Compass and see what is new there. Nearby shows two kinds of neighbor: co-authors, ordered by how many papers they share, and credible authors working in the same topics or subfields who have not written with them. Their most frequent funders link to each funder's page.</p>
 
         <h3>Funders</h3>
@@ -144,6 +146,9 @@
       <div class="wrap prose">
         <h2>Authors on the research-space maps</h2>
         <p>A research space is a field PubVerse has mapped: its recent papers are grouped into topics, and the topics into themes. Where a space has a map, its subject page offers <b>Open the map</b>, and an author's page offers <b>Show on the map</b> for each of their subfields that has one. The map opens with the author already placed.</p>
+
+        <h3>Author maps and context</h3>
+        <p>An author's own map is built from contexts, not only from co-authorship: the people who matter for a field are often those working on the same problem, outcome or method without ever having written together. The map therefore shows <b>context authors</b> and <b>co-authors</b> as separate groups with separate legend entries. Contexts come from the research-space maps, so only authors with papers placed on a map have them.</p>
 
         <h3>Finding people on a map</h3>
         <p>Type a name into the map's search box and choose <i>Find author</i>. The author appears as a node beside the topics they publish in, linked to each topic by how large a share of their papers on this map it holds. Click an author and their neighbors appear next to them: first co-authors who are also on this map, then the most credible authors who work in the same topics, each with the reason it is shown. Click a neighbor to keep going. <b>Open author page</b> in the author's panel goes to their full page.</p>
@@ -254,7 +259,7 @@
 
   <!-- Shared runtime. config.js must load first; api.js and ui.js hang off window.PV. -->
   <script src="js/config.js?v=5"></script>
-  <script src="js/api.js?v=9"></script>
+  <script src="js/api.js?v=12"></script>
   <script src="js/ui.js?v=5"></script>
 </body>
 </html>

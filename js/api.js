@@ -285,6 +285,46 @@
     authorNearby: function (id) {
       return request('/api/authors/' + encodeURIComponent(id) + '/nearby', { meta: true });
     },
+    // The author's map content in the field-map graph schema: context clusters (problem statements,
+    // outcomes, methods) on the research-space maps, context authors, co-authors. space is a slug.
+    authorContextGraph: function (id, space) {
+      if (!/^A\d{1,12}$/.test(String(id || ''))) return Promise.resolve({ ok: false, status: 404, message: 'Not found.' });
+      var qs = '';
+      if (space) {
+        if (!/^[a-z0-9_-]{1,40}$/.test(String(space))) return Promise.resolve({ ok: false, status: 404, message: 'Not found.' });
+        qs = '?space=' + encodeURIComponent(space);
+      }
+      return request('/api/authors/' + encodeURIComponent(id) + '/context-graph' + qs, { meta: true, timeout: 30000 });
+    },
+    // Author exports. Same two ways to authorize as the Compass export: a short-lived pv_token in the
+    // query for a plain download link (never the session token), or the session's Bearer header on a
+    // fetch whose blob the page saves itself.
+    authorExportUrl: function (id, kind, sheet, exportToken) {
+      var base = window.PV.API_BASE + '/api/authors/' + encodeURIComponent(id) + '/export.' + (kind === 'csv' ? 'csv' : 'xlsx');
+      var p = new URLSearchParams();
+      if (kind === 'csv') p.set('sheet', sheet || 'papers');
+      if (exportToken) p.set('pv_token', exportToken);
+      var qs = p.toString();
+      return base + (qs ? '?' + qs : '');
+    },
+    authorExportToken: function (id) {
+      return request('/api/authors/' + encodeURIComponent(id) + '/export-token', { meta: true });
+    },
+    authorExportBlob: function (id, kind, sheet) {
+      var tok = getToken();
+      var p = new URLSearchParams();
+      if (kind === 'csv') p.set('sheet', sheet || 'papers');
+      var url = window.PV.API_BASE + '/api/authors/' + encodeURIComponent(id) + '/export.' + (kind === 'csv' ? 'csv' : 'xlsx') +
+                (p.toString() ? '?' + p.toString() : '');
+      return fetch(url, { credentials: 'include', headers: tok ? { Authorization: 'Bearer ' + tok } : {} }).then(function (res) {
+        if (!res.ok) return { ok: false, status: res.status, message: statusMessage(res.status) };
+        return res.blob().then(function (b) {
+          var cd = res.headers.get('Content-Disposition') || '';
+          var m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+          return { ok: true, blob: b, filename: m ? decodeURIComponent(m[1]) : '' };
+        });
+      }).catch(function () { return { ok: false, message: NET_ERROR }; });
+    },
     funder: function (id) {
       return request('/api/funders/' + encodeURIComponent(id), { meta: true });
     },
