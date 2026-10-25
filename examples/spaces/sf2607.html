@@ -17195,10 +17195,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           style: { cursor: "pointer" },
           onClick: (e) => {
             e.stopPropagation();
-            const phoneToggle = node.type === "theme" && isMobile && gran === "themes";
-            if (!phoneToggle) setSelectedNode(node);
+            setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
-            else if (!phoneToggle) keepInView(node.id);
+            else keepInView(node.id);
             if (node.type === "author") requestExpand(node);
           },
           onMouseEnter: () => setHoveredNode(node),
