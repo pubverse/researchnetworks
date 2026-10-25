@@ -8229,7 +8229,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const svgRef = useRef(null);
     const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 2e3, h: 1500 });
     const [isDragging, setIsDragging] = useState(false);
-    const pressRef = useRef({ x: 0, y: 0, moved: false });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [darkMode, setDarkMode] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -8829,10 +8828,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, [filteredNodes]);
     const handleMouseMove = (e) => {
       setMousePos({ x: e.clientX, y: e.clientY });
-      if (e.buttons & 1) {
-        const p = pressRef.current;
-        if (Math.abs(e.clientX - p.x) > 4 || Math.abs(e.clientY - p.y) > 4) p.moved = true;
-      }
       if (isDragging) {
         const dx = (e.clientX - dragStart.x) * (viewBox.w / window.innerWidth);
         const dy = (e.clientY - dragStart.y) * (viewBox.h / window.innerHeight);
@@ -9261,8 +9256,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           "data-theme": node.theme || void 0,
           transform: `translate(${pos.x}, ${pos.y})`,
           style: { cursor: "pointer" },
-          onClick: (e) => {
-            e.stopPropagation();
+          onClick: () => {
             setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
             else keepInView(node.id);
@@ -9564,17 +9558,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         viewBox: `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`,
         onMouseDown: (e) => {
           userCamera();
-          pressRef.current = { x: e.clientX, y: e.clientY, moved: false };
           setIsDragging(true);
           setDragStart({ x: e.clientX, y: e.clientY });
         },
         onMouseUp: () => setIsDragging(false),
         onMouseLeave: () => setIsDragging(false),
-        onClick: () => {
-          if (pressRef.current.moved) return;
-          setSelectedNode(null);
-          setOpenTip(null);
-        },
         onWheel: handleWheel
       },
       filteredEdges.map((edge, i) => {
