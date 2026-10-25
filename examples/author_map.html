@@ -1314,7 +1314,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const svgRef = useRef(null);
     const [viewBox, setViewBox] = useState({ x: 0, y: 0, w: 2e3, h: 1500 });
     const [isDragging, setIsDragging] = useState(false);
-    const pressRef = useRef({ x: 0, y: 0, moved: false });
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [darkMode, setDarkMode] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
@@ -1914,10 +1913,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     }, [filteredNodes]);
     const handleMouseMove = (e) => {
       setMousePos({ x: e.clientX, y: e.clientY });
-      if (e.buttons & 1) {
-        const p = pressRef.current;
-        if (Math.abs(e.clientX - p.x) > 4 || Math.abs(e.clientY - p.y) > 4) p.moved = true;
-      }
       if (isDragging) {
         const dx = (e.clientX - dragStart.x) * (viewBox.w / window.innerWidth);
         const dy = (e.clientY - dragStart.y) * (viewBox.h / window.innerHeight);
@@ -2346,12 +2341,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           "data-theme": node.theme || void 0,
           transform: `translate(${pos.x}, ${pos.y})`,
           style: { cursor: "pointer" },
-          onClick: (e) => {
-            e.stopPropagation();
-            const phoneToggle = node.type === "theme" && isMobile && gran === "themes";
-            if (!phoneToggle) setSelectedNode(node);
+          onClick: () => {
+            setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
-            else if (!phoneToggle) keepInView(node.id);
+            else keepInView(node.id);
             if (node.type === "author") requestExpand(node);
           },
           onMouseEnter: () => setHoveredNode(node),
@@ -2650,17 +2643,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         viewBox: `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`,
         onMouseDown: (e) => {
           userCamera();
-          pressRef.current = { x: e.clientX, y: e.clientY, moved: false };
           setIsDragging(true);
           setDragStart({ x: e.clientX, y: e.clientY });
         },
         onMouseUp: () => setIsDragging(false),
         onMouseLeave: () => setIsDragging(false),
-        onClick: () => {
-          if (pressRef.current.moved) return;
-          setSelectedNode(null);
-          setOpenTip(null);
-        },
         onWheel: handleWheel
       },
       filteredEdges.map((edge, i) => {
@@ -3140,7 +3127,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         textDecoration: "none",
         fontWeight: 500
       } }, "View on PubMed \u2192");
-    })(), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "12px", color: theme.textMuted } }, "Connections: ", selectedNode.degree)))))), hoveredNode && !selectedNode && /* @__PURE__ */ React.createElement("div", { style: {
+    })(), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "12px", color: theme.textMuted } }, "Connections: ", selectedNode.degree)))))), hoveredNode && !selectedNode && !isMobile && /* @__PURE__ */ React.createElement("div", { style: {
       position: "fixed",
       left: mousePos.x + 15,
       top: mousePos.y + 15,
@@ -3152,7 +3139,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       pointerEvents: "none",
       zIndex: 100,
       maxWidth: "280px"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type === "author" ? "Author" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"))));
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.unique_title || hoveredNode.title || hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type === "author" ? "Author" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"))));
   }
   const rootEl = document.getElementById("root");
   if (!SHELL) {
