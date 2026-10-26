@@ -649,7 +649,9 @@
     var s = String(st.res && st.res.summary || '').trim();
     var cap = st.res && st.res.stats && st.res.stats.cap_note;
     box.innerHTML = '<h3 id="avPrimaryH">Primary work</h3>' +
-      (s ? '<p class="av-summary">' + esc(s) + '</p>' : '<p class="muted">No summary is available for this author yet.</p>') +
+      (s ? '<p class="av-summary">' + esc(s) + '</p>' +
+           '<p class="mini muted">Written by our local model from the titles of these papers; check the papers before quoting it.</p>'
+         : '<p class="muted">No summary is available for this author yet.</p>') +
       (cap ? '<p class="mini muted">' + esc(cap) + '</p>' : '');
     box.hidden = false;
   }
