@@ -281,12 +281,13 @@
       return request('/api/authors/' + encodeURIComponent(id) + (sort ? '?sort=' + encodeURIComponent(sort) : ''),
                      { meta: true });
     },
-    // Co-authors and credible authors working in the same topics or subfields.
+    // Co-authors and other authors working in the same topics or subfields.
     authorNearby: function (id) {
       return request('/api/authors/' + encodeURIComponent(id) + '/nearby', { meta: true });
     },
-    // The author's map content in the field-map graph schema: context clusters (problem statements,
-    // outcomes, methods) on the research-space maps, context authors, co-authors. space is a slug.
+    // The author's map in the field-map graph schema: themes and subthemes of their lead and senior papers,
+    // OpenAlex fields and subfields, co-authors and context authors, plus the text lists and the summary.
+    // While the profile is first built the answer is {ok:true, pending:true}; the caller polls. space is accepted and ignored.
     authorContextGraph: function (id, space) {
       if (!/^A\d{1,12}$/.test(String(id || ''))) return Promise.resolve({ ok: false, status: 404, message: 'Not found.' });
       var qs = '';
@@ -295,6 +296,11 @@
         qs = '?space=' + encodeURIComponent(space);
       }
       return request('/api/authors/' + encodeURIComponent(id) + '/context-graph' + qs, { meta: true, timeout: 30000 });
+    },
+    // The co-authors and context authors of one person (no model call): used when a person on the map is expanded.
+    authorPeople: function (id) {
+      if (!/^A\d{1,12}$/.test(String(id || ''))) return Promise.resolve({ ok: false, status: 404, message: 'Not found.' });
+      return request('/api/authors/' + encodeURIComponent(id) + '/people', { meta: true, timeout: 30000 });
     },
     // Author exports. Same two ways to authorize as the Compass export: a short-lived pv_token in the
     // query for a plain download link (never the session token), or the session's Bearer header on a
@@ -328,7 +334,7 @@
     funder: function (id) {
       return request('/api/funders/' + encodeURIComponent(id), { meta: true });
     },
-    // People working in one topic or subfield (id like topic-123 or subfield-45), most credible first.
+    // People working in one topic or subfield (id like topic-123 or subfield-45), most published first.
     topicPeople: function (id, limit) {
       return request('/api/topics/' + encodeURIComponent(id) + '/people?limit=' + (limit || 25), { meta: true });
     },

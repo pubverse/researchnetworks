@@ -389,3 +389,11 @@ a.chip-btn{text-decoration:none;color:inherit}
   .tabs{flex-wrap:wrap;overflow:visible}
   .tabs button[data-tab="score"]{order:2;flex:1 1 100%;text-align:left;white-space:normal;border-top:1px solid var(--line)}
 }
+
+/* ---- Author page: summary, text lists beneath the map ---- */
+.av-summary{margin:0 0 6px;max-width:68ch;line-height:1.55}
+.tree-list{list-style:none;margin:0;padding:0}
+.tree-list li{padding:5px 0}
+.tree-list ul{list-style:none;margin:2px 0 4px;padding:0 0 0 18px;border-left:2px solid var(--line)}
+.tree-list ul li{padding:3px 0 3px 10px}
+.role-badge.claimed{white-space:normal;max-width:100%;background:#fdf1dc;color:#7a5410}

@@ -1165,12 +1165,6 @@
     });
     return out;
   }
-  // The API scores credibility 0-100; the map expects 0..1.
-  function normCred(x) {
-    x = numOr(x, 0);
-    if (x > 1) x = x / 100;
-    return Math.max(0, Math.min(1, x));
-  }
   function normAuthor(a, extra) {
     if (!a || typeof a !== 'object') return null;
     var id = String(a.id != null ? a.id : a.author_id);
@@ -1182,7 +1176,7 @@
       country: str(a.country || a.last_institution_country, 8),
       orcid: str(a.orcid, 40),
       h_index: a.h_index == null ? null : Math.round(numOr(a.h_index, 0)),
-      credibility: a.credibility == null ? null : normCred(a.credibility),
+      credibility: null, // shelved: not shown or used
       n_papers: Math.max(0, Math.round(numOr(a.n_papers_on_map != null ? a.n_papers_on_map : a.n_papers, 0))),
       clusters: normClusters(a.clusters || a.shared_clusters || a.top_clusters)
     };

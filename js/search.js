@@ -292,7 +292,7 @@
   function suspectNote(a) {
     if (!a || !a.suspect_merge) return '';
     return '<p class="suspect-note">This profile may merge several people who share a name. ' +
-           'Its counts are probably too high, so it is ranked lower.</p>';
+           'Its counts are probably too high.</p>';
   }
   function placeLine(inst, ctry) {
     var parts = [];
@@ -504,12 +504,6 @@
     try { h.focus({ preventScroll: true }); } catch (e) { /* older browsers scroll; harmless */ }
   }
 
-  var CRED_NOTE = 'Search ranks authors by name match first, then by a credibility measure from 0 to 100 built ' +
-    'only from the public publication record: 45% citations (log scale), 35% h-index, 10% for having an ' +
-    'ORCID iD, and 10% for last-author and corresponding-author papers, each against fixed anchors so a ' +
-    'score means the same after every rebuild. Profiles that look like several people merged under one name count a quarter. It orders search ' +
-    'results only; it is never part of a PubVerse novelty, methods or impact score.';
-
   function fact(k, v, title) {
     return '<div class="fact"' + (title ? ' title="' + esc(title) + '"' : '') + '><dt>' + esc(k) + '</dt><dd>' + v + '</dd></div>';
   }
@@ -521,21 +515,21 @@
       if (my !== viewSeq) return;
       if (!res || res.ok === false || !res.author) { viewFailed(res); return; }
       renderAuthor(id, res);
-      cached('nearby:' + id, function () { return api.authorNearby(id); }).then(function (nb) {
-        if (my !== viewSeq) return;
-        renderNearby(nb);
-      });
     });
   }
 
   /* The author map on top of the author page. It is the field-map renderer in its shell build
-     (examples/author_map.html) inside an iframe, fed the author's graph from the C2 route by
-     postMessage: the author at the center, their context clusters (problem statements, outcomes,
-     methods) on a research-space map, CONTEXT authors who share those clusters, and CO-AUTHORS, as
-     separate legend classes. The shell draws legend, panels, overview and Top Related Publications. */
+     (examples/author_map.html) inside an iframe, fed the author's graph from the context-graph route by
+     postMessage: the author at the center, linked to the themes and subthemes of their lead and senior papers
+     and to the OpenAlex fields and subfields those papers sit in, with co-authors and context authors as
+     separate legend classes. The shell draws legend, panels, Advanced settings (people filters), Highlight
+     and Top Related Publications. The first build of a profile takes up to a minute: the route answers
+     {pending:true} and this page polls it every 2 seconds, for at most 120 seconds. */
   var authorMap = null;
   var MAP_SHELL = 'examples/author_map.html';
-  var MAP_MAX_NODES = 420, MAP_MAX_PEOPLE = 160;
+  var MAP_MAX_NODES = 600, MAP_MAX_PEOPLE = 260;
+  var POLL_MS = 2000, POLL_MAX_MS = 120000;
+  var FILTERS_FALLBACK = { min_papers: 5, min_joint: 2, recent_months: 24 };
   function destroyGraph() {
     if (authorMap) { authorMap.timers.forEach(clearTimeout); authorMap.timers = []; }
     authorMap = null;
@@ -558,79 +552,70 @@
     var host = $('#avGraph');
     if (!host) return;
     destroyGraph();
-    var st = authorMap = { id: id, my: viewSeq, host: host, space: '', spaces: [], graph: null, token: '', frame: null,
-                           timers: [], expanded: Object.create(null), busy: false };
+    var st = authorMap = { id: id, my: viewSeq, host: host, graph: null, res: null, token: '', frame: null,
+                           timers: [], expanded: Object.create(null), busy: false, started: Date.now(),
+                           papers: null, paperSort: '', paperAll: false, showAllCo: false };
     host.innerHTML = spinnerHtml('Building the map');
-    loadMapSpace(st, '', true);
     wireExports(st);
+    loadProfile(st);
   }
-  function loadMapSpace(st, space, first) {
-    return cached('ctx:' + st.id + ':' + (space || ''), function () { return api.authorContextGraph(st.id, space || undefined).then(function (r) { if (r && typeof r === 'object') r._at = Date.now(); return r; }); }).then(function (res) {
+  // A {pending:true} answer is not a result: it must never sit in the two-minute cache, so the fetcher reports it
+  // as a not-ok answer (cached() keeps only ok ones).
+  function fetchProfile(st) {
+    return cached('ctx:' + st.id, function () {
+      return api.authorContextGraph(st.id).then(function (r) {
+        if (r && typeof r === 'object') {
+          if (r.pending) return { ok: false, pending: true, message: r.message || '', position: r.position, works: r.works, n_papers: r.n_papers, stats: r.stats };
+          r._at = Date.now();
+        }
+        return r;
+      });
+    });
+  }
+  function pendingText(r) {
+    var n = r && (r.works != null ? r.works : (r.n_papers != null ? r.n_papers : (r.stats && r.stats.works)));
+    var what = (n != null && isFinite(Number(n))) ? num(n) + ' papers' : 'the papers';
+    return 'Building the author map: grouping ' + what + ' and writing titles. This takes up to a minute the first time.';
+  }
+  function loadProfile(st) {
+    fetchProfile(st).then(function (res) {
       if (st !== authorMap || st.my !== viewSeq) return;
+      if (res && res.pending) {
+        if (Date.now() - st.started >= POLL_MAX_MS) {
+          st.host.innerHTML = '<p class="mini muted">The map is still being built. Please check back in a minute. ' +
+            '<button type="button" class="btn ghost sm" id="avMapRetry">Try again</button></p>';
+          on($('#avMapRetry'), 'click', function () { if (st !== authorMap) return; st.started = Date.now(); st.host.innerHTML = spinnerHtml('Building the map'); loadProfile(st); });
+          return;
+        }
+        st.host.innerHTML = spinnerHtml(pendingText(res));
+        st.timers.push(setTimeout(function () { if (st === authorMap) loadProfile(st); }, POLL_MS));
+        return;
+      }
       if (!res || res.ok === false || !res.graph || !Array.isArray(res.graph.nodes)) {
-        var t = errorText(res);
-        if (first) st.host.innerHTML = '<p class="mini muted">The map is unavailable right now. ' + esc(t) + ' The lists below hold the same information as text.</p>';
-        else mapStatus(st, t);
+        st.host.innerHTML = '<p class="mini muted">The map is unavailable right now. ' + esc(errorText(res)) + ' The lists below hold the same information as text.</p>';
         return;
       }
       if (res.export_token) { st.token = res.export_token; st.tokenAt = res._at || 0; }
-      st.spaces = (res.spaces || []).filter(function (s) { return s && s.slug; });
-      st.space = res.space || (st.spaces[0] && st.spaces[0].slug) || '';
+      st.res = res;
       st.graph = cloneGraph(res.graph);
       st.expanded = Object.create(null);
-      st.note = res.note || res.message || '';
-      if (first) buildMapUi(st); else { syncSpaceSelect(st); sendGraph(st); }
-      summarizeMap(st);
+      st.filters = Object.assign({}, FILTERS_FALLBACK, res.filters_default || (res.graph.metadata && res.graph.metadata.filters_default) || {});
+      buildMapUi(st);
+      fillPrimary(st);
+      fillLists(st);
+      fillProfilePapers(st);
     });
-  }
-  function nodeCounts(g) {
-    var c = { cluster: 0, ctx: 0, co: 0, people: 0 };
-    (g.nodes || []).forEach(function (n) {
-      if (!n) return;
-      if (n.type === 'author') {
-        if (n.role === 'context') c.ctx++; else if (n.role === 'coauthor') c.co++;
-        if (n.role !== 'center') c.people++;
-      } else if (n.type === 'cluster') c.cluster++;
-    });
-    return c;
-  }
-  function summarizeMap(st) {
-    var c = nodeCounts(st.graph), sp = null;
-    st.spaces.forEach(function (s) { if (s.slug === st.space) sp = s; });
-    var bits = [];
-    if (c.cluster) bits.push(num(c.cluster) + ' ' + plural(c.cluster, 'context cluster'));
-    bits.push(num(c.ctx) + ' context ' + plural(c.ctx, 'author'));
-    bits.push(num(c.co) + ' ' + plural(c.co, 'co-author'));
-    var t = (sp ? sp.name + ': ' : '') + bits.join(', ') + '.';
-    if (!c.cluster) t = (st.note || 'This author is not placed on a research-space map (papers after March 2026, or a field not mapped yet), so the map shows co-authors only.') + ' ' + t;
-    mapStatus(st, t);
-  }
-  function syncSpaceSelect(st) {
-    var sel = viewEl && viewEl.querySelector('#avMapSpace');
-    if (sel && sel.value !== st.space) sel.value = st.space;
   }
   function buildMapUi(st) {
-    var opts = st.spaces.map(function (s) {
-      return '<option value="' + esc(s.slug) + '"' + (s.slug === st.space ? ' selected' : '') + '>' + esc(s.name || s.slug) +
-        (s.n_papers != null ? ' (' + num(s.n_papers) + ' ' + plural(s.n_papers, 'paper') + ')' : '') + '</option>';
-    }).join('');
-    var bar = '<div class="am-bar">' +
-      (st.spaces.length > 1
-        ? '<label for="avMapSpace" class="am-lab">Research space</label><select id="avMapSpace" class="am-sel">' + opts + '</select>'
-        : (st.spaces.length ? '<span class="am-lab">Research space: <b>' + esc(st.spaces[0].name || st.spaces[0].slug) + '</b></span>' : '')) +
-      '<button class="btn ghost sm" id="avMapFull" type="button" aria-controls="avMapFrame">Full screen</button></div>';
+    var bar = '<div class="am-bar"><button class="btn ghost sm" id="avMapFull" type="button" aria-controls="avMapFrame">Full screen</button></div>';
     st.host.innerHTML = bar + '<p class="mini muted am-status" id="avMapStatus" role="status" aria-live="polite"></p>' +
       '<div class="space-map am-map"><iframe id="avMapFrame" allow="fullscreen" allowfullscreen ' +
-      'title="Interactive map of this author’s research contexts"></iframe></div>' +
-      '<p class="mini muted">Context authors share a problem statement, an outcome or a method cluster with this author on the map; ' +
-      'co-authors have published with them. A person can be both. Click a person for their panel and to add their contexts. ' +
+      'title="Interactive map of this author’s work"></iframe></div>' +
+      '<p class="mini muted">Click a person for their panel; Expand adds that person’s own co-authors and context authors. ' +
       '<a href="docs.html#maps">How author maps are built</a></p>';
     var frame = st.frame = $('#avMapFrame');
-    var sel = $('#avMapSpace');
-    if (sel) on(sel, 'change', function () {
-      mapStatus(st, 'Loading ' + (sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : 'the space') + '…');
-      loadMapSpace(st, sel.value, false);
-    });
+    var cap = st.res && st.res.stats && st.res.stats.cap_note;
+    mapStatus(st, cap ? String(cap) : '');
     on($('#avMapFull'), 'click', function () {
       var req = frame.requestFullscreen || frame.webkitRequestFullscreen;
       if (document.fullscreenElement) { document.exitFullscreen(); return; }
@@ -646,15 +631,185 @@
       frame.src = MAP_SHELL;
     }, function () { mapStatus(st, 'The map could not be loaded.'); });
   }
+
+  /* ---- the text beneath the map: the same content as lists ---- */
+  function nodesOfType(g, type) {
+    return (g.nodes || []).filter(function (n) { return n && n.type === type; });
+  }
+  function labelOf(n) { return cleanTitle(n && (n.title || n.label || n.name) || ''); }
+  function papersCount(n) {
+    var v = n && (n.n_papers != null ? n.n_papers : n.corpus_size);
+    return (v != null && isFinite(Number(v))) ? Number(v) : null;
+  }
+  function countText(n) { var c = papersCount(n); return c == null ? '' : num(c) + ' ' + plural(c, 'paper'); }
+  function yearOf(d) { var m = /^(\d{4})/.exec(String(d == null ? '' : d)); return m ? m[1] : ''; }
+  function fillPrimary(st) {
+    var box = viewEl && viewEl.querySelector('#avPrimary');
+    if (!box || st !== authorMap) return;
+    var s = String(st.res && st.res.summary || '').trim();
+    var cap = st.res && st.res.stats && st.res.stats.cap_note;
+    box.innerHTML = '<h3 id="avPrimaryH">Primary work</h3>' +
+      (s ? '<p class="av-summary">' + esc(s) + '</p>' : '<p class="muted">No summary is available for this author yet.</p>') +
+      (cap ? '<p class="mini muted">' + esc(cap) + '</p>' : '');
+    box.hidden = false;
+  }
+  function personLi(p, kind) {
+    var id = authorIdOf(p), name = p.name || p.label || 'Unnamed author';
+    var meta = [];
+    var place = placeLine(p.institution, p.country);
+    if (place) meta.push(place);
+    if (p.works_count != null) meta.push(num(p.works_count) + ' ' + plural(p.works_count, 'paper') + ' in all');
+    if (kind === 'co') {
+      if (p.n_joint != null) {
+        var y = yearOf(p.last_joint);
+        meta.push(num(p.n_joint) + ' joint ' + plural(p.n_joint, 'paper') + (y ? ', latest ' + esc(y) : ''));
+      }
+    }
+    var extra = '';
+    if (kind === 'co' && Number(p.reattributed) > 0) {
+      extra = '<span class="mini muted">OpenAlex lists this person under ' + num((p.also_ids && p.also_ids.length || 1) + 1) +
+        ' profiles; joint papers merged here.</span>';
+    } else if (kind === 'ctx' && p.reason) {
+      extra = '<span class="mini muted">' + esc(p.reason) + '</span>';
+    }
+    return '<li>' + (id ? '<a href="#author/' + id + '">' + esc(name) + '</a>' : esc(name)) +
+      (meta.length ? '<span class="mini muted">' + meta.join(' &middot; ') + '</span>' : '') + extra + '</li>';
+  }
+  // Default people filters, the same rule the map applies: papers in all >= min_papers; a co-author also needs
+  // >= min_joint joint papers unless a joint paper is recent. An unknown count never hides anyone.
+  function passesFilter(p, f, co) {
+    if (p.works_count != null && Number(p.works_count) < f.min_papers) return false;
+    if (co && p.n_joint != null && Number(p.n_joint) < f.min_joint && !p.recent) return false;
+    return true;
+  }
+  function fillLists(st) {
+    var box = viewEl && viewEl.querySelector('#avLists');
+    if (!box || st !== authorMap) return;
+    var g = st.graph, f = st.filters;
+    var fields = nodesOfType(g, 'oa_field'), subfields = nodesOfType(g, 'oa_subfield');
+    var themes = nodesOfType(g, 'theme'), subs = (g.nodes || []).filter(function (n) { return n && n.type === 'cluster'; });
+    var html = '';
+
+    if (fields.length || subfields.length) {
+      html += '<section class="av-sec" aria-labelledby="avFieldsH"><h3 id="avFieldsH">Fields and subfields</h3>' +
+        '<p class="mini muted">OpenAlex fields and subfields of the lead and senior papers.</p><ul class="tree-list">';
+      var used = Object.create(null);
+      fields.forEach(function (fl) {
+        var fid = String(fl.id || '').replace(/^oa_field::/, '');
+        var kids = subfields.filter(function (s) { return String(s.field_id) === fid; });
+        kids.forEach(function (s) { used[s.id] = 1; });
+        html += '<li><b>' + esc(labelOf(fl)) + '</b>' + (countText(fl) ? ' <span class="mini muted">' + esc(countText(fl)) + '</span>' : '') +
+          (kids.length ? '<ul>' + kids.map(function (s) {
+            return '<li>' + esc(labelOf(s)) + (countText(s) ? ' <span class="mini muted">' + esc(countText(s)) + '</span>' : '') + '</li>';
+          }).join('') + '</ul>' : '') + '</li>';
+      });
+      subfields.filter(function (s) { return !used[s.id]; }).forEach(function (s) {
+        html += '<li>' + esc(labelOf(s)) + (countText(s) ? ' <span class="mini muted">' + esc(countText(s)) + '</span>' : '') + '</li>';
+      });
+      html += '</ul></section>';
+    }
+
+    if (themes.length || subs.length) {
+      html += '<section class="av-sec" aria-labelledby="avThemesH"><h3 id="avThemesH">Themes and subthemes</h3>' +
+        '<p class="mini muted">Titles are written by our local model from the paper titles; the counts and years are from the papers.</p><ul class="tree-list">';
+      var usedSub = Object.create(null);
+      function subLi(s) {
+        return '<li>' + esc(labelOf(s)) + (s.overview ? ' <span class="mini muted">' + esc(s.overview) + '</span>' : '') + '</li>';
+      }
+      themes.forEach(function (t) {
+        var kids = subs.filter(function (s) { return s.theme != null && s.theme === t.theme; });
+        kids.forEach(function (s) { usedSub[s.id] = 1; });
+        html += '<li><b>' + esc(labelOf(t)) + '</b>' + (t.overview ? ' <span class="mini muted">' + esc(t.overview) + '</span>' : '') +
+          (kids.length ? '<ul>' + kids.map(subLi).join('') + '</ul>' : '') + '</li>';
+      });
+      subs.filter(function (s) { return !usedSub[s.id]; }).forEach(function (s) { html += subLi(s); });
+      html += '</ul></section>';
+    }
+
+    var people = nodesOfType(g, 'author');
+    var co = people.filter(function (p) { return p.role === 'coauthor'; }).sort(function (a, b) {
+      return (Number(b.n_joint) || 0) - (Number(a.n_joint) || 0) || String(b.last_joint || '').localeCompare(String(a.last_joint || ''));
+    });
+    var cx = people.filter(function (p) { return p.role === 'context'; });
+    var coShown = st.showAllCo ? co : co.filter(function (p) { return passesFilter(p, f, true); });
+    var cxShown = st.showAllCo ? cx : cx.filter(function (p) { return passesFilter(p, f, false); });
+    var hidden = (co.length - coShown.length) + (cx.length - cxShown.length);
+    html += '<section class="av-sec" aria-labelledby="avCoH"><h3 id="avCoH">Co-authors</h3>' +
+      '<p class="mini muted">Shown with at least ' + num(f.min_papers) + ' papers in all and at least ' + num(f.min_joint) +
+      ' joint papers, or a joint paper from the last ' + num(f.recent_months) + ' months.</p>' +
+      (coShown.length ? '<ul class="person-list">' + coShown.map(function (p) { return personLi(p, 'co'); }).join('') + '</ul>'
+                      : '<p class="muted">No co-authors meet these limits.</p>') + '</section>';
+    html += '<section class="av-sec" aria-labelledby="avCxH"><h3 id="avCxH">Context authors</h3>' +
+      '<p class="mini muted">People who publish on the same subjects, with at least ' + num(f.min_papers) + ' papers in all.</p>' +
+      (cxShown.length ? '<ul class="person-list">' + cxShown.map(function (p) { return personLi(p, 'ctx'); }).join('') + '</ul>'
+                      : '<p class="muted">No context authors meet this limit.</p>') + '</section>';
+    if (hidden > 0 || st.showAllCo) {
+      html += '<p class="btn-row"><button type="button" class="btn ghost sm" id="avShowAll" aria-pressed="' + (st.showAllCo ? 'true' : 'false') + '">' +
+        (st.showAllCo ? 'Apply the limits again' : 'Show all (' + num(hidden) + ' more)') + '</button></p>';
+    }
+    box.innerHTML = html;
+    on($('#avShowAll', box), 'click', function () { st.showAllCo = !st.showAllCo; fillLists(st); });
+  }
+
+  /* ---- papers, from the profile (all works) ---- */
+  var PAPERS_SHOWN = 50;
+  function roleName(r) {
+    if (typeof r === 'string') return r.toLowerCase();
+    if (typeof r === 'number') return ['first', 'middle', 'last'][r & 3] || '';
+    return '';
+  }
+  function profilePapersHtml(st) {
+    var list = st.papers.slice();
+    if (st.paperSort === 'year') list.sort(function (a, b) { return String(b.date || b.year || '').localeCompare(String(a.date || a.year || '')) || (Number(b.cited) || 0) - (Number(a.cited) || 0); });
+    else list.sort(function (a, b) { return (Number(b.cited) || 0) - (Number(a.cited) || 0) || (Number(b.year) || 0) - (Number(a.year) || 0); });
+    var total = list.length, shown = st.paperAll ? list : list.slice(0, PAPERS_SHOWN);
+    var subTitle = Object.create(null);
+    (st.graph.nodes || []).forEach(function (n) { if (n && n.type === 'cluster' && n.id) subTitle[String(n.id).replace(/^sub::/, '')] = labelOf(n); });
+    var head = '<p class="mini muted">' + num(total) + ' ' + plural(total, 'paper') + (total > shown.length ? ', showing ' + num(shown.length) : '') + '.</p>';
+    var more = total > shown.length ? '<p class="btn-row"><button type="button" class="btn ghost sm" id="avPapersAll">Show all ' + num(total) + ' papers</button></p>' : '';
+    return head + '<ol class="paper-list">' + shown.map(function (p) {
+      var u = doiUrl(p.doi), t = esc(cleanTitle(p.title) || 'Untitled');
+      var r = roleName(p.role), badges = '';
+      if (r === 'first') badges += '<span class="role-badge">First author</span>';
+      else if (r === 'last') badges += '<span class="role-badge">Last author</span>';
+      if (p.corresponding || (typeof p.role === 'number' && (p.role & 4))) badges += '<span class="role-badge corr">Corresponding</span>';
+      if (p.claimed_from) badges += '<span class="role-badge claimed" title="OpenAlex lists this paper under a different profile">Filed by OpenAlex under another profile</span>';
+      var meta = [];
+      if (p.cited != null) meta.push(num(p.cited) + ' ' + plural(p.cited, 'citation'));
+      var st2 = p.subtheme ? (subTitle[p.subtheme] || (/^S\d+$/.test(String(p.subtheme)) ? '' : String(p.subtheme))) : '';
+      if (st2) meta.push('Subtheme: ' + esc(st2));
+      var subj = nameOf(p.topic) || nameOf(p.subfield);
+      if (subj) meta.push(esc(subj));
+      return '<li><span class="pl-year">' + esc(p.year || '') + '</span><div class="pl-body">' +
+        (u ? '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + t + '</a>' : '<span>' + t + '</span>') +
+        (badges ? ' <span class="badges">' + badges + '</span>' : '') +
+        (meta.length ? '<div class="mini muted">' + meta.join(' &middot; ') + '</div>' : '') +
+        '</div></li>';
+    }).join('') + '</ol>' + more;
+  }
+  function fillProfilePapers(st) {
+    var box = $('#avPapers');
+    var all = st.res && st.res.lists && st.res.lists.papers;
+    if (!box || st !== authorMap || !Array.isArray(all) || !all.length) return;
+    st.papers = all.filter(function (p) { return p && p.title; });
+    st.pagePapers = st.papers.map(function (p) { return { title: p.title, year: p.year, doi: p.doi }; });
+    box.innerHTML = profilePapersHtml(st);
+    wirePapers(st, box);
+  }
+  function wirePapers(st, box) {
+    on($('#avPapersAll', box), 'click', function () { st.paperAll = true; box.innerHTML = profilePapersHtml(st); wirePapers(st, box); });
+  }
+
+  // A tapped person: their own co-authors and context authors, from the people route (no model, no embeddings).
   function expandPerson(st, pid) {
     if (!/^A\d{1,12}$/.test(pid) || st.expanded[pid] || st.busy) return;
     st.busy = true;
-    mapStatus(st, 'Adding that person’s contexts…');
-    cached('ctx:' + pid + ':' + st.space, function () { return api.authorContextGraph(pid, st.space || undefined); }).then(function (res) {
+    mapStatus(st, 'Adding that person’s co-authors and context authors…');
+    cached('people:' + pid, function () { return api.authorPeople(pid); }).then(function (res) {
       st.busy = false;
       if (st !== authorMap) return;
-      if (!res || res.ok === false || !res.graph) {
-        var em = (res && res.status === 404) ? 'That person has no contexts on this map to add.' : errorText(res);
+      if (!res || res.ok === false || !Array.isArray(res.authors)) {
+        var em = (res && res.status === 404) ? 'That person has nobody more to add on this map.' : errorText(res);
         mapStatus(st, em);
         if (st.frame && st.frame.contentWindow) st.frame.contentWindow.postMessage({ type: 'pv:author-error', message: em }, location.origin);
         return;
@@ -666,39 +821,37 @@
       st.graph.nodes.forEach(function (n) { if (n && n.id != null) { have[n.id] = 1; if (n.type === 'author') people++; } });
       var cand = [], anchorRec = null;
       // The clicked person keeps the role they already have on this map (a co-author stays a co-author, with the
-      // shared works and reasons this map gave them); their own graph only adds what is new. Someone not yet on
+      // shared works and reasons this map gave them); their own list only adds what is new. Someone not yet on
       // the map comes in as a context author.
       var current = null;
       st.graph.nodes.forEach(function (n) { if (n && n.id === pid && n.type === 'author') current = n; });
-      (res.graph.nodes || []).forEach(function (n) {
-        if (!n || n.type !== 'author' || n.id == null) return;
+      (res.authors || []).forEach(function (n) {
+        if (!n || n.id == null) return;
         if (n.id === pid) {
-          anchorRec = current ? Object.assign({}, n, current) : Object.assign({}, n, { role: 'context' });
+          anchorRec = current ? Object.assign({}, n, current) : Object.assign({}, n, { type: 'author', role: 'context' });
           return;
         }
-        if (!have[n.id]) cand.push(n);
+        if (!have[n.id]) cand.push(Object.assign({}, n, { type: 'author' }));
       });
-      cand.sort(function (x, y) { return (y.role === 'context' ? 1 : 0) - (x.role === 'context' ? 1 : 0) || (y.credibility || 0) - (x.credibility || 0); });
+      cand.sort(function (x, y) {
+        return (y.role === 'coauthor' ? 1 : 0) - (x.role === 'coauthor' ? 1 : 0) || (Number(y.works_count) || 0) - (Number(x.works_count) || 0);
+      });
       var room = Math.max(0, Math.min(24, MAP_MAX_PEOPLE - people, MAP_MAX_NODES - st.graph.nodes.length));
       var sent = cand.slice(0, room), dropped = cand.length - sent.length, added = sent.length;
       var authors = (anchorRec ? [anchorRec] : []).concat(sent), ids = Object.create(null);
       authors.forEach(function (n) { ids[n.id] = 1; });
       sent.forEach(function (n) { have[n.id] = 1; st.graph.nodes.push(n); });
       var edges = [], ekeys = Object.create(null);
-      (res.graph.edges || []).forEach(function (e) {
-        if (!e || e.edge_type !== 'author_link' || !ids[e.source] || !ids[e.target]) return;
+      (res.edges || []).forEach(function (e) {
+        if (!e || !ids[e.source] || !ids[e.target]) return;
+        if (e.edge_type && e.edge_type !== 'author_link') return;
         var k = e.source + '|' + e.target;
         if (ekeys[k]) return;
         ekeys[k] = 1; edges.push({ source: e.source, target: e.target, kind: 'coauthor', weight: e.weight });
         st.graph.edges.push(e);
       });
       if (st.frame && st.frame.contentWindow) {
-        // The API scores credibility 0-100; the map's author layer expects 0..1 on this message (same as compass.js).
-        var scaled = authors.map(function (a) {
-          var c = Number(a.credibility);
-          return Object.assign({}, a, { credibility: (a.credibility == null || !isFinite(c)) ? null : Math.max(0, Math.min(1, c > 1 ? c / 100 : c)) });
-        });
-        st.frame.contentWindow.postMessage({ type: 'pv:author-nodes', mode: 'expand', anchor: pid, authors: scaled, edges: edges }, location.origin);
+        st.frame.contentWindow.postMessage({ type: 'pv:author-nodes', mode: 'expand', anchor: pid, authors: authors, edges: edges }, location.origin);
       }
       mapStatus(st, added ? ('Added ' + num(added) + ' ' + plural(added, 'person') + (dropped ? '; ' + num(dropped) + ' more not shown (the map keeps a size cap).' : '.'))
                           : (dropped ? 'The map is at its size cap; nothing more was added.' : 'Nothing new to add for that person.'));
@@ -842,7 +995,7 @@
       (alt.length ? '<p class="mini muted">Also published as ' + alt.map(esc).join('; ') + '</p>' : '') +
       suspectNote(a) + '</header>';
 
-    // Credibility as the facts it is made of, with the recipe one click away.
+    // The record facts: counts from the public publication record, nothing scored.
     html += '<section class="av-sec" aria-labelledby="avRecord"><h3 id="avRecord">Publication record</h3>' +
       '<dl class="facts">' +
         fact('h-index', num(a.h_index)) +
@@ -853,11 +1006,7 @@
         (a.corresponding_works != null ? fact('Corresponding', num(a.corresponding_works), 'Papers as corresponding author') : '') +
         fact('ORCID', orcid ? 'Linked' : 'None') +
       '</dl>' +
-      '<details class="howto"><summary>How this is computed</summary><p>' + esc(res.credibility_note || CRED_NOTE) + '</p>' +
-      (a.credibility != null && isFinite(Number(a.credibility))
-        ? '<p>This profile: <b>' + esc(Math.round(Number(a.credibility))) + '</b> of 100.</p>' : '') +
-      '<p class="mini muted">Counts come from the OpenAlex snapshot PubVerse indexes, so recent papers may be missing.</p>' +
-      '</details></section>';
+      '<p class="mini muted">Counts come from the OpenAlex snapshot PubVerse indexes, so recent papers may be missing.</p></section>';
 
     // Their space: subfields first (broad), then topics (narrow), deduplicated by name.
     var chips = [], have = Object.create(null);
@@ -869,10 +1018,16 @@
         '<div class="chips">' + chips.slice(0, 12).join('') + '</div></section>';
     }
 
+    html += '<section class="av-sec" id="avPrimary" aria-labelledby="avPrimaryH"><h3 id="avPrimaryH">Primary work</h3>' +
+      '<p class="muted">Writing the summary…</p></section>';
+
     html += '<section class="av-sec ag-sec" aria-labelledby="avNetH"><h3 id="avNetH">Author map</h3>' +
-      '<p class="mini muted">' + esc(name) + ' at the center, the problem statements, outcomes and methods they work on, ' +
-      'the context authors who share them, and their co-authors. The lists below hold the same information as text.</p>' +
+      '<p class="mini muted">' + esc(name) + ' at the center, linked to the themes and subthemes of their lead and senior papers ' +
+      'and to the OpenAlex fields and subfields those papers sit in. Co-authors and context authors appear with at least 5 papers; ' +
+      'change this under Advanced on the map.</p>' +
       '<div id="avGraph"></div></section>';
+
+    html += '<div id="avLists"></div>';
 
     html += '<section class="av-sec" aria-labelledby="avExH"><h3 id="avExH">Export</h3>' +
       '<div class="btn-row ex-row" id="avExport">' +
@@ -883,7 +1038,7 @@
           '<button type="button" class="btn ghost sm" data-ex="context">Context authors</button></span>' +
         '<button type="button" class="btn ghost sm" data-ex="bib">BibTeX (papers)</button>' +
         '<span class="mini muted ex-status" role="status" aria-live="polite"></span></div>' +
-      '<p class="mini muted">The workbook has four sheets: author, papers, co-authors and context authors (with the contexts they share).</p></section>';
+      '<p class="mini muted">The workbook has four sheets: author, papers, co-authors and context authors (with the subthemes they share).</p></section>';
 
     html += '<div id="avMaps"></div>';
 
@@ -893,9 +1048,6 @@
         '<button type="button" data-sort="" aria-pressed="true">Most cited</button>' +
         '<button type="button" data-sort="year" aria-pressed="false">Newest</button></div></div>' +
       '<div id="avPapers">' + papersHtml(res.papers || [], res.papers_total) + '</div></section>';
-
-    html += '<section class="av-sec" aria-labelledby="avNearbyH"><h3 id="avNearbyH">Nearby</h3>' +
-      '<div id="avNearby">' + spinnerHtml('Finding nearby authors') + '</div></section>';
 
     var funders = (a.top_funders || []).filter(function (f) { return nameOf(f); });
     if (funders.length) {
@@ -926,6 +1078,10 @@
         var box = $('#avPapers');
         box.setAttribute('aria-busy', 'true');
         box.innerHTML = spinnerHtml('Sorting');
+        if (authorMap && authorMap.papers) {
+          authorMap.paperSort = sort || ''; box.removeAttribute('aria-busy');
+          box.innerHTML = profilePapersHtml(authorMap); wirePapers(authorMap, box); return;
+        }
         cached('author:' + id + (sort ? ':' + sort : ''), function () { return api.author(id, sort || undefined); }).then(function (r) {
           if (my !== viewSeq) return;
           box.removeAttribute('aria-busy');
@@ -957,33 +1113,6 @@
         (meta.length ? '<div class="mini muted">' + meta.join(' &middot; ') + '</div>' : '') +
         '</div></li>';
     }).join('') + '</ol>';
-  }
-
-  function personList(list, kind) {
-    return '<ul class="person-list">' + list.map(function (p) {
-      var id = authorIdOf(p), name = nameOf(p) || 'Unnamed author';
-      var meta = [];
-      var place = placeLine(p.institution, p.country);
-      if (place) meta.push(place);
-      if (kind === 'co' && p.shared_works != null) meta.push(num(p.shared_works) + ' shared ' + plural(p.shared_works, 'paper'));
-      if (kind === 'space' && p.h_index != null) meta.push('h-index ' + num(p.h_index));
-      return '<li>' + (id ? '<a href="#author/' + id + '">' + esc(name) + '</a>' : esc(name)) +
-        (meta.length ? '<span class="mini muted">' + meta.join(' &middot; ') + '</span>' : '') + '</li>';
-    }).join('') + '</ul>';
-  }
-  function renderNearby(nb) {
-    var box = $('#avNearby');
-    if (!box) return;
-    if (!nb || nb.ok === false) {
-      box.innerHTML = '<p class="mini muted">' + esc(errorText(nb)) + '</p>';
-      return;
-    }
-    var co = (nb.coauthors || []).filter(Boolean), sp = (nb.same_space || []).filter(Boolean);
-    if (!co.length && !sp.length) { box.innerHTML = '<p class="muted">No nearby authors found.</p>'; return; }
-    box.innerHTML = '<div class="nearby">' +
-      (co.length ? '<div><h4>Co-authors</h4>' + personList(co.slice(0, 12), 'co') + '</div>' : '') +
-      (sp.length ? '<div><h4>Working in the same space</h4>' + personList(sp.slice(0, 12), 'space') + '</div>' : '') +
-      '</div>';
   }
 
   /* ------------------------------------------------------------- funder view */
@@ -1064,7 +1193,7 @@
       '<span id="tvMap"></span></p></section>' +
       '<section class="av-sec" aria-labelledby="tvPeople"><h3 id="tvPeople">People in this area</h3>';
     if (!people.length) {
-      html += '<p class="muted">No credible authors are listed for this area yet.</p>';
+      html += '<p class="muted">No authors are listed for this area yet.</p>';
     } else {
       html += '<ul class="person-list">' + people.map(function (p) {
         var aid = authorIdOf(p), n = nameOf(p) || 'Unnamed author';
@@ -1077,8 +1206,8 @@
           (normOrcid(p.orcid) ? ' ' + orcidBadge(p.orcid, false) : '') +
           (meta.length ? '<span class="mini muted">' + meta.join(' &middot; ') + '</span>' : '') + '</li>';
       }).join('') + '</ul>' +
-      '<p class="mini muted">People with a paper since ' + esc(res.active_since || '') + ', ordered by credibility ' +
-      'from the public publication record' + (res.data_as_of ? ' (data through ' + esc(res.data_as_of) + ')' : '') + '. ' +
+      '<p class="mini muted">People with a paper since ' + esc(res.active_since || '') + ', ordered by publication record' +
+      '' + (res.data_as_of ? ' (data through ' + esc(res.data_as_of) + ')' : '') + '. ' +
       '<a href="docs.html#search">How authors are ranked</a></p>';
     }
     html += '</section></article>';
@@ -1107,7 +1236,7 @@
       });
       if (!links.length) return;
       slot.innerHTML = '<section class="av-sec" aria-labelledby="avMapsH"><h3 id="avMapsH">On the map</h3>' +
-        '<p class="mini muted">See where this author sits among the topics of a research space, and who works beside them.</p>' +
+        '<p class="mini muted">See where this author sits among the themes of a research space, and who works beside them.</p>' +
         '<div class="btn-row">' + links.join('') + '</div>' +
         '<p class="mini muted">Authors are placed from papers through March 2026; newer preprints are not placed yet. ' +
         '<a href="docs.html#maps">How authors appear on maps</a></p></section>';
@@ -1155,12 +1284,12 @@
     setTitle(sp.name + ' map');
     var facts = [];
     if (sp.n_papers != null) facts.push(num(sp.n_papers) + ' papers');
-    if (sp.n_clusters != null) facts.push(num(sp.n_clusters) + ' topics');
+    if (sp.n_clusters != null) facts.push(num(sp.n_clusters) + ' subthemes');
     viewEl.innerHTML = backLink() + '<article class="card av space-view" aria-labelledby="spName">' +
       '<header class="av-head"><h2 id="spName">' + esc(sp.name) + '</h2>' +
       (facts.length ? '<p class="av-sub">' + esc(facts.join(' \u00b7 ')) + '</p>' : '') +
-      '<p class="mini muted">Search a name in the map\u2019s search box to place an author, then click an author to bring in ' +
-      'their co-authors and the people working on the same topics. Authors are placed from papers through March 2026. ' +
+      '<p class="mini muted">Search a name or a subject in the map\u2019s search box. An author appears with their co-authors and context authors ' +
+      'in this field, or the map says there is no recent work. Authors are placed from papers through March 2026. ' +
       '<a href="docs.html#maps">How authors appear on maps</a></p></header>' +
       '<div class="row between rwrap" style="gap:10px;margin:10px 0 8px">' +
         '<p class="mini muted space-status" id="spStatus" role="status" aria-live="polite"></p>' +
