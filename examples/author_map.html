@@ -358,14 +358,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
  * nothing else. Still every field is checked: ids must look like OpenAlex author ids, cluster keys must
  * exist on this map, counts are capped, text is cut to length and later rendered as TEXT (React
  * escapes it; nothing here or in the renderer uses innerHTML). Authors are display only: they never
- * reach a model feature or a training graph.
+ * reach a model feature or a training graph. No author score of any kind is read, kept or drawn here.
  *
  * PROTOCOL (documented in the wave contract, phase6/contract.md, "Deviations/M1 protocol"):
  *   parent -> map  pv:author-capable {version:1}      the parent can answer author messages
  *   parent -> map  pv:author-nodes   {mode:'place'|'expand', anchor, authors:[...], edges:[...]}
  *   parent -> map  pv:author-error   {message}
  *   map -> parent  pv:map-ready      {}               (announces the map; a parent may answer with capable)
- *   map -> parent  pv:author-query   {q}
  *   map -> parent  pv:author-click   {id}
  *   map -> parent  pv:open-author    {id}
  */
@@ -376,12 +375,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   var ORCID_RE = /^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$/;
   var MAX_PER_MESSAGE = 25;
   var MAX_TOTAL = 80;
-  var MAX_CLUSTERS_PER_AUTHOR = 12;
+  var MAX_CLUSTERS_PER_AUTHOR = 40;
   var MAX_EDGES_PER_MESSAGE = 200;
   var MAX_QUERY = 80;
   // A graph delivered whole by the parent (the --shell build) may carry the centre, its co-authors and its
   // context authors in one payload; the per-message and total caps are larger than for a name search.
-  var MAX_GRAPH_AUTHORS = 121;
+  var MAX_GRAPH_AUTHORS = 221;
   var ROLES = { center: 1, coauthor: 1, context: 1 };
 
   function text(s, max) {
@@ -412,6 +411,49 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     if (a && a.link === 'co') return 'coauthor';
     if (a && a.link === 'space') return 'context';
     return '';
+  }
+
+
+  var ISO_DATE_RE = /^\d{4}(?:-\d{2}(?:-\d{2})?)?$/;
+  var MAX_JOINT_PAPERS = 10;
+  var MAX_ALSO_IDS = 10;
+
+  function intIn(x, lo, hi) {
+    var v = num(x, lo, hi);
+    return v === null ? null : Math.round(v);
+  }
+
+  /* The profile fields of a person that the author map shows (all optional, all cleaned the same way as the
+   * rest: text is bounded, numbers are clamped, urls are http(s) only, ids must look like A123). */
+  function personExtras(a) {
+    var jp = [];
+    var src = Array.isArray(a.joint_papers) ? a.joint_papers : [];
+    for (var i = 0; i < src.length && jp.length < MAX_JOINT_PAPERS; i++) {
+      var p = src[i];
+      if (!p || typeof p !== 'object') continue;
+      var title = text(p.title, 300);
+      if (!title) continue;
+      var from = (typeof p.reattributed_from === 'string' && AUTHOR_ID_RE.test(p.reattributed_from)) ? p.reattributed_from : null;
+      jp.push({ title: title, url: safeUrl(p.url), year: (typeof p.year === 'number' && p.year >= 1000 && p.year <= 3000) ? Math.round(p.year) : null, reattributed_from: from });
+    }
+    var also = [];
+    var al = Array.isArray(a.also_ids) ? a.also_ids : [];
+    for (var j = 0; j < al.length && also.length < MAX_ALSO_IDS; j++) {
+      if (typeof al[j] === 'string' && AUTHOR_ID_RE.test(al[j]) && also.indexOf(al[j]) < 0) also.push(al[j]);
+    }
+    var lj = (typeof a.last_joint === 'string' && ISO_DATE_RE.test(a.last_joint)) ? a.last_joint : '';
+    return {
+      country: text(a.country, 60),
+      works_count: intIn(a.works_count, 0, 1e9),
+      n_joint: intIn(a.n_joint, 0, 1e6),
+      last_joint: lj,
+      recent: a.recent === true,
+      joint_papers: jp,
+      also_ids: also,
+      reattributed: intIn(a.reattributed, 0, 1e4),
+      summary: text(a.summary, 1200),
+      n_lead_senior: intIn(a.n_lead_senior, 0, 1e6)
+    };
   }
 
   /* Validate one inbound pv:author-nodes payload.
@@ -446,25 +488,26 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         cl.push({ key: c.key, share: share, n_papers: np === null ? null : Math.round(np) });
       }
       cl.sort(function (x, y) { return y.share - x.share; });
-      // placing an author means putting it beside a topic of THIS map; with none valid there is nowhere to put it
+      // placing an author means putting it beside a subtheme of THIS map; with none valid there is nowhere to put it
       // (a graph payload may carry a person with no cluster on this space: the co-author ring only)
       if (mode === 'place' && !cl.length) { dropped++; continue; }
       var h = num(a.h_index, 0, 2000);
-      var cred = num(a.credibility, 0, 1);
       var onMap = num(a.n_papers_on_map, 0, 1e6);
-      authors.push({
+      var rec = {
         id: a.id, name: name,
         institution: text(a.institution, 100),
         h_index: h === null ? null : Math.round(h),
         orcid: (typeof a.orcid === 'string' && ORCID_RE.test(a.orcid)) ? a.orcid : '',
-        credibility: cred,
         n_papers_on_map: onMap === null ? null : Math.round(onMap),
         reason: text(a.reason, 240),
         link: a.link === 'co' ? 'co' : (a.link === 'space' ? 'space' : ''),
         role: roleOf(a),
         shared_works: (num(a.shared_works, 0, 1e6) === null) ? null : Math.round(num(a.shared_works, 0, 1e6)),
         clusters: cl
-      });
+      };
+      var ex = personExtras(a);
+      for (var xk in ex) rec[xk] = ex[xk];
+      authors.push(rec);
     }
     var edges = [];
     var es = Array.isArray(d.edges) ? d.edges : [];
@@ -497,7 +540,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         id: nodeId(a.id), aid: a.id, type: 'author', subtype: 'author',
         label: a.name, title: a.name,
         institution: a.institution, h_index: a.h_index, orcid: a.orcid,
-        credibility: a.credibility, n_papers_on_map: a.n_papers_on_map,
+        n_papers_on_map: a.n_papers_on_map,
+        country: a.country, works_count: a.works_count, n_joint: a.n_joint, last_joint: a.last_joint,
+        recent: a.recent, joint_papers: a.joint_papers, also_ids: a.also_ids, reattributed: a.reattributed,
+        summary: a.summary, n_lead_senior: a.n_lead_senior,
         clusters: a.clusters,
         anchor: strongest ? strongest.id : (prev ? prev.anchor : null),
         theme: strongest ? (strongest.theme || null) : (prev ? prev.theme : null),
@@ -607,32 +653,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   }
 
   /* Author indices whose name matches q: every query token must match; the LAST token may be a prefix.
-   * Order = credibility (the index is stored credibility-descending, so ascending index). */
+   * Order = the index order (the builder sorts it, most papers on the map first). */
   function searchEmbedded(E, q, limit) {
     if (!E) return [];
-    var toks = fold(cleanQuery(q));
-    if (!toks.length) return [];
-    var sets = [];
-    for (var i = 0; i < toks.length; i++) {
-      var last = i === toks.length - 1, hit = {}, any = false;
-      var add = function (list) {
-        if (!Array.isArray(list)) return;
-        for (var j = 0; j < list.length; j++) { hit[list[j]] = true; any = true; }
-      };
-      if (Object.prototype.hasOwnProperty.call(E.names, toks[i])) add(E.names[toks[i]]);
-      if (last) {
-        for (var k = 0; k < E.keys.length; k++) {
-          if (E.keys[k].length > toks[i].length && E.keys[k].lastIndexOf(toks[i], 0) === 0) add(E.names[E.keys[k]]);
-        }
-      }
-      if (!any) return [];
-      sets.push(hit);
-    }
-    var out = Object.keys(sets[0]).map(Number).filter(function (n) {
-      for (var m = 1; m < sets.length; m++) if (!sets[m][n]) return false;
-      return n >= 0 && n < E.emb.authors.length;
-    }).sort(function (a, b) { return a - b; });
-    return out.slice(0, limit || MAX_EMB_PLACE);
+    return searchNameIndex(E.names, E.keys, E.emb.authors.length, q, limit || MAX_EMB_PLACE);
   }
 
   /* cluster reference in `cl`: an index into the index's `clusters` table (a plain node id is also taken) */
@@ -640,9 +664,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     if (typeof ref === 'number') return (E.emb.clusters && E.emb.clusters[ref]) || '';
     return typeof ref === 'string' ? ref : '';
   }
-  /* `dt` reason: 0 = co-author, N >= 2 = shares N of your topics (a verbatim string is also taken) */
+  /* `dt` reason: 0 = co-author, N >= 2 = shares N of your subthemes (a verbatim string is also taken) */
   function embReason(r) {
-    if (typeof r === 'number') return r === 0 ? 'co-author' : 'shares ' + Math.round(r) + ' of your topics on this map';
+    if (typeof r === 'number') return r === 0 ? 'co-author' : 'shares ' + Math.round(r) + ' of your subthemes on this map';
     return typeof r === 'string' ? r : '';
   }
 
@@ -650,7 +674,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     var a = E.emb.authors[idx];
     var rec = {
       id: a.id, name: a.n, institution: a.i || '', country: a.c || '',
-      h_index: a.h, orcid: a.o || '', credibility: typeof a.cr === 'number' ? a.cr / 100 : null,
+      h_index: a.h, orcid: a.o || '',
       n_papers_on_map: a.p,
       clusters: (a.cl || []).map(function (c) { return { key: embKey(E, c[0]), share: c[1] }; })
     };
@@ -663,6 +687,15 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     if (!E || !idxs.length) return null;
     return { type: 'pv:author-nodes', mode: 'place', anchor: E.emb.authors[idxs[0]].id,
              authors: idxs.slice(0, MAX_EMB_PLACE).map(function (i) { return embRecord(E, i); }), edges: [] };
+  }
+
+  /* The v1 fallback of a search result: the person as the centre with their embedded neighbors, in one message. */
+  function embeddedPlaceWithNeighbors(E, id) {
+    var m = embeddedExpand(E, id);
+    if (!m) return null;
+    m.mode = 'graph';
+    m.authors.forEach(function (a, i) { a.role = i === 0 ? 'center' : roleOf(a); });
+    return m;
   }
 
   /* pv:author-nodes (expand) for a click on author `id`: its embedded deepthinkers (co-authors first)
@@ -699,17 +732,18 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
 
   /* ---- Whole-graph payload (the --shell build) ----
    * The shell page mounts only after its parent posts pv:graph {nodes, edges, metadata}. This validates it
-   * and splits it: map nodes/edges (themes, topics, papers) go to the renderer as they are, people become an
+   * and splits it: map nodes/edges (themes, subthemes, papers) go to the renderer as they are, people become an
    * author message (mode 'graph') that goes through the same validateAuthorNodes/buildAuthors path as every
    * other author. Person node: {id:'A123'|'author::A123', type:'author', role:'center'|'coauthor'|'context',
-   * name|label, institution, h_index, orcid, credibility (0..1 or 0..100), n_papers_on_map, shared_works,
+   * name|label, institution, h_index, orcid, works_count, n_joint, last_joint, recent, joint_papers, also_ids,
+   * reattributed, summary, n_lead_senior, n_papers_on_map, shared_works,
    * reason, clusters?:[{key, share, n_papers}]}. Edges touching a person: author->cluster = membership (weight =
    * share, unless the node lists its clusters), author->author = link (kind 'coauthor' | else context).
    * Strict on structure (a malformed payload is refused whole and the map keeps what it has), tolerant of
    * dangling edges (dropped and counted). */
   var MAX_GRAPH_NODES = 4000;
   var MAX_GRAPH_EDGES = 40000;
-  var GRAPH_TYPES = { theme: 1, cluster: 1, paper: 1, input_article: 1, subtheme: 1, author: 1 };
+  var GRAPH_TYPES = { theme: 1, cluster: 1, paper: 1, input_article: 1, subtheme: 1, author: 1, oa_field: 1, oa_subfield: 1 };
   var AUTHOR_NODE_RE = /^(?:author::)?(A\d{1,12})$/;
   var BAD_KEYS = { '__proto__': 1, 'constructor': 1, 'prototype': 1 };
   var URL_KEYS = { url: 1, link: 1, href: 1, doi_url: 1, source_url: 1 };
@@ -807,13 +841,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       } else if (memberOf[pp.aid]) {
         cl = memberOf[pp.aid];
       }
-      var cred = typeof n.credibility === 'number' ? n.credibility : null;
-      if (cred !== null && cred > 1) cred = cred / 100;
       var rec = {
         id: pp.aid, name: n.name !== undefined ? n.name : n.label, institution: n.institution, h_index: n.h_index,
-        orcid: n.orcid, credibility: cred, n_papers_on_map: n.n_papers_on_map, reason: n.reason,
+        orcid: n.orcid, n_papers_on_map: n.n_papers_on_map, reason: n.reason,
         role: n.role, shared_works: n.shared_works, clusters: cl
       };
+      ['country', 'works_count', 'n_joint', 'last_joint', 'recent', 'joint_papers', 'also_ids', 'reattributed',
+       'summary', 'n_lead_senior'].forEach(function (k) { if (n[k] !== undefined) rec[k] = n[k]; });
       if (n.role === 'center') { anchor = pp.aid; authors.unshift(rec); } else authors.push(rec);
     });
     var meta = p.metadata === undefined ? {} : cleanValue(p.metadata, 0, null);
@@ -831,12 +865,272 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
              dropped: { edges: droppedEdges, people: msg ? msg.dropped : 0 } };
   }
 
+  /* ---- Space author index v2 (<page>.authors.json, written by site_index/space_authors.py) ----
+   * {v:2, space, span:{from,to,label}, snapshot, clusters:[cluster node ids],
+   *  authors:[{id, n, i, w (works), p (papers in this space), cl:[[cluster index, share, n papers]],
+   *            co:[[author index, joint papers (global), last joint day (days since 1970)]]}],
+   *  names:{token:[author indices]}}
+   * The page fetches it once, on the first keystroke. Everything below is pure so node can test it. */
+  var MAX_V2_PLACE = 5;
+  var MAX_V2_CO = 40;
+  var MAX_V2_CONTEXT = 12;
+  var CONTEXT_PAPER_CAP = 5;
+  var RECENT_DAYS = 730.5;                 // 24 months
+
+  /* The main file may carry the co-author lists inline (old files: authors[i].co) or in shards
+   * ({co_shards:{size,count}}; <base>.authors.co.<s>.json = {v:2, shard:s, from, to, co:{"<index>": [[idx, n, day], ...]}}).
+   * P.co is the lookup the page fills from shards; P.shardState[s] is 'loading' | 'ready' | 'failed'. */
+  function prepareIndexV2(ix) {
+    if (!ix || typeof ix !== 'object' || ix.v !== 2 || !Array.isArray(ix.authors) || !ix.authors.length) return null;
+    var idToIdx = {};
+    ix.authors.forEach(function (a, i) { if (a && typeof a.id === 'string') idToIdx[a.id] = i; });
+    var names = (ix.names && typeof ix.names === 'object') ? ix.names : {};
+    var span = (ix.span && typeof ix.span === 'object') ? ix.span : {};
+    var cs = ix.co_shards, shards = null;
+    if (cs && typeof cs === 'object' && typeof cs.size === 'number' && cs.size >= 1 && typeof cs.count === 'number' && cs.count >= 1
+        && Math.floor(cs.size) === cs.size && Math.floor(cs.count) === cs.count
+        && cs.size * cs.count >= ix.authors.length) shards = { size: cs.size, count: cs.count };
+    return { ix: ix, idToIdx: idToIdx, names: names, keys: Object.keys(names),
+             clusters: Array.isArray(ix.clusters) ? ix.clusters : [],
+             spanLabel: text(span.label, 80), snapshot: text(ix.snapshot, 40),
+             coShards: shards, co: Object.create(null), shardState: Object.create(null) };
+  }
+
+  /* The shard that holds author index `idx`, or -1 when the index is unsharded. */
+  function coShardOf(P, idx) {
+    return (P && P.coShards && typeof idx === 'number' && idx >= 0) ? Math.floor(idx / P.coShards.size) : -1;
+  }
+  /* The shard to load before person `aid` can be expanded: a number, or -1 when nothing is needed
+   * (unsharded index, unknown person, shard already loaded; a failed shard is tried again). */
+  function shardNeeded(P, aid) {
+    if (!P || !P.coShards || !Object.prototype.hasOwnProperty.call(P.idToIdx, aid)) return -1;
+    var s = coShardOf(P, P.idToIdx[aid]);
+    return (s >= 0 && s < P.coShards.count && P.shardState[s] !== 'ready') ? s : -1;
+  }
+  function coShardName(base, s) { return base + '.authors.co.' + s + '.json'; }
+
+  /* Accepts a parsed shard file for shard `s` (cleaned: only well-formed entries inside the shard's own range). */
+  function addCoShard(P, s, obj) {
+    if (!P || !P.coShards || typeof s !== 'number' || s < 0 || s >= P.coShards.count) return false;
+    if (!obj || typeof obj !== 'object' || obj.v !== 2 || obj.shard !== s || !obj.co || typeof obj.co !== 'object') return false;
+    var lo = s * P.coShards.size, hi = Math.min(P.ix.authors.length, lo + P.coShards.size), n = P.ix.authors.length;
+    // a shard says which range it covers and how many lists it holds: a truncated or misplaced file is refused (and
+    // retried on the next choice) instead of being taken as "these people have no co-authors" (Hermes review 2026-10-26)
+    if (typeof obj.from === 'number' && obj.from !== lo) return false;
+    if (typeof obj.to === 'number' && obj.to !== hi) return false;
+    var keys = Object.keys(obj.co);
+    if (typeof obj.count === 'number' && obj.count !== keys.length) return false;
+    var got = Object.create(null);
+    for (var x = 0; x < keys.length; x++) {
+      var i = Number(keys[x]);
+      if (!(Math.floor(i) === i && i >= lo && i < hi) || !Array.isArray(obj.co[keys[x]])) continue;
+      got[i] = obj.co[keys[x]].filter(function (c) {
+        return Array.isArray(c) && typeof c[0] === 'number' && c[0] >= 0 && c[0] < n && typeof c[1] === 'number'
+          && typeof c[2] === 'number' && isFinite(c[2]) && c[2] >= 0;
+      });
+    }
+    for (var k in got) P.co[k] = got[k];
+    P.shardState[s] = 'ready';
+    return true;
+  }
+  /* Co-author list of author index idx: the shard lookup, else the inline list (old files), else [] (not loaded / failed). */
+  function coOf(P, idx) {
+    if (Object.prototype.hasOwnProperty.call(P.co, idx)) return P.co[idx];
+    if (P.coShards) return [];
+    var a = P.ix.authors[idx];
+    return (a && Array.isArray(a.co)) ? a.co : [];
+  }
+
+  /* Author indices whose name matches q: every query token must match, the LAST token may be a prefix.
+   * `names` maps a folded token to a list of indices; `count` is the number of authors; the order of the
+   * result is the index order (the builder sorts the index by papers on the map). */
+  function searchNameIndex(names, keys, count, q, limit) {
+    var toks = fold(cleanQuery(q));
+    if (!toks.length) return [];
+    var sets = [];
+    for (var i = 0; i < toks.length; i++) {
+      var last = i === toks.length - 1, hit = {}, any = false;
+      var add = function (list) {
+        if (!Array.isArray(list)) return;
+        for (var j = 0; j < list.length; j++) { hit[list[j]] = true; any = true; }
+      };
+      if (Object.prototype.hasOwnProperty.call(names, toks[i])) add(names[toks[i]]);
+      if (last) {
+        for (var k = 0; k < keys.length; k++) {
+          if (keys[k].length > toks[i].length && keys[k].lastIndexOf(toks[i], 0) === 0) add(names[keys[k]]);
+        }
+      }
+      if (!any) return [];
+      sets.push(hit);
+    }
+    var out = Object.keys(sets[0]).map(Number).filter(function (n) {
+      for (var m = 1; m < sets.length; m++) if (!sets[m][n]) return false;
+      return n >= 0 && n < count;
+    }).sort(function (a, b) { return a - b; });
+    return out.slice(0, limit || MAX_V2_PLACE);
+  }
+
+  function searchIndexV2(P, q, limit) {
+    return P ? searchNameIndex(P.names, P.keys, P.ix.authors.length, q, limit) : [];
+  }
+
+  function dayToIso(day) {
+    if (typeof day !== 'number' || !isFinite(day)) return '';
+    try { return new Date(Math.round(day) * 86400000).toISOString().slice(0, 10); } catch (err) { return ''; }
+  }
+
+  /* A day count (days since 1970) is recent when it is less than 24 months before nowDay. */
+  function isRecentDay(day, nowDay) {
+    if (typeof day !== 'number' || !isFinite(day)) return false;
+    var now = typeof nowDay === 'number' ? nowDay : Math.floor(Date.now() / 86400000);
+    return now - day < RECENT_DAYS;
+  }
+
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  /* '2025-03-14' -> 'Mar 2025'; '2025-03' -> 'Mar 2025'; '2025' -> '2025'; anything else -> ''. */
+  function fmtMonthYear(iso) {
+    if (typeof iso !== 'string' || !ISO_DATE_RE.test(iso)) return '';
+    var m = /^(\d{4})(?:-(\d{2}))?/.exec(iso);
+    var mi = m[2] ? parseInt(m[2], 10) : 0;
+    return (mi >= 1 && mi <= 12) ? MONTHS[mi - 1] + ' ' + m[1] : m[1];
+  }
+
+  var MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  /* The words after "Source: OpenAlex" on a person panel: '2026-03' -> 'March 2026 snapshot'; any other value is shown as given. */
+  function snapshotLabel(v) {
+    var t = text(v, 40);
+    var m = /^(\d{4})-(\d{2})$/.exec(t);
+    var mi = m ? parseInt(m[2], 10) : 0;
+    return (mi >= 1 && mi <= 12) ? MONTH_NAMES[mi - 1] + ' ' + m[1] + ' snapshot' : t;
+  }
+
+  function v2Cluster(P, ref) {
+    return typeof ref === 'number' ? (P.clusters[ref] || '') : '';
+  }
+  function v2Clusters(P, a, hasCluster) {
+    var out = [];
+    (a.cl || []).forEach(function (c) {
+      var key = v2Cluster(P, c[0]);
+      if (key && (!hasCluster || hasCluster(key))) out.push({ key: key, share: c[1], n_papers: c[2] });
+    });
+    return out;
+  }
+  function v2Record(P, idx, extra, hasCluster) {
+    var a = P.ix.authors[idx];
+    var rec = { id: a.id, name: a.n, institution: a.i || '', works_count: a.w, n_papers_on_map: a.p,
+                clusters: v2Clusters(P, a, hasCluster) };
+    if (extra) for (var k in extra) rec[k] = extra[k];
+    return rec;
+  }
+
+  /* The message that puts person `aid` on a field map with their co-authors and their context authors.
+   *  mode 'graph'  : a search result (the person is the centre; no second click)
+   *  mode 'expand' : a click on a person already on the map
+   * opts: {hasCluster(key), labelOf(key), minPapers, nowDay}.
+   * Co-authors = the person's co-authors who are also in this index (global joint counts, latest joint day).
+   * Context authors = people who share the person's clusters on THIS map: score = sum over shared clusters of
+   * (the person's share) x min(their papers in that cluster, 5); top 12, never a co-author. */
+  function v2Neighbors(P, aid, mode, opts) {
+    if (!P || !Object.prototype.hasOwnProperty.call(P.idToIdx, aid)) return null;
+    opts = opts || {};
+    var hasCluster = opts.hasCluster || null;
+    var ai = P.idToIdx[aid], a = P.ix.authors[ai];
+    var authors = [], edges = [], seen = {};
+    seen[ai] = true;
+    authors.push(v2Record(P, ai, { role: mode === 'graph' ? 'center' : '' }, hasCluster));
+    var aco = coOf(P, ai);
+    var co = aco.filter(function (c) {
+      return Array.isArray(c) && typeof c[0] === 'number' && c[0] !== ai && P.ix.authors[c[0]];
+    }).sort(function (x, y) { return (y[1] - x[1]) || ((y[2] || 0) - (x[2] || 0)) || (x[0] - y[0]); }).slice(0, MAX_V2_CO);
+    var maxJoint = 1;
+    co.forEach(function (c) { if (c[1] > maxJoint) maxJoint = c[1]; });
+    var coSet = {};
+    aco.forEach(function (c) { if (Array.isArray(c)) coSet[c[0]] = true; });
+    co.forEach(function (c) {
+      if (seen[c[0]]) return;
+      seen[c[0]] = true;
+      var b = P.ix.authors[c[0]];
+      var day = c[2];
+      authors.push(v2Record(P, c[0], {
+        role: 'coauthor', link: 'co', n_joint: c[1], shared_works: c[1],
+        last_joint: dayToIso(day), recent: isRecentDay(day, opts.nowDay),
+        reason: 'co-author'
+      }, hasCluster));
+      edges.push({ source: a.id, target: b.id, kind: 'coauthor', weight: Math.max(0.2, c[1] / maxJoint) });
+    });
+    // context authors: one pass over the index
+    var mine = {}, nMine = 0;
+    (a.cl || []).forEach(function (c) {
+      var key = v2Cluster(P, c[0]);
+      if (key && (!hasCluster || hasCluster(key))) { mine[c[0]] = c[1]; nMine++; }
+    });
+    if (nMine) {
+      var minP = typeof opts.minPapers === 'number' ? opts.minPapers : 0;
+      var scored = [], below = [];
+      for (var j = 0; j < P.ix.authors.length; j++) {
+        if (j === ai || coSet[j]) continue;
+        var b2 = P.ix.authors[j];
+        if (!b2 || !b2.cl) continue;
+        var small = typeof b2.w === 'number' && b2.w < minP;
+        var score = 0, shared = [];
+        for (var q = 0; q < b2.cl.length; q++) {
+          var c2 = b2.cl[q];
+          if (mine[c2[0]] !== undefined) {
+            var part = mine[c2[0]] * Math.min(c2[2] || 1, CONTEXT_PAPER_CAP);
+            score += part; shared.push([c2[0], part, c2[2] || 1]);
+          }
+        }
+        if (score > 0) (small ? below : scored).push({ j: j, score: score, shared: shared });
+      }
+      var byScore = function (x, y) { return (y.score - x.score) || ((P.ix.authors[y.j].p || 0) - (P.ix.authors[x.j].p || 0)) || (x.j - y.j); };
+      scored.sort(byScore);
+      below.sort(byScore);
+      // The top 12 among people with at least the minimum number of papers, then up to 12 more with fewer: the page hides
+      // those until the reader lowers the minimum in Advanced settings, which then needs no second search.
+      scored.slice(0, MAX_V2_CONTEXT).concat(below.slice(0, MAX_V2_CONTEXT)).forEach(function (sc) {
+        if (seen[sc.j]) return;
+        seen[sc.j] = true;
+        sc.shared.sort(function (x, y) { return y[1] - x[1]; });
+        var lead = v2Cluster(P, sc.shared[0][0]);
+        var label = opts.labelOf ? opts.labelOf(lead) : '';
+        var reason = label
+          ? 'publishes on ' + label + ' (' + sc.shared[0][2] + (sc.shared[0][2] === 1 ? ' paper' : ' papers') + ' on this map)'
+            + (sc.shared.length > 1 ? ' and ' + (sc.shared.length - 1) + ' more ' + (sc.shared.length === 2 ? 'subtheme' : 'subthemes') : '')
+          : 'publishes on ' + sc.shared.length + (sc.shared.length === 1 ? ' of the same subthemes' : ' of the same subthemes');
+        authors.push(v2Record(P, sc.j, { role: 'context', link: 'space', reason: reason }, hasCluster));
+      });
+    }
+    return { type: 'pv:author-nodes', mode: mode, anchor: a.id, authors: authors, edges: edges };
+  }
+
+  /* Rows for the people who match a name query, from the v2 index. */
+  function v2PersonRows(P, idxs, onMap) {
+    return idxs.map(function (i) {
+      var a = P.ix.authors[i];
+      var parts = [text(a.n, 80)];
+      if (a.i) parts.push(text(a.i, 80));
+      var p = typeof a.p === 'number' ? a.p : 0;
+      parts.push(p + (p === 1 ? ' paper' : ' papers') + ' in this field');
+      return { id: 'person::' + a.id, type: 'person', aid: a.id, label: parts.join(' · '), name: text(a.n, 80),
+               onMap: !!(onMap && onMap[a.id]) };
+    });
+  }
+
   /* ---- Search rows ----
-   * Real matches first (themes, topics, papers, then people already on the map), the one "Find author"
-   * row last. Typing a topic name and choosing it must select the topic; only the last row asks for authors. */
-  var TYPE_ORDER = { theme: 0, input_article: 1, cluster: 2, paper: 3, subtheme: 4 };
-  function searchRows(nodes, authorNodes, query, canFind) {
-    var q = String(query || '').toLowerCase();
+   * The pipeline's dropdown (substring on labels, existing order, up to 8) then up to 5 people. Choosing a map
+   * node selects it; choosing a person places them with their co-authors and context authors.
+   *   nodes       map nodes (themes, subthemes, OpenAlex nodes, papers); people live in authorNodes
+   *   authorNodes people already on the map
+   *   o           {index: prepared v2 index|null, emb: prepared v1 index|null,
+   *                state: 'idle'|'loading'|'ready'|'failed', spanLabel, hasPeopleSource}
+   * Rows with type 'info' are not clickable: the loading row, and the one row shown for a query of three or more
+   * characters that matches nothing. */
+  var TYPE_ORDER = { theme: 0, input_article: 1, cluster: 2, paper: 3, subtheme: 4, oa_field: 5, oa_subfield: 6 };
+  var MAX_PEOPLE_ROWS = 5;
+  function searchRows(nodes, authorNodes, query, o) {
+    o = o || {};
+    var raw = String(query || '');
+    var q = raw.toLowerCase();
     if (q.length < 2) return [];
     var hit = function (n) { return String(n.label || n.id || '').toLowerCase(); };
     var rank = function (n) { return hit(n).indexOf(q) === 0 ? 0 : 1; };
@@ -846,11 +1140,246 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         var d = (TYPE_ORDER[a.n.type] !== undefined ? TYPE_ORDER[a.n.type] : 9) - (TYPE_ORDER[b.n.type] !== undefined ? TYPE_ORDER[b.n.type] : 9);
         return d || (rank(a.n) - rank(b.n)) || (a.i - b.i);
       }).map(function (x) { return x.n; }).slice(0, 8);
-    if (canFind) {
-      rows = rows.concat(authorNodes.filter(function (n) { return hit(n).indexOf(q) >= 0; }).slice(0, 4));
-      if (String(query).trim().length >= 3) rows.push({ id: '__find_author__', type: 'find_author', label: cleanQuery(query) });
+    var people = [];
+    var onMap = {};
+    (authorNodes || []).forEach(function (n) { onMap[n.aid] = n; });
+    (authorNodes || []).filter(function (n) { return hit(n).indexOf(q) >= 0; }).slice(0, MAX_PEOPLE_ROWS)
+      .forEach(function (n) { people.push(n); });
+    var state = o.state || 'idle';
+    if (state === 'ready' && o.index) {
+      v2PersonRows(o.index, searchIndexV2(o.index, raw, MAX_PEOPLE_ROWS + 2), onMap).forEach(function (r) {
+        if (!r.onMap && people.length < MAX_PEOPLE_ROWS) people.push(r);
+      });
+    } else if (state === 'failed' && o.emb) {
+      searchEmbedded(o.emb, raw, MAX_PEOPLE_ROWS + 2).forEach(function (i) {
+        var a = o.emb.emb.authors[i];
+        if (onMap[a.id] || people.length >= MAX_PEOPLE_ROWS) return;
+        var p = typeof a.p === 'number' ? a.p : 0;
+        people.push({ id: 'person::' + a.id, type: 'person', aid: a.id, name: text(a.n, 80), v1: true,
+                      label: [text(a.n, 80)].concat(a.i ? [text(a.i, 80)] : [])
+                        .concat([p + (p === 1 ? ' paper' : ' papers') + ' in this field']).join(' · ') });
+      });
+    }
+    rows = rows.concat(people.slice(0, MAX_PEOPLE_ROWS));
+    if (state === 'loading') rows.push({ id: '__loading__', type: 'info', kind: 'loading', label: 'Loading authors...' });
+    var trimmed = raw.trim();
+    if (!rows.length && trimmed.length >= 3) {
+      var clean = cleanQuery(trimmed);
+      if (o.hasPeopleSource) {
+        rows.push({ id: '__none__', type: 'info', kind: 'no_recent', label: 'No recent work in this field for "' + clean + '"',
+                    sub: o.spanLabel ? 'This map covers ' + o.spanLabel + '.' : '' });
+      } else {
+        rows.push({ id: '__none__', type: 'info', kind: 'no_match', label: 'Nothing on this map matches "' + clean + '"', sub: '' });
+      }
     }
     return rows;
+  }
+
+  /* ---- Roll-up, people filters, highlight ---- */
+  var ROLL_TYPES = { oa_link: 1, author_member: 1 };
+  function idOf(x) { return (x && typeof x === 'object') ? x.id : x; }
+
+  /* Edges to draw. An edge between two visible nodes is kept as it is. An edge of a rolled type (oa_link,
+   * author_member) from a visible node to a HIDDEN cluster whose theme hub is visible is drawn to the hub
+   * instead; duplicates (same source, same hub, same type) merge with weight = max. theme_member edges are
+   * never rolled up, and every other edge with a hidden end is dropped.
+   *   visible: {nodeId: true}; byId: {nodeId: node}. */
+  function rollUpEdges(edges, visible, byId, types) {
+    types = types || ROLL_TYPES;
+    var out = [], pos = {}, own = {};
+    function put(e) {
+      var k = idOf(e.source) + '|' + idOf(e.target) + '|' + (e.edge_type || '');
+      if (pos[k] === undefined) { pos[k] = out.length; out.push(e); own[k] = !!e.rolled; return; }
+      var cur = out[pos[k]];
+      if (!own[k]) { cur = Object.assign({}, cur); out[pos[k]] = cur; own[k] = true; }
+      ['weight', 'w_rel'].forEach(function (f) {
+        if (typeof e[f] === 'number' && (typeof cur[f] !== 'number' || e[f] > cur[f])) cur[f] = e[f];
+      });
+    }
+    for (var i = 0; i < edges.length; i++) {
+      var e = edges[i], s = idOf(e.source), t = idOf(e.target);
+      var sv = !!visible[s], tv = !!visible[t];
+      if (sv && tv) { put(e); continue; }
+      if (!(sv || tv) || !types[e.edge_type]) continue;
+      var h = sv ? t : s, hn = byId[h];
+      if (!hn || hn.type !== 'cluster' || !hn.theme) continue;
+      var hub = 'theme::' + hn.theme;
+      if (!visible[hub]) continue;
+      var r = Object.assign({}, e, sv ? { target: hub } : { source: hub });
+      r.rolled = true;
+      put(r);
+    }
+    return out;
+  }
+
+  /* Who is hidden by the Advanced settings. opts {minPapers, minJoint}. The centre and the selected person are
+   * never hidden; an unknown count never hides anyone; a co-author with fewer than minJoint joint papers still
+   * shows when a joint paper is recent. Returns {shown: [nodes], hidden: k, hiddenIds: {id: true}}. */
+  /* Whether a person's latest joint paper is recent: the `recent` flag when the source sent one, else their
+   * last_joint date (YYYY, YYYY-MM or YYYY-MM-DD; a bare year counts from July 1). */
+  function isRecentPerson(n, nowDay) {
+    if (n.recent === true) return true;
+    if (n.recent === false) return false;
+    var lj = typeof n.last_joint === 'string' ? n.last_joint : '';
+    var m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?$/.exec(lj);
+    if (!m) return false;
+    var d = Date.UTC(+m[1], m[2] ? +m[2] - 1 : 6, m[3] ? +m[3] : 1);
+    return isRecentDay(Math.floor(d / 86400000), nowDay);
+  }
+
+  /* Who is hidden by the Advanced settings. opts {minPapers, minJoint, maxCo, maxCtx, nowDay}. The centre and the
+   * selected person are never hidden; an unknown count never hides anyone; a co-author with fewer than minJoint joint
+   * papers still shows when a joint paper is recent. After those filters, at most maxCo co-authors (most joint papers,
+   * then the latest joint paper) and maxCtx context authors (in the order the source ranked them) are drawn; 0 or a
+   * missing value means no limit. Returns {shown: [nodes], hidden: k, hiddenIds: {id: true}, capped: k}. */
+  function filterPeople(nodes, opts, selectedId) {
+    opts = opts || {};
+    var minP = typeof opts.minPapers === 'number' ? opts.minPapers : 1;
+    var minJ = typeof opts.minJoint === 'number' ? opts.minJoint : 1;
+    var maxCo = typeof opts.maxCo === 'number' && opts.maxCo > 0 ? opts.maxCo : 0;
+    var maxCtx = typeof opts.maxCtx === 'number' && opts.maxCtx > 0 ? opts.maxCtx : 0;
+    var pass = [], hiddenIds = {}, k = 0;
+    (nodes || []).forEach(function (n, i) {
+      var hide = false;
+      if (n.role !== 'center' && n.id !== selectedId) {
+        var wc = typeof n.works_count === 'number' ? n.works_count : null;
+        if (wc !== null && wc < minP) hide = true;
+        if (!hide && n.role === 'coauthor') {
+          var nj = typeof n.n_joint === 'number' ? n.n_joint : (typeof n.shared_works === 'number' ? n.shared_works : null);
+          if (nj !== null && nj < minJ && !isRecentPerson(n, opts.nowDay)) hide = true;
+        }
+      }
+      if (hide) { hiddenIds[n.id] = true; k++; } else pass.push({ n: n, i: i });
+    });
+    var capped = 0;
+    var cap = function (role, max, order) {
+      if (!max) return;
+      var group = pass.filter(function (x) { return x.n.role === role && x.n.id !== selectedId; });
+      if (group.length <= max) return;
+      group.sort(order);
+      group.slice(max).forEach(function (x) { hiddenIds[x.n.id] = true; capped++; });
+    };
+    cap('coauthor', maxCo, function (x, y) {
+      var a = typeof x.n.n_joint === 'number' ? x.n.n_joint : (x.n.shared_works || 0);
+      var b = typeof y.n.n_joint === 'number' ? y.n.n_joint : (y.n.shared_works || 0);
+      return (b - a) || String(y.n.last_joint || '').localeCompare(String(x.n.last_joint || '')) || (x.i - y.i);
+    });
+    cap('context', maxCtx, function (x, y) { return x.i - y.i; });
+    var shown = pass.filter(function (x) { return !hiddenIds[x.n.id]; }).map(function (x) { return x.n; });
+    return { shown: shown, hidden: k + capped, hiddenIds: hiddenIds, capped: capped };
+  }
+
+  /* Node ids kept at full strength when `chosenId` is highlighted: the node, its neighbors through the given
+   * (visible, rolled-up) edges, and every id in keepIds (the person whose panel it is, the centre). depth 2
+   * walks one more step but never through a person node. */
+  function highlightSet(chosenId, keepIds, edges, depth) {
+    var set = {};
+    (keepIds || []).forEach(function (id) { if (id) set[id] = true; });
+    if (!chosenId) return set;
+    set[chosenId] = true;
+    var frontier = [chosenId];
+    var steps = depth === 2 ? 2 : 1;
+    for (var d = 0; d < steps; d++) {
+      var next = [], fr = {};
+      frontier.forEach(function (id) { fr[id] = true; });
+      for (var i = 0; i < edges.length; i++) {
+        var s = idOf(edges[i].source), t = idOf(edges[i].target);
+        var other = fr[s] ? t : (fr[t] ? s : null);
+        if (other === null) continue;
+        if (d === 1 && (/^author::/.test(s) || /^author::/.test(t))) continue;
+        if (!set[other]) { set[other] = true; next.push(other); }
+      }
+      frontier = next;
+    }
+    return set;
+  }
+
+  var MAP_PICK_TYPES = { oa_field: 1, oa_subfield: 1, theme: 1, cluster: 1 };
+  /* The map nodes connected to a person, for the Highlight list: {oa_field:[], oa_subfield:[], theme:[], cluster:[]}.
+   * On the centre of an author map that is every one of them; otherwise the clusters the person sits on, their
+   * themes, and the OpenAlex nodes those clusters link to. */
+  function connectedNodes(person, nodes, edges, byId, authorMap) {
+    var groups = { oa_field: [], oa_subfield: [], theme: [], cluster: [] };
+    var ids = {};
+    if (authorMap && person && person.role === 'center') {
+      nodes.forEach(function (n) { if (MAP_PICK_TYPES[n.type]) ids[n.id] = true; });
+    } else if (person) {
+      var cl = {};
+      (person.clusters || []).forEach(function (c) { if (byId[c.key]) cl[c.key] = true; });
+      edges.forEach(function (e) {
+        var s = idOf(e.source), t = idOf(e.target);
+        if (s === person.id && byId[t] && byId[t].type === 'cluster') cl[t] = true;
+        if (t === person.id && byId[s] && byId[s].type === 'cluster') cl[s] = true;
+      });
+      Object.keys(cl).forEach(function (k) {
+        ids[k] = true;
+        var th = byId[k].theme;
+        if (th && byId['theme::' + th]) ids['theme::' + th] = true;
+      });
+      var subf = {};
+      edges.forEach(function (e) {
+        if (e.edge_type !== 'oa_link') return;
+        var s = idOf(e.source), t = idOf(e.target);
+        if (cl[t] && byId[s]) subf[s] = true;
+        if (cl[s] && byId[t]) subf[t] = true;
+      });
+      Object.keys(subf).forEach(function (k) { ids[k] = true; });
+      edges.forEach(function (e) {
+        if (e.edge_type !== 'oa_parent') return;
+        var s = idOf(e.source), t = idOf(e.target);
+        if (subf[t] && byId[s]) ids[s] = true;
+        if (subf[s] && byId[t]) ids[t] = true;
+      });
+    }
+    Object.keys(ids).forEach(function (id) {
+      var n = byId[id];
+      if (n && groups[n.type]) groups[n.type].push(n);
+    });
+    return groups;
+  }
+
+  /* Themes and subthemes linked to an OpenAlex node (field: through its subfields). */
+  function oaConnections(node, edges, byId) {
+    var seen = {}, out = [];
+    seen[node.id] = true;
+    var frontier = [node.id];
+    for (var d = 0; d < 2; d++) {
+      var next = [];
+      edges.forEach(function (e) {
+        if (e.edge_type !== 'oa_parent' && e.edge_type !== 'oa_link') return;
+        var s = idOf(e.source), t = idOf(e.target);
+        var hit = frontier.indexOf(s) >= 0 ? t : (frontier.indexOf(t) >= 0 ? s : null);
+        if (hit === null || seen[hit] || !byId[hit]) return;
+        seen[hit] = true; next.push(hit);
+      });
+      frontier = next;
+    }
+    Object.keys(seen).forEach(function (id) {
+      var n = byId[id];
+      if (!n || id === node.id) return;
+      if (n.type === 'cluster') {
+        out.push(n);
+        var hub = n.theme ? byId['theme::' + n.theme] : null;
+        if (hub && !seen[hub.id]) { seen[hub.id] = true; out.push(hub); }
+      } else if (n.type === 'theme') out.push(n);
+    });
+    return out;
+  }
+
+  /* Size of a person's node: 16 to 22 by works count, 8 more for the centre; unknown = 16. */
+  function personSize(n) {
+    var wc = typeof n.works_count === 'number' && n.works_count >= 0 ? n.works_count : null;
+    var base = wc === null ? 16 : 16 + 6 * Math.min(1, Math.log10(1 + wc) / 3);
+    return base + (n.role === 'center' ? 8 : 0);
+  }
+
+  /* Size of an OpenAlex node by n_papers (sqrt scale): field 18-34, subfield 10-22. */
+  function oaSize(n, maxPapers) {
+    var f = n.type === 'oa_field';
+    var lo = f ? 18 : 10, hi = f ? 34 : 22;
+    var np = typeof n.n_papers === 'number' && n.n_papers > 0 ? n.n_papers : 1;
+    var mx = Math.max(1, maxPapers || np);
+    return lo + (hi - lo) * Math.sqrt(Math.min(1, np / mx));
   }
 
   var api = {
@@ -859,8 +1388,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     validateAuthorNodes: validateAuthorNodes, buildAuthors: buildAuthors,
     mergeAuthors: mergeAuthors, pruneEdges: pruneEdges,
     fold: fold, prepareEmbedded: prepareEmbedded, searchEmbedded: searchEmbedded,
-    embeddedPlace: embeddedPlace, embeddedExpand: embeddedExpand,
-    validateGraph: validateGraph, searchRows: searchRows, roleOf: roleOf, MAX_GRAPH_AUTHORS: MAX_GRAPH_AUTHORS
+    embeddedPlace: embeddedPlace, embeddedExpand: embeddedExpand, embeddedPlaceWithNeighbors: embeddedPlaceWithNeighbors,
+    validateGraph: validateGraph, searchRows: searchRows, roleOf: roleOf, MAX_GRAPH_AUTHORS: MAX_GRAPH_AUTHORS,
+    snapshotLabel: snapshotLabel, coShardOf: coShardOf, shardNeeded: shardNeeded, coShardName: coShardName, addCoShard: addCoShard, coOf: coOf,
+    prepareIndexV2: prepareIndexV2, searchIndexV2: searchIndexV2, v2Neighbors: v2Neighbors, v2PersonRows: v2PersonRows,
+    dayToIso: dayToIso, isRecentDay: isRecentDay, fmtMonthYear: fmtMonthYear, safeUrl: safeUrl,
+    rollUpEdges: rollUpEdges, filterPeople: filterPeople, isRecentPerson: isRecentPerson, highlightSet: highlightSet,
+    connectedNodes: connectedNodes, oaConnections: oaConnections, personSize: personSize, oaSize: oaSize
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PVAuthorLayer = api;
@@ -890,6 +1424,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   let EDGES = [];
   let PAPER_TITLE = "Author map";
   const BAND = {};
+  let META = { "space_only": true };
   let SPACE_ONLY = true;
   const BAND_DIMS = BAND && Array.isArray(BAND.dims) && BAND.dims.length ? BAND.dims : BAND && BAND.field ? [{
     key: BAND.field,
@@ -944,29 +1479,44 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     // COMPASS ADDITION. An ordinary paper that scored above the run's average. Amber, so it
     // reads as a paper rather than as an impact cluster, which is also a triangle.
     paper: "#e0a458",
-    // Author layer: a person. Magenta, so it cannot be mistaken for any topic colour.
+    // Author layer: a person. Magenta, so it cannot be mistaken for any subtheme colour.
     author: "#ec4899",
     // Author roles (a graph from the author-map parent): the centre and its co-authors share the
     // magenta of a person; a CONTEXT author (placed on the same problem/outcome/method clusters, never a
     // co-author) is violet, so the two kinds of neighbor cannot be mixed up. Marks differ as well.
     author_center: "#ec4899",
     author_co: "#ec4899",
-    author_ctx: "#c084fc"
+    author_ctx: "#c084fc",
+    // OpenAlex nodes: slate, so the fixed vocabulary reads apart from our own themes and subthemes.
+    oa_field: "#94a3b8",
+    oa_subfield: "#94a3b8"
   };
   const authorClass = (n) => n.role === "center" ? "author_center" : n.role === "coauthor" ? "author_co" : n.role === "context" ? "author_ctx" : "author";
   const AUTHOR_LEGEND = { author_center: "This author", author_co: "Co-authors", author_ctx: "Context authors", author: "Authors" };
   const AUTHOR_ROLE_LABEL = { center: "Author", coauthor: "Co-author", context: "Context author" };
-  const CONTEXT_KIND = {
-    problems: "a problem statement",
-    impact: "an outcome",
-    methods: "a method",
-    computational: "a method",
-    experimental: "a method"
-  };
   const AL = window.PVAuthorLayer;
   const HAS_PARENT = !!(window.parent && window.parent !== window);
   const EMB = AL.prepareEmbedded(null);
   const HAS_EMB = !!EMB;
+  const V2_ENABLED = !SHELL && (SPACE_ONLY || !!(BAND && BAND.field));
+  const V2_BASE = (() => {
+    if (!V2_ENABLED) return "";
+    try {
+      return (location.pathname.split("/").pop() || "").replace(/[.]html?$/i, "");
+    } catch (err) {
+      return "";
+    }
+  })();
+  const V2_URL = (() => {
+    try {
+      return V2_BASE ? new URL(V2_BASE + ".authors.json", location.href).href : "";
+    } catch (err) {
+      return "";
+    }
+  })();
+  const PEOPLE_KEY = "pv_people_filters_v2";
+  const PEOPLE_DEFAULT = { minPapers: 5, minJoint: 2, maxCo: 20, maxCtx: 10 };
+  const PEOPLE_FIELDS = { p: ["minPapers", 1, 500], j: ["minJoint", 1, 50], c: ["maxCo", 0, 500], x: ["maxCtx", 0, 500] };
   let NODE_BY_ID = {};
   let HAS_THEMES = false;
   let THEME_MAX = 1;
@@ -975,10 +1525,18 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
   let SUB_NEIGH = {};
   const clusterClass = (n) => n.subtype === "computational" || n.subtype === "experimental" ? "methods" : n.subtype;
   let THEME_METHODS_ONLY = {};
-  const applyGraph = (nodes, edges, title) => {
+  let AUTHOR_MAP = !!(META && META.author_map);
+  let OA_MAX = { oa_field: 1, oa_subfield: 1 };
+  const applyGraph = (nodes, edges, title, meta) => {
     NODES = nodes;
     EDGES = edges;
     if (title) PAPER_TITLE = title;
+    if (meta && typeof meta === "object") META = meta;
+    AUTHOR_MAP = !!(META && META.author_map);
+    OA_MAX = { oa_field: 1, oa_subfield: 1 };
+    NODES.forEach((n) => {
+      if ((n.type === "oa_field" || n.type === "oa_subfield") && n.n_papers > OA_MAX[n.type]) OA_MAX[n.type] = n.n_papers;
+    });
     NODE_BY_ID = {};
     NODES.forEach((n) => {
       NODE_BY_ID[n.id] = n;
@@ -1003,18 +1561,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       if (!other[t]) THEME_METHODS_ONLY[t] = true;
     });
   };
-  applyGraph(NODES, EDGES, null);
+  applyGraph(NODES, EDGES, null, null);
   const classHidden = (n, hid) => {
     const cls = n.type === "cluster" ? clusterClass(n) : n.type === "author" ? authorClass(n) : n.type;
     if (hid.indexOf(cls) < 0) return false;
     return !(n.type === "cluster" && cls === "methods" && n.theme && THEME_METHODS_ONLY[n.theme]);
   };
   const GRANS = [
-    { key: "themes", label: "Themes", tip: "The big areas of the field, with your needles attached. Click a theme to open it." },
-    { key: "topics", label: "Topics", tip: "Every theme opened into its problem statements and outcomes." },
-    { key: "detail", label: "Detail", tip: "Topics plus the nominated papers and the terms that clusters share." }
+    { key: "themes", label: "Themes", tip: "The big areas of the map. Click a theme to open it into its subthemes." },
+    { key: "subthemes", label: "Subthemes", tip: "Every theme opened into its subthemes, and every subtheme that sits outside a theme." }
   ];
-  const GRAN_TIP = "How finely the field is divided. Themes shows the big areas; the number on a theme is how many topics it holds. Topics opens every theme into its problem statements and outcomes. Detail adds the nominated papers and the terms clusters share.";
+  const GRAN_TIP = "How finely the map is divided. Themes shows the big areas; open a theme to see its subthemes. Subthemes opens every theme.";
   const _normCtx = (s) => {
     if (!s) return "other";
     if (s === "computational" || s === "experimental" || s === "methods") return "method";
@@ -1282,8 +1839,13 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const [bandDir, setBandDir] = useState("inside");
     const [bandDimKey, setBandDimKey] = useState(BAND_DIM_DEFAULT);
     const [advOpen, setAdvOpen] = useState(false);
-    const [hidden, setHidden] = useState(INIT_AUTHORS ? [] : ["methods"]);
-    const [gran, setGran] = useState(INIT_AUTHORS && NODES.some((n) => n.type === "cluster") ? "topics" : HAS_THEMES ? "themes" : "detail");
+    const [hidden, setHidden] = useState(INIT_AUTHORS ? [] : ["methods", "subtheme"]);
+    const [hl, setHl] = useState(null);
+    const hlSelId = selectedNode ? selectedNode.id : null;
+    useEffect(() => {
+      setHl(null);
+    }, [hlSelId]);
+    const [gran, setGran] = useState(HAS_THEMES ? "themes" : "subthemes");
     const [expanded, setExpanded] = useState([]);
     const [legacyDepth, setLegacyDepth] = useState(LEGACY_DEPTH_DEFAULT);
     const [pinned, setPinned] = useState([]);
@@ -1317,7 +1879,6 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
     const [darkMode, setDarkMode] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
-    const [searchResults, setSearchResults] = useState([]);
     const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
     const [showMobileMenu, setShowMobileMenu] = useState(false);
     const [headerH, setHeaderH] = useState(56);
@@ -1375,6 +1936,87 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       }
     };
     const parentLive = () => HAS_PARENT && authorCapable;
+    const [peopleOpts, setPeopleOpts] = useState(() => {
+      const o = Object.assign({}, PEOPLE_DEFAULT);
+      try {
+        const r = JSON.parse(window.localStorage.getItem(PEOPLE_KEY) || "null");
+        Object.keys(PEOPLE_FIELDS).forEach((k) => {
+          const f = PEOPLE_FIELDS[k];
+          if (r && Number.isInteger(r[f[0]]) && r[f[0]] >= f[1] && r[f[0]] <= f[2]) o[f[0]] = r[f[0]];
+        });
+      } catch (err) {
+      }
+      return o;
+    });
+    const draftOf = (o) => ({ p: String(o.minPapers), j: String(o.minJoint), c: String(o.maxCo), x: String(o.maxCtx) });
+    const [peopleDraft, setPeopleDraft] = useState(() => draftOf(peopleOpts));
+    const savePeopleChoice = (key, value) => {
+      try {
+        const r = JSON.parse(window.localStorage.getItem(PEOPLE_KEY) || "null");
+        const o = r && typeof r === "object" && !Array.isArray(r) ? r : {};
+        if (value === PEOPLE_DEFAULT[key]) delete o[key];
+        else o[key] = value;
+        if (Object.keys(o).length) window.localStorage.setItem(PEOPLE_KEY, JSON.stringify(o));
+        else window.localStorage.removeItem(PEOPLE_KEY);
+      } catch (err) {
+      }
+    };
+    const changePeopleOpt = (which, txt) => {
+      setPeopleDraft((d) => Object.assign({}, d, { [which]: txt }));
+      const v = parseInt(txt, 10);
+      if (!isFinite(v)) return;
+      const f = PEOPLE_FIELDS[which];
+      if (!f) return;
+      const c = Math.max(f[1], Math.min(f[2], v));
+      savePeopleChoice(f[0], c);
+      setPeopleOpts((o) => o[f[0]] === c ? o : Object.assign({}, o, { [f[0]]: c }));
+    };
+    const settlePeopleOpts = () => setPeopleDraft(draftOf(peopleOpts));
+    const peopleHide = useMemo(() => AL.filterPeople(authorNodes, peopleOpts, null), [authorNodes, peopleOpts]);
+    const forcedPersonId = selectedNode && selectedNode.type === "author" && peopleHide.hiddenIds[selectedNode.id] ? selectedNode.id : null;
+    const peopleFiltered = useMemo(
+      () => forcedPersonId ? AL.filterPeople(authorNodes, peopleOpts, forcedPersonId) : peopleHide,
+      [peopleHide, forcedPersonId, authorNodes, peopleOpts]
+    );
+    const visibleAuthors = peopleFiltered.shown;
+    const [idxState, setIdxState] = useState("idle");
+    const idxRef = useRef(null);
+    const idxStartedRef = useRef(false);
+    const ensureIndex = () => {
+      if (idxStartedRef.current) return;
+      idxStartedRef.current = true;
+      if (!V2_ENABLED || !V2_URL) {
+        if (HAS_EMB) setIdxState("failed");
+        return;
+      }
+      setIdxState("loading");
+      try {
+        fetch(V2_URL, { credentials: "omit" }).then((r) => {
+          if (!r.ok) throw new Error("http " + r.status);
+          return r.json();
+        }).then((j) => {
+          const P = AL.prepareIndexV2(j);
+          if (!P) throw new Error("not a v2 index");
+          idxRef.current = P;
+          setIdxState("ready");
+        }).catch(() => {
+          setIdxState("failed");
+        });
+      } catch (err) {
+        setIdxState("failed");
+      }
+    };
+    const showPeople = authorNodes.length > 0 || HAS_EMB || V2_ENABLED && idxState !== "failed";
+    const showAdvanced = showPeople || !!(BAND && BAND.field);
+    const papersShown = (n) => AUTHOR_MAP && (n.type === "theme" || n.type === "cluster") ? 40 : n.type === "theme" || n.type === "oa_field" || n.type === "oa_subfield" ? 8 : 5;
+    const mapHasCluster = (k) => {
+      const n = NODE_BY_ID[k];
+      return !!n && n.type === "cluster";
+    };
+    const mapLabelOf = (k) => {
+      const n = NODE_BY_ID[k];
+      return n ? n.unique_title || n.title || n.label || "" : "";
+    };
     const authorPendingRef = useRef(null);
     const authorTimerRef = useRef(null);
     const clearAuthorPending = () => {
@@ -1384,47 +2026,110 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         authorTimerRef.current = null;
       }
     };
-    const placeEmbedded = (clean) => {
-      const idxs = AL.searchEmbedded(EMB, clean, 5);
-      if (!idxs.length) {
-        setAuthorNote('No author named "' + clean + '" is indexed on this map.');
-        return;
+    const shardPromisesRef = useRef(/* @__PURE__ */ Object.create(null));
+    const SHARD_TIMEOUT_MS = 15e3;
+    const placeSeqRef = useRef(0);
+    const peopleOptsRef = useRef(null);
+    peopleOptsRef.current = peopleOpts;
+    const loadCoShard = (P, s) => {
+      if (P.shardState[s] === "ready") return Promise.resolve(true);
+      if (shardPromisesRef.current[s]) return shardPromisesRef.current[s];
+      P.shardState[s] = "loading";
+      const done = (ok) => {
+        if (!ok) {
+          P.shardState[s] = "failed";
+          delete shardPromisesRef.current[s];
+        }
+        return ok;
+      };
+      let pr;
+      try {
+        const ctl = typeof AbortController === "function" ? new AbortController() : null;
+        const timer = setTimeout(() => {
+          if (ctl) ctl.abort();
+        }, SHARD_TIMEOUT_MS);
+        const opts = ctl ? { credentials: "omit", signal: ctl.signal } : { credentials: "omit" };
+        pr = fetch(new URL(AL.coShardName(V2_BASE, s), location.href).href, opts).then((r) => {
+          if (!r.ok) throw new Error("http " + r.status);
+          return r.json();
+        }).then((j) => {
+          clearTimeout(timer);
+          return done(AL.addCoShard(P, s, j));
+        }).catch(() => {
+          clearTimeout(timer);
+          return done(false);
+        });
+      } catch (err) {
+        pr = Promise.resolve(done(false));
       }
-      applyAuthorRef.current(AL.embeddedPlace(EMB, idxs));
+      shardPromisesRef.current[s] = pr;
+      return pr;
     };
-    const expandEmbedded = (aid) => {
-      const msg = AL.embeddedExpand(EMB, aid);
-      if (msg) {
-        applyAuthorRef.current(msg);
+    const withCoLists = (aid, go, stillWanted) => {
+      const P = idxRef.current;
+      const s = P ? AL.shardNeeded(P, aid) : -1;
+      if (s < 0) {
+        go(true);
         return;
       }
-      setAuthorMeta((prev) => Object.assign({}, prev, { [aid]: Object.assign({}, prev[aid], { loading: false, expanded: true, nearby: [] }) }));
+      setAuthorNote("Loading co-authors...");
+      loadCoShard(P, s).then((ok) => {
+        if (stillWanted && !stillWanted()) return;
+        go(ok);
+        if (!ok) setAuthorNote("Co-authors could not be loaded. Showing people who work on the same subthemes.");
+      });
+    };
+    const choosePerson = (row) => {
+      const seq = ++placeSeqRef.current;
+      const place = () => {
+        let msg = null;
+        if (row.v1) msg = AL.embeddedPlaceWithNeighbors(EMB, row.aid);
+        else if (idxRef.current) msg = AL.v2Neighbors(
+          idxRef.current,
+          row.aid,
+          "graph",
+          { hasCluster: mapHasCluster, labelOf: mapLabelOf, minPapers: (peopleOptsRef.current || peopleOpts).minPapers }
+        );
+        if (!msg) {
+          setAuthorNote("This author could not be placed on the map.");
+          return;
+        }
+        applyAuthorRef.current(msg);
+      };
+      if (row.v1) place();
+      else withCoLists(row.aid, place, () => seq === placeSeqRef.current);
+    };
+    const expandLocal = (aid) => {
+      const run = () => {
+        let msg = null;
+        if (idxRef.current) msg = AL.v2Neighbors(
+          idxRef.current,
+          aid,
+          "expand",
+          { hasCluster: mapHasCluster, labelOf: mapLabelOf, minPapers: (peopleOptsRef.current || peopleOpts).minPapers }
+        );
+        if (!msg && HAS_EMB) msg = AL.embeddedExpand(EMB, aid);
+        if (msg) {
+          applyAuthorRef.current(msg);
+          return;
+        }
+        setAuthorMeta((prev) => Object.assign({}, prev, { [aid]: Object.assign({}, prev[aid], { loading: false, expanded: true, nearby: [] }) }));
+      };
+      withCoLists(aid, run);
     };
     const embeddedFallbackRef = useRef(null);
     embeddedFallbackRef.current = () => {
-      const p = authorPendingRef.current;
+      const pend = authorPendingRef.current;
       clearAuthorPending();
-      if (!p || !HAS_EMB) return false;
-      if (p.kind === "query") placeEmbedded(p.q);
-      else expandEmbedded(p.id);
+      if (!pend || !HAS_EMB && !idxRef.current) return false;
+      expandLocal(pend.id);
       return true;
     };
-    const armAuthorPending = (p) => {
+    const armAuthorPending = (pend) => {
       clearAuthorPending();
-      if (!HAS_EMB) return;
-      authorPendingRef.current = p;
+      if (!HAS_EMB && !idxRef.current) return;
+      authorPendingRef.current = pend;
       authorTimerRef.current = setTimeout(() => embeddedFallbackRef.current(), 6e3);
-    };
-    const askAuthors = (q) => {
-      const clean = AL.cleanQuery(q);
-      if (clean.length < 2) return;
-      if (parentLive()) {
-        setAuthorNote('Looking for authors named "' + clean + '" on this map...');
-        armAuthorPending({ kind: "query", q: clean });
-        postParent("pv:author-query", { q: clean });
-      } else if (HAS_EMB) {
-        placeEmbedded(clean);
-      }
     };
     const requestExpand = (node) => {
       if (!node || node.type !== "author") return;
@@ -1434,25 +2139,27 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         setAuthorMeta((prev) => Object.assign({}, prev, { [node.aid]: Object.assign({}, prev[node.aid], { loading: true }) }));
         armAuthorPending({ kind: "click", id: node.aid });
         postParent("pv:author-click", { id: node.aid });
-      } else if (HAS_EMB) {
-        expandEmbedded(node.aid);
+      } else if (HAS_EMB || idxRef.current) {
+        expandLocal(node.aid);
       }
     };
     const openAuthorPage = (node) => postParent("pv:open-author", { id: node.aid });
-    const TYPE_ORDER = { theme: 0, input_article: 1, cluster: 2, paper: 3, subtheme: 4 };
     const handleSearch = (query) => {
       setSearchQuery(query);
-      if (query.length < 2) {
-        setSearchResults([]);
-        return;
-      }
-      setSearchResults(AL.searchRows(NODES, authorNodes, query, authorCapable || HAS_EMB));
+      if (query.length >= 2) ensureIndex();
     };
+    const searchResults = useMemo(() => AL.searchRows(NODES, authorNodes, searchQuery, {
+      state: idxState,
+      index: idxRef.current,
+      emb: EMB,
+      spanLabel: idxRef.current && idxRef.current.spanLabel || META && META.span && META.span.label || "",
+      hasPeopleSource: idxState === "ready" || idxState === "loading" || idxState === "failed" && HAS_EMB
+    }), [searchQuery, authorNodes, idxState]);
     const selectSearchResult = (node) => {
+      if (!node || node.type === "info") return;
       setSearchQuery("");
-      setSearchResults([]);
-      if (node.type === "find_author") {
-        askAuthors(node.label);
+      if (node.type === "person") {
+        choosePerson(node);
         return;
       }
       if (node.type === "author") {
@@ -1472,8 +2179,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           if (n.type === "cluster") {
             if (n.theme) {
               if (gran === "themes" && expanded.indexOf(n.theme) < 0) return false;
-            } else if (gran !== "detail") return false;
-          } else if ((n.type === "paper" || n.type === "subtheme") && gran !== "detail") {
+            } else if (gran !== "subthemes") return false;
+          } else if (n.type === "paper" && gran !== "subthemes") {
             return false;
           }
         } else if ((n.bfs_degree || 0) > legacyDepth) {
@@ -1485,8 +2192,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       });
       const ids = new Set(base.map((n) => n.id));
       const kept = base.filter((n) => n.type !== "subtheme" || (SUB_NEIGH[n.id] || []).filter((c) => ids.has(c)).length >= 2);
-      return authorNodes.length ? kept.concat(authorNodes.filter((a) => !(hidden.length && classHidden(a, hidden)))) : kept;
-    }, [gran, expanded, bandMin, bandDir, bandDimKey, hidden, legacyDepth, pinned, authorNodes]);
+      return visibleAuthors.length ? kept.concat(visibleAuthors.filter((a) => !(hidden.length && classHidden(a, hidden)))) : kept;
+    }, [gran, expanded, bandMin, bandDir, bandDimKey, hidden, legacyDepth, pinned, visibleAuthors]);
     const bandPassCount = useMemo(
       () => NODES.filter((n) => n.type === "paper" && bandPass(n)).length,
       [bandMin, bandDir, bandDimKey]
@@ -1495,10 +2202,10 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const filteredRef = useRef(filteredNodes);
     filteredRef.current = filteredNodes;
     const revealNode = (node) => {
-      const cls = node.type === "cluster" ? clusterClass(node) : node.type;
+      const cls = node.type === "cluster" ? clusterClass(node) : node.type === "author" ? authorClass(node) : node.type;
       setHidden((h) => classHidden(node, h) ? h.filter((k) => k !== cls) : h);
-      if (node.type === "paper" || node.type === "subtheme") setGran("detail");
-      if (node.type === "cluster" && !node.theme) setGran("detail");
+      if (node.type === "paper") setGran("subthemes");
+      if (node.type === "cluster" && !node.theme) setGran("subthemes");
       const t = node.theme;
       if (HAS_THEMES && t) setExpanded((e) => e.indexOf(t) >= 0 ? e : e.concat([t]));
       if (node.type === "paper" && !bandPass(node)) setPinned((p) => p.indexOf(node.id) >= 0 ? p : p.concat([node.id]));
@@ -1506,7 +2213,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     };
     const revealRebuilds = (node) => {
       if (classHidden(node, hidden)) return true;
-      if (gran !== "detail" && (node.type === "paper" || node.type === "subtheme" || node.type === "cluster" && !node.theme)) return true;
+      if (gran !== "subthemes" && (node.type === "paper" || node.type === "cluster" && !node.theme)) return true;
       if (node.type === "paper" && !bandPass(node) && pinned.indexOf(node.id) < 0) return true;
       if (!HAS_THEMES && (node.bfs_degree || 0) > legacyDepth) return true;
       return !!(HAS_THEMES && node.theme && expanded.indexOf(node.theme) < 0);
@@ -1709,11 +2416,22 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     const focusAuthor = (node) => {
       const anchor = node.anchor ? NODE_BY_ID[node.anchor] : null;
       const rebuild = true;
-      if (anchor) revealNode(anchor);
-      revealNode(node);
+      const wholeMap = AUTHOR_MAP && node.role === "center";
+      if (anchor && !wholeMap) revealNode(anchor);
+      if (!wholeMap) revealNode(node);
       setSelectedNode(node);
-      const ids = [node.id].concat((node.clusters || []).slice(0, 3).map((c) => c.key));
-      frameNodes(() => ids, rebuild, 160);
+      if (wholeMap) frameNodes(allVisibleIds, rebuild);
+      else frameNodes(() => [node.id].concat((node.clusters || []).slice(0, 3).map((c) => c.key)), rebuild, 160);
+    };
+    const chooseHighlight = (au, id) => {
+      if (!id) {
+        setHl(null);
+        return;
+      }
+      const n = NODE_BY_ID[id];
+      if (!n) return;
+      revealNode(n);
+      setHl({ id, owner: au.id });
     };
     const authorFocusRef = useRef(null);
     authorFocusRef.current = focusAuthor;
@@ -1735,9 +2453,18 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     };
     const filteredNodeIds = useMemo(() => new Set(filteredNodes.map((n) => n.id)), [filteredNodes]);
     const filteredEdges = useMemo(() => {
-      const base = EDGES.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target));
-      return authorEdges.length ? base.concat(authorEdges.filter((e) => filteredNodeIds.has(e.source) && filteredNodeIds.has(e.target))) : base;
+      const vis = {};
+      filteredNodeIds.forEach((id) => {
+        vis[id] = true;
+      });
+      return AL.rollUpEdges(authorEdges.length ? EDGES.concat(authorEdges) : EDGES, vis, NODE_BY_ID);
     }, [filteredNodeIds, authorEdges]);
+    const hlSet = useMemo(() => {
+      if (!hl) return null;
+      const hn = NODE_BY_ID[hl.id];
+      const keep = [hl.owner].concat(authorNodes.filter((a) => a.role === "center").map((a) => a.id));
+      return AL.highlightSet(hl.id, keep, filteredEdges, hn && hn.type === "oa_field" ? 2 : 1);
+    }, [hl, filteredEdges, authorNodes]);
     const bridgeVisible = useMemo(() => filteredEdges.some((e) => {
       const sn = NODE_BY_ID[e.source], tn = NODE_BY_ID[e.target];
       if (!sn || !tn) return false;
@@ -1772,6 +2499,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           const near = n.seedNear && prevPos[n.seedNear] || n.anchor && prevPos[n.anchor] || null;
           if (near) {
             const a = Math.random() * 2 * Math.PI, r = (getNodeSize(n) + 30 + Math.random() * 40) * Math.max(0.5, spacingScale);
+            return { ...n, x: near.x + r * Math.cos(a), y: near.y + r * Math.sin(a), fx: void 0, fy: void 0 };
+          }
+        }
+        if (n.type === "oa_field" || n.type === "oa_subfield") {
+          const lk = EDGES.find((e) => e.source === n.id && prevPos[e.target] || e.target === n.id && prevPos[e.source]);
+          const near = lk ? prevPos[lk.source === n.id ? lk.target : lk.source] : null;
+          if (near) {
+            const a = Math.random() * 2 * Math.PI, r = (90 + Math.random() * 80) * spacingScale;
             return { ...n, x: near.x + r * Math.cos(a), y: near.y + r * Math.sin(a), fx: void 0, fy: void 0 };
           }
         }
@@ -1820,6 +2555,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const simulation = d3.forceSimulation(simNodes).force("link", d3.forceLink(simEdges).id((d) => d.id).distance((d) => {
         const s = spacingScale;
         const w = d.w_rel;
+        if (d.edge_type === "oa_parent") return 110 * s;
+        if (d.edge_type === "oa_link") return 190 * s;
         if (d.edge_type === "author_member") return Math.max(46, (200 - 110 * w) * s);
         if (d.edge_type === "author_link") return Math.max(58, 150 * s);
         if (d.edge_type === "theme_member") return 120 * s;
@@ -1836,6 +2573,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           const th = d.source.type === "theme" ? d.source : d.target;
           return Math.min(0.9, 3.2 / Math.sqrt(Math.max(visDeg[th.id] || 1, 1)));
         }
+        if (d.edge_type === "oa_parent") return 0.3;
+        if (d.edge_type === "oa_link") return 0.1;
         if (d.edge_type === "author_member") return 0.12 + 0.2 * w;
         if (d.edge_type === "author_link") return 0.5;
         if (d.edge_type === "theme_needle") return 0.22;
@@ -1852,6 +2591,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         if (d.type === "input_article") return -2e3 * spacingScale;
         if (d.type === "theme") return -3200 * spacingScale;
         if (d.type === "author") return -160 * Math.max(1, spacingScale);
+        if (d.type === "oa_field") return -900 * spacingScale;
+        if (d.type === "oa_subfield") return -500 * spacingScale;
         if (d.type === "cluster") {
           const deg = Math.max(d.degree || 1, 1);
           return -1200 * Math.sqrt(deg) / 2 * spacingScale;
@@ -1862,6 +2603,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         if (d.type === "theme") return Math.max(110 * spacingScale, getNodeSize(d) + 34);
         if (d.type === "cluster") return 70 * spacingScale;
         if (d.type === "author") return Math.max(getNodeSize(d) + 8, 34 * spacingScale);
+        if (d.type === "oa_field") return Math.max(getNodeSize(d) + 30, 60 * spacingScale);
+        if (d.type === "oa_subfield") return Math.max(getNodeSize(d) + 24, 46 * spacingScale);
         return 30 * spacingScale;
       }).strength(0.85).iterations(2)).alphaDecay(0.015).alphaMin(5e-3).velocityDecay(0.45);
       simulationRef.current = simulation;
@@ -2106,7 +2849,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       const msg = validated ? d : AL.validateAuthorNodes(d, (k) => {
         const n = NODE_BY_ID[k];
         return !!n && n.type === "cluster";
-      });
+      }, { graph: !!(d && d.mode === "graph") });
       if (!msg) {
         setAuthorNote("No author could be placed on this map.");
         return;
@@ -2233,7 +2976,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       if (node.type === "theme") return 22 + 22 * Math.sqrt((node.corpus_size || 1) / THEME_MAX);
       if (node.type === "cluster") return 20;
       if (node.type === "paper") return 13;
-      if (node.type === "author") return 16 + 6 * (node.credibility || 0) + (node.role === "center" ? 8 : 0);
+      if (node.type === "author") return AL.personSize(node);
+      if (node.type === "oa_field" || node.type === "oa_subfield") return AL.oaSize(node, OA_MAX[node.type]);
       return 8;
     };
     const createStarPoints = (cx, cy, outerR, innerR, points) => {
@@ -2340,7 +3084,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           "data-node-type": node.type,
           "data-theme": node.theme || void 0,
           transform: `translate(${pos.x}, ${pos.y})`,
-          style: { cursor: "pointer" },
+          style: { cursor: "pointer", opacity: hlSet && !hlSet[node.id] ? 0.15 : 1 },
           onClick: () => {
             setSelectedNode(node);
             if (node.type === "theme" && gran === "themes") toggleTheme(node.theme);
@@ -2428,7 +3172,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           // and a few pixels of size, and at fit-to-view zoom the two were genuinely hard to
           // tell apart. A square instead, which is the shape this renderer already uses for
           // an individual publication. That gives the map a shape language instead of a
-          // palette: polygons are topics, a square is one paper, a star is a needle, a dot
+          // palette: polygons are subthemes, a square is one paper, a star is a needle, a dot
           // is a shared term.
           /* @__PURE__ */ React.createElement(
             "polygon",
@@ -2453,6 +3197,38 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
               strokeDasharray: node.role === "context" ? "4 3" : void 0
             }
           ), /* @__PURE__ */ React.createElement("circle", { cx: 0, cy: -size * 0.28, r: size * 0.3, fill: color }), /* @__PURE__ */ React.createElement("path", { d: `M ${-size * 0.52} ${size * 0.62} Q 0 ${-size * 0.18} ${size * 0.52} ${size * 0.62} Z`, fill: color }))
+        ) : node.type === "oa_field" ? (
+          // OpenAlex field: a rounded square, outlined, lightly filled.
+          /* @__PURE__ */ React.createElement(
+            "rect",
+            {
+              x: -size * 0.85,
+              y: -size * 0.85,
+              width: size * 1.7,
+              height: size * 1.7,
+              rx: size * 0.25,
+              fill: "#94a3b8",
+              fillOpacity: 0.18,
+              stroke: isSelected ? "#fff" : "#94a3b8",
+              strokeWidth: 2
+            }
+          )
+        ) : node.type === "oa_subfield" ? (
+          // OpenAlex subfield: a smaller rounded square, solid.
+          /* @__PURE__ */ React.createElement(
+            "rect",
+            {
+              x: -size * 0.75,
+              y: -size * 0.75,
+              width: size * 1.5,
+              height: size * 1.5,
+              rx: size * 0.25,
+              fill: "#94a3b8",
+              fillOpacity: 0.85,
+              stroke: isSelected ? "#fff" : "rgba(255,255,255,0.3)",
+              strokeWidth: isSelected ? 3 : 1
+            }
+          )
         ) : node.type === "publication" ? /* @__PURE__ */ React.createElement(
           "rect",
           {
@@ -2467,7 +3243,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             strokeWidth: isSelected ? 2 : 1
           }
         ) : /* @__PURE__ */ React.createElement("circle", { r: size, fill: color, opacity: 0.7, stroke: isSelected ? "#fff" : "none", strokeWidth: 2 }),
-        (node.type === "input_article" || node.type === "theme" || node.type === "author" || node.type === "cluster" && (!isFieldMap || zoomFactor < 1.35)) && /* @__PURE__ */ React.createElement(
+        (node.type === "input_article" || node.type === "theme" || node.type === "oa_field" || // a person's name shows when zoomed in (like a subtheme's), always for the centre and the selected person
+        node.type === "author" && (node.role === "center" || isSelected || !isFieldMap || zoomFactor < 1.35) || (node.type === "cluster" || node.type === "oa_subfield") && (!isFieldMap || zoomFactor < 1.35)) && /* @__PURE__ */ React.createElement(
           "text",
           {
             y: (() => {
@@ -2536,16 +3313,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         onChange: (e) => handleSearch(e.target.value),
         onKeyDown: (e) => {
           if (e.key === "Enter") {
-            const first = searchResults.find((r) => r.type !== "find_author");
-            if (first) {
-              selectSearchResult(first);
-              return;
-            }
-            if ((authorCapable || HAS_EMB) && searchQuery.trim().length >= 3) {
-              askAuthors(searchQuery);
-              setSearchQuery("");
-              setSearchResults([]);
-            }
+            const first = searchResults.find((r) => r.type !== "info");
+            if (first) selectSearchResult(first);
           }
         },
         style: {
@@ -2585,10 +3354,17 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       zIndex: 100,
       maxHeight: "300px",
       overflowY: "auto"
-    } }, searchResults.map((node) => /* @__PURE__ */ React.createElement(
+    } }, searchResults.map((node) => node.type === "info" ? /* @__PURE__ */ React.createElement("div", { key: node.id, role: "status", "data-search-row": "info", "data-search-kind": node.kind, style: {
+      padding: isMobile ? "12px 14px" : "10px 16px",
+      borderBottom: `1px solid ${theme.border}`,
+      fontSize: "13px",
+      color: theme.textMuted,
+      cursor: "default"
+    } }, /* @__PURE__ */ React.createElement("div", null, node.label), node.sub ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", marginTop: "3px" } }, node.sub) : null) : /* @__PURE__ */ React.createElement(
       "div",
       {
         key: node.id,
+        "data-search-row": node.type === "person" ? "person" : "node",
         onClick: () => selectSearchResult(node),
         style: {
           padding: isMobile ? "12px 14px" : "10px 16px",
@@ -2599,8 +3375,8 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           gap: "10px"
         }
       },
-      /* @__PURE__ */ React.createElement("span", { style: { color: COLORS[node.subtype] || COLORS[node.type] || COLORS.author, fontSize: "12px" } }, "\u25CF"),
-      node.type === "find_author" ? /* @__PURE__ */ React.createElement("span", { "data-find-author": "1", style: { fontSize: "13px" } }, 'Find author "' + node.label.substring(0, isMobile ? 22 : 40) + '" on this map') : /* @__PURE__ */ React.createElement("span", { style: { fontSize: "13px" } }, (node.label || node.id).substring(0, isMobile ? 35 : 50), "...")
+      /* @__PURE__ */ React.createElement("span", { style: { color: node.type === "person" ? COLORS.author : COLORS[node.subtype] || COLORS[node.type] || COLORS.author, fontSize: "12px" } }, "\u25CF"),
+      /* @__PURE__ */ React.createElement("span", { style: { fontSize: "13px", overflowWrap: "anywhere" } }, node.type === "person" ? node.label : (node.label || node.id).substring(0, isMobile ? 35 : 50) + ((node.label || node.id).length > (isMobile ? 35 : 50) ? "..." : ""))
     )))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: isMobile ? "8px" : "24px", fontSize: "14px", color: theme.textMuted, alignItems: "center" } }, !isMobile && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("span", null, "Nodes: ", /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, filteredNodes.length)), /* @__PURE__ */ React.createElement("span", null, "Edges: ", /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, filteredEdges.length))), /* @__PURE__ */ React.createElement(
       "button",
       {
@@ -2660,10 +3436,12 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         const wr = edge.w_rel === void 0 ? null : edge.w_rel;
         const wWidth = wr === null ? null : 0.9 + 2.6 * wr;
         const wOpacity = wr === null ? null : 0.4 + 0.45 * wr;
+        const dimEdge = !!hlSet && !(hlSet[edge.source] && hlSet[edge.target]);
         return /* @__PURE__ */ React.createElement(
           "line",
           {
             key: i,
+            opacity: dimEdge ? 0.15 : void 0,
             x1: sourcePos.x,
             y1: sourcePos.y,
             x2: targetPos.x,
@@ -2692,11 +3470,14 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "10px" } }, "Node Types"), [
       ...SPACE_ONLY ? [] : [{ key: "input_article", type: BAND && BAND.field ? "Compass needles" : "Input Article", color: COLORS.input_article, shape: "\u2605" }],
       ...HAS_THEMES ? [{ key: "theme", type: "Themes", color: COLORS.theme, shape: "\u25CF" }] : [],
-      ...BAND && BAND.field && (gran === "detail" || !HAS_THEMES) ? [{ key: "paper", type: "Nominated papers", color: COLORS.paper, shape: "\u25C6" }] : [],
-      { key: "problems", type: "Problem statements", color: COLORS.problems, shape: "\u2B20" },
-      { key: "impact", type: "Outcomes", color: COLORS.impact, shape: "\u25B2" },
-      { key: "methods", type: "Methods", color: COLORS.methods, shape: "hex" },
-      ...gran === "detail" || !HAS_THEMES ? [{ key: "subtheme", type: "Shared terms", color: COLORS.subtheme, shape: "\u2022" }] : [],
+      ...NODES.some((n) => n.type === "oa_field") ? [{ key: "oa_field", type: "OpenAlex fields", color: COLORS.oa_field, shape: "sqo" }] : [],
+      ...NODES.some((n) => n.type === "oa_subfield") ? [{ key: "oa_subfield", type: "OpenAlex subfields", color: COLORS.oa_subfield, shape: "sq" }] : [],
+      ...BAND && BAND.field && (gran === "subthemes" || !HAS_THEMES) ? [{ key: "paper", type: "Nominated papers", color: COLORS.paper, shape: "\u25C6" }] : [],
+      // only the kinds of subtheme this map has
+      ...NODES.some((n) => n.type === "cluster" && clusterClass(n) === "problems") ? [{ key: "problems", type: "Problem statements", color: COLORS.problems, shape: "\u2B20" }] : [],
+      ...NODES.some((n) => n.type === "cluster" && clusterClass(n) === "impact") ? [{ key: "impact", type: "Outcomes", color: COLORS.impact, shape: "\u25B2" }] : [],
+      ...NODES.some((n) => n.type === "cluster" && clusterClass(n) === "methods") ? [{ key: "methods", type: "Methods", color: COLORS.methods, shape: "hex" }] : [],
+      ...NODES.some((n) => n.type === "subtheme") ? [{ key: "subtheme", type: "Shared terms", color: COLORS.subtheme, shape: "\u2022" }] : [],
       // one row per kind of person on the map: the centre, its co-authors, and the context authors
       // (placed on the same contexts) are different things and are filters of their own
       ...["author_center", "author_co", "author_ctx", "author"].filter((k) => authorNodes.some((n) => authorClass(n) === k)).map((k) => ({ key: k, type: AUTHOR_LEGEND[k], color: COLORS[k], shape: "person", variant: k }))
@@ -2736,7 +3517,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
             strokeWidth: "1.6",
             strokeDasharray: item.variant === "author_ctx" ? "3 2" : void 0
           }
-        ), /* @__PURE__ */ React.createElement("circle", { cx: "0", cy: "-2.4", r: "2.6", fill: item.color }), /* @__PURE__ */ React.createElement("path", { d: "M -4.4 5.2 Q 0 -1.5 4.4 5.2 Z", fill: item.color })) : item.shape === "sq" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("rect", { x: "-7", y: "-7", width: "14", height: "14", rx: "2.5", fill: item.color })) : /* @__PURE__ */ React.createElement("span", { style: { color: item.color, fontSize: "14px", width: "16px", textAlign: "center" } }, item.shape),
+        ), /* @__PURE__ */ React.createElement("circle", { cx: "0", cy: "-2.4", r: "2.6", fill: item.color }), /* @__PURE__ */ React.createElement("path", { d: "M -4.4 5.2 Q 0 -1.5 4.4 5.2 Z", fill: item.color })) : item.shape === "sqo" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("rect", { x: "-7", y: "-7", width: "14", height: "14", rx: "3.5", fill: item.color, fillOpacity: "0.18", stroke: item.color, strokeWidth: "2" })) : item.shape === "sq" ? /* @__PURE__ */ React.createElement("svg", { width: "16", height: "16", viewBox: "-10 -10 20 20" }, /* @__PURE__ */ React.createElement("rect", { x: "-7", y: "-7", width: "14", height: "14", rx: "2.5", fill: item.color })) : /* @__PURE__ */ React.createElement("span", { style: { color: item.color, fontSize: "14px", width: "16px", textAlign: "center" } }, item.shape),
         /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.type),
         item.key === "methods" ? /* @__PURE__ */ React.createElement("span", { style: {
           marginLeft: "auto",
@@ -2757,6 +3538,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       { label: "Outcome \u2194 Problem statement", color: "#a855f7" }
     ].map((item) => /* @__PURE__ */ React.createElement("div", { key: item.label, style: { display: "flex", alignItems: "center", gap: "8px", padding: "2px 0" } }, /* @__PURE__ */ React.createElement("span", { style: { display: "inline-block", width: "16px", height: "2px", background: item.color } }), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, opacity: 0.8 } }, item.label)))), isMobile && /* @__PURE__ */ React.createElement("div", { style: { marginTop: "12px", paddingTop: "12px", borderTop: `1px solid ${theme.border}`, fontSize: "11px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("div", null, "Nodes: ", filteredNodes.length, " | Edges: ", filteredEdges.length))), /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "controls", style: {
       position: "absolute",
+      // On a phone the open panel (a 0.95-alpha bottom sheet) covers these controls and their text showed
+      // through it; they are hidden while a panel is open and come back when it closes.
+      visibility: isMobile && selectedNode ? "hidden" : "visible",
       // MODIFIED FOR COMPASS. A field map stacks this ABOVE the zoom controls in the
       // bottom-right corner, which leaves the centre of the map clear.
       bottom: isMobile ? "8px" : "16px",
@@ -2799,15 +3583,18 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
     ))), /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "12px", color: theme.textMuted } }, (() => {
       const cnt = (t) => filteredNodes.filter((n) => n.type === t).length;
       const parts = [cnt("theme") + " themes"];
-      if (cnt("cluster")) parts.push(cnt("cluster") + " topics");
+      if (cnt("cluster")) parts.push(cnt("cluster") + (cnt("cluster") === 1 ? " subtheme" : " subthemes"));
+      if (cnt("oa_field")) parts.push(cnt("oa_field") + (cnt("oa_field") === 1 ? " OpenAlex field" : " OpenAlex fields"));
+      if (cnt("oa_subfield")) parts.push(cnt("oa_subfield") + (cnt("oa_subfield") === 1 ? " OpenAlex subfield" : " OpenAlex subfields"));
       if (!SPACE_ONLY) parts.push(cnt("input_article") + " needles");
       {
         const co = filteredNodes.filter((n) => n.type === "author" && n.role === "coauthor").length;
         const cx = filteredNodes.filter((n) => n.type === "author" && n.role === "context").length;
-        const other = cnt("author") - co - cx;
+        const other = cnt("author") - co - cx - filteredNodes.filter((n) => n.type === "author" && n.role === "center").length;
         if (co) parts.push(co + (co === 1 ? " co-author" : " co-authors"));
         if (cx) parts.push(cx + (cx === 1 ? " context author" : " context authors"));
         if (other > 0) parts.push(other + (other === 1 ? " author" : " authors"));
+        if (peopleFiltered.hidden > 0) parts.push(peopleFiltered.hidden + (peopleFiltered.hidden === 1 ? " person" : " people") + " hidden by Advanced settings");
       }
       if (cnt("paper")) parts.push(cnt("paper") + " papers");
       return parts.join(" \xB7 ");
@@ -2820,7 +3607,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       fontSize: "11px",
       color: "#6366f1",
       textDecoration: "underline"
-    } }, "Collapse all themes")) : null) : null, BAND && BAND.field ? /* @__PURE__ */ React.createElement("div", { style: {
+    } }, "Collapse all themes")) : null) : null, showAdvanced ? /* @__PURE__ */ React.createElement("div", { style: {
       marginTop: HAS_THEMES ? "12px" : 0,
       paddingTop: HAS_THEMES ? "10px" : 0,
       borderTop: HAS_THEMES ? `1px solid ${theme.border}` : "none"
@@ -2844,7 +3631,37 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       },
       advOpen ? "\u25BE" : "\u25B8",
       " Advanced"
-    ), advOpen ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "6px" } }, isMobile ? "Band (\u03C3)" : "Field fit band (\u03C3)", /* @__PURE__ */ React.createElement(InfoTip, { id: "band", text: bandTipText })), /* @__PURE__ */ React.createElement(
+    ), advOpen ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, showPeople ? /* @__PURE__ */ React.createElement("div", { "data-people-settings": "1", style: { marginBottom: BAND && BAND.field ? "16px" : 0 } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "8px" } }, "People"), [
+      ["p", "Minimum papers per person", "data-people-min-papers", 1, 500],
+      ["j", "Minimum joint papers for co-authors", "data-people-min-joint", 1, 50],
+      ["c", "Most co-authors drawn (0 = all)", "data-people-max-co", 0, 500],
+      ["x", "Most context authors drawn (0 = all)", "data-people-max-ctx", 0, 500]
+    ].map((f) => /* @__PURE__ */ React.createElement("label", { key: f[0], style: { display: "block", fontSize: "12px", color: theme.text, marginBottom: "8px" } }, f[1], /* @__PURE__ */ React.createElement(
+      "input",
+      {
+        type: "number",
+        inputMode: "numeric",
+        min: f[3],
+        max: f[4],
+        step: "1",
+        ...{ [f[2]]: "1" },
+        value: peopleDraft[f[0]],
+        onChange: (e) => changePeopleOpt(f[0], e.target.value),
+        onBlur: () => settlePeopleOpts(),
+        style: {
+          display: "block",
+          width: "100%",
+          marginTop: "4px",
+          padding: "6px 8px",
+          fontSize: isMobile ? "16px" : "13px",
+          fontFamily: "inherit",
+          borderRadius: "6px",
+          border: `1px solid ${theme.border}`,
+          background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.04)",
+          color: theme.text
+        }
+      }
+    ))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", color: theme.textMuted, lineHeight: 1.45 } }, "A co-author with one joint paper still shows when that paper is less than 24 months old. Co-authors are drawn by most joint papers first; context authors by how much of this work they share.")) : null, BAND && BAND.field ? /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted, marginBottom: "6px" } }, isMobile ? "Band (\u03C3)" : "Field fit band (\u03C3)", /* @__PURE__ */ React.createElement(InfoTip, { id: "band", text: bandTipText })), /* @__PURE__ */ React.createElement(
       "input",
       {
         type: "range",
@@ -2903,8 +3720,9 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         }
       },
       BAND_DIMS.map((d) => /* @__PURE__ */ React.createElement("option", { key: d.key, value: d.key }, d.label || d.key))
-    ) : null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "12px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#e0a458" } }, bandDir === "inside" ? "\u2265" : "\u2264", " ", Number(bandMin).toFixed(2), "\u03C3"), ": ", bandPassCount, " of ", bandDim.ordinary_total !== void 0 ? bandDim.ordinary_total : BAND.ordinary_total, " above-average papers,", " ", "all ", NODES.filter((n) => n.is_needle).length, " needles", HAS_THEMES && gran !== "detail" ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "4px", fontSize: "11px" } }, "Papers are drawn at Detail.") : null)) : null) : null), /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "zoom", style: {
+    ) : null, /* @__PURE__ */ React.createElement("div", { style: { textAlign: "center", marginTop: "8px", fontSize: "12px", color: theme.textMuted } }, /* @__PURE__ */ React.createElement("span", { style: { fontWeight: 600, color: "#e0a458" } }, bandDir === "inside" ? "\u2265" : "\u2264", " ", Number(bandMin).toFixed(2), "\u03C3"), ": ", bandPassCount, " of ", bandDim.ordinary_total !== void 0 ? bandDim.ordinary_total : BAND.ordinary_total, " above-average papers,", " ", "all ", NODES.filter((n) => n.is_needle).length, " needles", HAS_THEMES && gran !== "subthemes" ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "4px", fontSize: "11px" } }, "Papers are drawn at Subthemes.") : null)) : null) : null) : null), /* @__PURE__ */ React.createElement("div", { "data-map-overlay": "zoom", style: {
       position: "absolute",
+      visibility: isMobile && selectedNode ? "hidden" : "visible",
       bottom: isMobile ? "8px" : "16px",
       right: isMobile ? "8px" : "auto",
       left: isMobile ? "auto" : "16px",
@@ -2958,7 +3776,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       // asked to see had nowhere left to be.
       maxHeight: isMobile ? visBand ? Math.max(160, Math.round(0.6 * (visBand.bottom - Math.max(headerH, visBand.top)))) + "px" : "60vh" : visBand ? Math.max(160, visBand.bottom - Math.max(headerH, visBand.top) - 32) + "px" : "calc(100vh - " + (headerH + 32) + "px)",
       overflowY: "auto"
-    } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "theme" ? "Theme" : selectedNode.type === "cluster" ? "Topic" : selectedNode.type === "subtheme" ? "Shared Term" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : selectedNode.type === "author" ? "Author" : "Needle"), selectedNode.subtype && selectedNode.type !== "theme" && selectedNode.type !== "author" && /* @__PURE__ */ React.createElement("span", { style: {
+    } }, selectedNode && /* @__PURE__ */ React.createElement(React.Fragment, null, /* @__PURE__ */ React.createElement("div", { style: { padding: "20px", background: darkMode ? "#1a2f23" : "#f1f5f9", borderBottom: `1px solid ${theme.border}`, position: "relative" } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "1px", color: theme.textMuted } }, selectedNode.type === "theme" ? "Theme" : selectedNode.type === "cluster" ? "Subtheme" : selectedNode.type === "oa_field" ? "OpenAlex field" : selectedNode.type === "oa_subfield" ? "OpenAlex subfield" + (selectedNode.field ? " (" + selectedNode.field + ")" : "") : selectedNode.type === "subtheme" ? "Shared term" : selectedNode.type === "publication" ? "Publication" : selectedNode.type === "paper" ? "Paper" : selectedNode.type === "author" ? AUTHOR_ROLE_LABEL[selectedNode.role] || "Author" : "Needle"), selectedNode.subtype && selectedNode.type !== "theme" && selectedNode.type !== "author" && selectedNode.type !== "oa_field" && selectedNode.type !== "oa_subfield" && /* @__PURE__ */ React.createElement("span", { style: {
       fontSize: "10px",
       padding: "2px 8px",
       borderRadius: "4px",
@@ -2984,11 +3802,11 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         }
       },
       "\xD7"
-    )), /* @__PURE__ */ React.createElement("div", { style: { padding: "20px" } }, selectedNode.overview && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "8px" } }, "\u{1F4CA} ", selectedNode.type === "input_article" || selectedNode.type === "paper" ? "Article Summary" : selectedNode.type === "subtheme" ? "Shared Term" : selectedNode.type === "theme" ? "Theme Summary" : "Topic Overview"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "14px", color: theme.text, opacity: 0.8, lineHeight: 1.6 } }, selectedNode.overview)), selectedNode.type === "theme" && (() => {
+    )), /* @__PURE__ */ React.createElement("div", { style: { padding: "20px" } }, selectedNode.overview && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "8px" } }, "\u{1F4CA} ", selectedNode.type === "input_article" || selectedNode.type === "paper" ? "Article Summary" : selectedNode.type === "subtheme" ? "Shared term" : selectedNode.type === "theme" ? "Theme Summary" : selectedNode.type === "oa_field" || selectedNode.type === "oa_subfield" ? "Overview" : "Subtheme overview"), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "14px", color: theme.text, opacity: 0.8, lineHeight: 1.6 } }, selectedNode.overview)), selectedNode.type === "theme" && (() => {
       const kids = NODES.filter((n) => n.type === "cluster" && n.theme === selectedNode.theme);
       const isOpen = gran !== "themes" || expanded.indexOf(selectedNode.theme) >= 0;
-      const groups = [["problems", "Problem statements"], ["impact", "Outcomes"], ["methods", "Methods"]];
-      return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13px", color: theme.textMuted, marginBottom: "10px" } }, Number(selectedNode.corpus_size || 0).toLocaleString(), " papers in ", selectedNode.n_clusters, " topics", selectedNode.run_hits ? " \xB7 " + selectedNode.run_hits + (selectedNode.run_hits === 1 ? " needle" : " needles") : ""), gran === "themes" ? /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => toggleTheme(selectedNode.theme), style: {
+      const groups = AUTHOR_MAP ? [["*", "Subthemes"]] : [["problems", "Problem statements"], ["impact", "Outcomes"], ["methods", "Methods"]];
+      return /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13px", color: theme.textMuted, marginBottom: "10px" } }, Number(selectedNode.corpus_size || 0).toLocaleString(), " papers in ", selectedNode.n_clusters, " ", selectedNode.n_clusters === 1 ? "subtheme" : "subthemes", selectedNode.run_hits ? " \xB7 " + selectedNode.run_hits + (selectedNode.run_hits === 1 ? " needle" : " needles") : ""), gran === "themes" ? /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => toggleTheme(selectedNode.theme), style: {
         fontSize: "12px",
         padding: "6px 12px",
         borderRadius: "6px",
@@ -2998,7 +3816,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         color: "#6366f1",
         fontFamily: "inherit"
       } }, isOpen ? "Collapse this theme" : "Open this theme") : null, groups.map((g) => {
-        const list = kids.filter((k) => clusterClass(k) === g[0]).sort((a, b) => (b.corpus_size || 0) - (a.corpus_size || 0));
+        const list = kids.filter((k) => g[0] === "*" || clusterClass(k) === g[0]).sort((a, b) => (b.corpus_size || 0) - (a.corpus_size || 0));
         if (!list.length) return null;
         const off = hidden.indexOf(g[0]) >= 0 && !(g[0] === "methods" && THEME_METHODS_ONLY[selectedNode.theme]);
         return /* @__PURE__ */ React.createElement("div", { key: g[0], style: { marginTop: "14px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "6px" } }, g[1], " (", list.length, ")", off ? " \xB7 hidden, show in the legend" : ""), list.slice(0, 6).map((k) => /* @__PURE__ */ React.createElement("button", { key: k.id, type: "button", onClick: () => focusNode(k), style: {
@@ -3015,6 +3833,27 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
           opacity: off ? 0.6 : 0.9,
           lineHeight: 1.4
         } }, k.unique_title || k.title || k.label)), list.length > 6 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", color: theme.textMuted } }, "+", list.length - 6, " more") : null);
+      }));
+    })(), (selectedNode.type === "oa_field" || selectedNode.type === "oa_subfield") && (() => {
+      const conn = AL.oaConnections(selectedNode, EDGES, NODE_BY_ID);
+      const groups = [["theme", "Themes"], ["cluster", "Subthemes"]];
+      return /* @__PURE__ */ React.createElement("div", { "data-oa-connected": "1", style: { marginBottom: "20px" } }, groups.map((g) => {
+        const list = conn.filter((k) => k.type === g[0]);
+        if (!list.length) return null;
+        return /* @__PURE__ */ React.createElement("div", { key: g[0], style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "6px" } }, g[1], " on this map (", list.length, ")"), list.slice(0, 12).map((k) => /* @__PURE__ */ React.createElement("button", { key: k.id, type: "button", "data-focus-node": k.id, onClick: () => focusNode(k), style: {
+          display: "block",
+          width: "100%",
+          textAlign: "left",
+          padding: "4px 0",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          fontFamily: "inherit",
+          fontSize: "13px",
+          color: theme.text,
+          opacity: 0.9,
+          lineHeight: 1.4
+        } }, k.unique_title || k.title || k.label)), list.length > 12 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", color: theme.textMuted } }, "+", list.length - 12, " more") : null);
       }));
     })(), selectedNode.type === "author" && (() => {
       const au = authorNodes.find((a) => a.id === selectedNode.id) || selectedNode;
@@ -3034,22 +3873,44 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         lineHeight: 1.4
       };
       const head = { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, margin: "14px 0 6px" };
-      return /* @__PURE__ */ React.createElement("div", { "data-author-panel": au.aid, style: { marginBottom: "20px" } }, au.institution ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13.5px", color: theme.text, opacity: 0.85, marginBottom: "6px" } }, au.institution) : null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", fontSize: "12.5px", color: theme.textMuted } }, au.h_index !== null && au.h_index !== void 0 ? /* @__PURE__ */ React.createElement("span", null, "h-index ", au.h_index) : null, au.n_papers_on_map ? /* @__PURE__ */ React.createElement("span", null, au.n_papers_on_map, " ", au.n_papers_on_map === 1 ? "paper" : "papers", " on this map") : null, au.credibility !== null && au.credibility !== void 0 ? /* @__PURE__ */ React.createElement("span", { title: "Display only. How well the author's record is established; it does not rate any paper." }, "credibility ", Math.round(au.credibility * 100)) : null, au.orcid ? /* @__PURE__ */ React.createElement("span", { "data-orcid": "1", style: { padding: "1px 7px", borderRadius: "9px", border: "1px solid #a6ce39", color: "#a6ce39", fontSize: "11px" } }, "ORCID ", au.orcid) : null), au.role ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ React.createElement("span", { "data-author-role": au.role, style: {
+      const snap = META && META.snapshot || idxRef.current && idxRef.current.snapshot || "";
+      const nameOf = (k) => k.unique_title || k.title || k.label || k.id;
+      const sizeOf = (k) => typeof k.n_papers === "number" ? k.n_papers : k.corpus_size || 0;
+      const groups = AL.connectedNodes(au, NODES, EDGES.concat(authorEdges), NODE_BY_ID, AUTHOR_MAP);
+      const picks = [["oa_field", "OpenAlex fields"], ["oa_subfield", "OpenAlex subfields"], ["theme", "Themes"], ["cluster", "Subthemes"]].map((g) => [g[1], groups[g[0]].slice().sort((a, b) => sizeOf(b) - sizeOf(a) || nameOf(a).localeCompare(nameOf(b)))]).filter((g) => g[1].length);
+      const hlValue = hl && hl.owner === au.id ? hl.id : "";
+      const lastJ = AL.fmtMonthYear(au.last_joint);
+      const nJoint = typeof au.n_joint === "number" ? au.n_joint : null;
+      const nProfiles = (au.also_ids || []).length + 1;
+      const subs = (au.clusters || []).filter((c) => NODE_BY_ID[c.key]);
+      const nearby = (meta.nearby || []).filter((nb) => {
+        const t = onMap(nb.id);
+        return !t || !peopleFiltered.hiddenIds[t.id];
+      });
+      return /* @__PURE__ */ React.createElement("div", { "data-author-panel": au.aid, style: { marginBottom: "20px" } }, au.role === "center" && au.summary ? /* @__PURE__ */ React.createElement("p", { "data-author-summary": "1", style: { fontSize: "14px", lineHeight: 1.6, color: theme.text, opacity: 0.9, margin: "0 0 4px" } }, au.summary) : null, au.role === "center" && au.summary ? /* @__PURE__ */ React.createElement("div", { "data-summary-note": "1", style: { fontSize: "11px", color: theme.textMuted, margin: "0 0 14px" } }, "Written by our local model from the paper titles.") : null, au.institution ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13.5px", color: theme.text, opacity: 0.85, marginBottom: "6px" } }, au.institution, au.country ? ", " + au.country : "") : null, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center", fontSize: "12.5px", color: theme.textMuted } }, typeof au.works_count === "number" ? /* @__PURE__ */ React.createElement("span", null, au.works_count, " ", au.works_count === 1 ? "work" : "works") : null, typeof au.n_lead_senior === "number" && au.role === "center" ? /* @__PURE__ */ React.createElement("span", null, au.n_lead_senior, " lead or senior ", au.n_lead_senior === 1 ? "paper" : "papers") : null, au.h_index !== null && au.h_index !== void 0 ? /* @__PURE__ */ React.createElement("span", null, "h-index ", au.h_index) : null, au.n_papers_on_map ? /* @__PURE__ */ React.createElement("span", null, au.n_papers_on_map, " ", au.n_papers_on_map === 1 ? "paper" : "papers", " on this map") : null, au.orcid ? /* @__PURE__ */ React.createElement("span", { "data-orcid": "1", style: { padding: "1px 7px", borderRadius: "9px", border: "1px solid #a6ce39", color: "#a6ce39", fontSize: "11px" } }, "ORCID ", au.orcid) : null), au.role ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "8px" } }, /* @__PURE__ */ React.createElement("span", { "data-author-role": au.role, style: {
         display: "inline-block",
         padding: "1px 9px",
         borderRadius: "9px",
         fontSize: "11px",
         border: "1px solid " + (COLORS[authorClass(au)] || COLORS.author),
         color: COLORS[authorClass(au)] || COLORS.author
-      } }, AUTHOR_ROLE_LABEL[au.role])) : null, au.reason ? /* @__PURE__ */ React.createElement("div", { "data-author-reason": "1", style: { marginTop: "8px", fontSize: "12.5px", color: theme.textMuted } }, au.reason) : au.role === "coauthor" ? /* @__PURE__ */ React.createElement("div", { "data-author-reason": "1", style: { marginTop: "8px", fontSize: "12.5px", color: theme.textMuted } }, "Co-author" + (au.shared_works ? " of " + au.shared_works + (au.shared_works === 1 ? " shared work" : " shared works") : "")) : null, (au.clusters || []).length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: head }, au.role === "context" || au.role === "coauthor" ? "Shared contexts" : "Topics on this map", " (", au.clusters.filter((c) => NODE_BY_ID[c.key]).length, ")"), au.clusters.slice(0, 8).map((c) => {
+      } }, AUTHOR_ROLE_LABEL[au.role])) : null, picks.length ? /* @__PURE__ */ React.createElement("div", { style: { marginTop: "14px" } }, /* @__PURE__ */ React.createElement("label", { style: { ...head, display: "block", margin: "0 0 6px" }, htmlFor: "pv-highlight" }, "Highlight"), /* @__PURE__ */ React.createElement("select", { id: "pv-highlight", "data-highlight-select": "1", value: hlValue, onChange: (e) => chooseHighlight(au, e.target.value), style: {
+        width: "100%",
+        padding: "8px 8px",
+        fontSize: isMobile ? "16px" : "13px",
+        fontFamily: "inherit",
+        borderRadius: "8px",
+        border: `1px solid ${theme.border}`,
+        background: darkMode ? "#1a2f23" : "#ffffff",
+        color: theme.text,
+        colorScheme: darkMode ? "dark" : "light"
+      } }, /* @__PURE__ */ React.createElement("option", { value: "" }, "Nothing highlighted"), picks.map((g) => /* @__PURE__ */ React.createElement("optgroup", { key: g[0], label: g[0] }, g[1].map((k) => /* @__PURE__ */ React.createElement("option", { key: k.id, value: k.id }, nameOf(k).slice(0, 80))))))) : null, au.role === "coauthor" ? /* @__PURE__ */ React.createElement("div", { "data-author-reason": "1", style: { marginTop: "10px", fontSize: "12.5px", color: theme.textMuted } }, nJoint !== null ? nJoint + " joint " + (nJoint === 1 ? "paper" : "papers") + (lastJ ? ", latest " + lastJ : "") : "Co-author" + (au.shared_works ? " of " + au.shared_works + (au.shared_works === 1 ? " shared work" : " shared works") : "")) : au.reason ? /* @__PURE__ */ React.createElement("div", { "data-author-reason": "1", style: { marginTop: "10px", fontSize: "12.5px", color: theme.textMuted } }, au.reason) : null, au.role === "coauthor" && (au.joint_papers || []).length > 0 ? /* @__PURE__ */ React.createElement("div", { "data-joint-papers": "1", style: { marginTop: "6px" } }, au.joint_papers.map((jp, i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { fontSize: "12.5px", lineHeight: 1.45, padding: "3px 0", color: theme.text, opacity: 0.9 } }, jp.url ? /* @__PURE__ */ React.createElement("a", { href: jp.url, target: "_blank", rel: "noopener", style: { color: "#6366f1", textDecoration: "none" } }, jp.title) : jp.title, jp.year ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " (" + jp.year + ")") : null, jp.reattributed_from ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " \xB7 filed by OpenAlex under " + jp.reattributed_from) : null))) : null, (au.also_ids || []).length > 0 ? /* @__PURE__ */ React.createElement("div", { "data-repaired": "1", style: { marginTop: "8px", fontSize: "12.5px", color: theme.textMuted } }, "OpenAlex lists this person under ", nProfiles, " profiles; joint papers merged here.") : null, subs.length > 0 && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: head }, au.role === "context" || au.role === "coauthor" ? "Shared subthemes" : "Subthemes on this map", " (", subs.length, ")"), subs.slice(0, 8).map((c) => {
         const k = NODE_BY_ID[c.key];
-        if (!k) return null;
-        const kind = CONTEXT_KIND[k.subtype];
-        return /* @__PURE__ */ React.createElement("button", { key: c.key, type: "button", "data-cluster-focus": c.key, onClick: () => focusNode(k), style: btn }, (au.role === "context" || au.role === "coauthor") && kind ? /* @__PURE__ */ React.createElement("span", { "data-shared-kind": kind, style: { color: theme.textMuted } }, "Shares " + kind + ": ") : null, k.unique_title || k.title || k.label, /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", Math.round(c.share * 100), "%"));
-      })), /* @__PURE__ */ React.createElement("div", { style: head }, au.role === "center" ? "Co-authors and context authors" : "Nearby deepthinkers"), (meta.nearby || []).length > 0 ? (meta.nearby || []).slice(0, 14).map((nb) => {
+        return /* @__PURE__ */ React.createElement("button", { key: c.key, type: "button", "data-cluster-focus": c.key, onClick: () => focusNode(k), style: btn }, k.unique_title || k.title || k.label, typeof c.share === "number" ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", Math.round(c.share * 100), "%") : null);
+      }), subs.length > 8 ? /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12px", color: theme.textMuted } }, "+", subs.length - 8, " more") : null), /* @__PURE__ */ React.createElement("div", { style: head }, au.role === "center" ? "Co-authors and context authors" : "People near this author"), nearby.length > 0 ? nearby.slice(0, 14).map((nb) => {
         const there = onMap(nb.id);
         return there ? /* @__PURE__ */ React.createElement("button", { key: nb.id, type: "button", "data-nearby": nb.id, onClick: () => focusAuthor(there), style: btn }, nb.name, nb.reason ? /* @__PURE__ */ React.createElement("span", { style: { color: theme.textMuted } }, " ", "\xB7", " ", nb.reason) : null) : /* @__PURE__ */ React.createElement("div", { key: nb.id, style: { ...btn, cursor: "default", opacity: 0.6 } }, nb.name, nb.reason ? " \xB7 " + nb.reason : "");
-      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the deepthinkers near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, SHELL ? "Expand: add this person's contexts and people" : "Show nearby deepthinkers") : null, HAS_PARENT ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
+      }) : /* @__PURE__ */ React.createElement("div", { style: { fontSize: "12.5px", color: theme.textMuted } }, meta.loading ? "Looking for the people near this author..." : meta.expanded ? "No other author on this map is near this one yet." : "Click the author on the map to bring its neighbors in."), !meta.expanded && !meta.loading ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-author-expand": "1", onClick: () => requestExpand(au), style: { ...btn, color: "#6366f1", marginTop: "6px" } }, SHELL ? "Expand: add this person's subthemes and people" : "Show co-authors and context authors") : null, HAS_PARENT ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-open-author": "1", onClick: () => openAuthorPage(au), style: {
         marginTop: "14px",
         fontSize: "12.5px",
         padding: "7px 14px",
@@ -3059,7 +3920,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         background: "transparent",
         color: "#6366f1",
         fontFamily: "inherit"
-      } }, "Open author page") : null);
+      } }, "Open author page") : null, /* @__PURE__ */ React.createElement("div", { "data-source-note": "1", style: { marginTop: "16px", fontSize: "11px", color: theme.textMuted, lineHeight: 1.45 } }, "Source: OpenAlex", snap ? " (" + AL.snapshotLabel(snap) + ")" : "", ". Repairs to OpenAlex identities are marked."));
     })(), (selectedNode.type === "input_article" || selectedNode.type === "paper") && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, selectedNode.author_list?.length > 0 && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "12.5px", color: theme.textMuted, margin: "0 0 10px", lineHeight: 1.5 } }, selectedNode.author_list.slice(0, 8).join(", "), selectedNode.author_list.length > 8 ? " and " + (selectedNode.author_list.length - 8) + " more" : ""), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "8px", alignItems: "center" } }, selectedNode.url ? /* @__PURE__ */ React.createElement("a", { href: selectedNode.url, target: "_blank", rel: "noopener", style: {
       fontSize: "12px",
       padding: "6px 12px",
@@ -3067,19 +3928,19 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(99, 102, 241, 0.1)",
       color: "#6366f1",
       textDecoration: "none"
-    } }, String(selectedNode.url).indexOf("doi.org") >= 0 ? "DOI" : "arXiv", " \u2197") : null, selectedNode.source ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", color: theme.textMuted, fontFamily: "JetBrains Mono" } }, selectedNode.source, selectedNode.date ? " \xB7 " + selectedNode.date : "") : null)), selectedNode.similar_papers?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4DA} ", selectedNode.type === "theme" ? "Most relevant publications" : "Top Related Publications", " (", selectedNode.type === "theme" ? Math.min(8, selectedNode.similar_papers.length) : selectedNode.similar_papers.length, ")"), selectedNode.similar_papers.slice(0, selectedNode.type === "theme" ? 8 : 5).map((paper, i) => {
+    } }, String(selectedNode.url).indexOf("doi.org") >= 0 ? "DOI" : "arXiv", " \u2197") : null, selectedNode.source ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", color: theme.textMuted, fontFamily: "JetBrains Mono" } }, selectedNode.source, selectedNode.date ? " \xB7 " + selectedNode.date : "") : null)), selectedNode.similar_papers?.length > 0 && /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "20px" } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4DA} ", AUTHOR_MAP && (selectedNode.type === "theme" || selectedNode.type === "cluster") ? "Papers" : selectedNode.type === "theme" ? "Most relevant publications" : "Top Related Publications", " (", Math.min(papersShown(selectedNode), selectedNode.similar_papers.length), ")"), selectedNode.similar_papers.slice(0, papersShown(selectedNode)).map((paper, i) => {
       const pmid = String(paper.pmid || "").replace("ID: ", "").replace(".0", "");
       const refId2 = String(paper.id || pmid || "");
       const href = paper.url || (pmid ? "https://pubmed.ncbi.nlm.nih.gov/" + pmid : "");
       const srcLabel2 = String(paper.source || (pmid ? "PMID" : ""));
-      const similarity = paper.similarity ? (paper.similarity * 100).toFixed(0) : "N/A";
+      const similarity = paper.similarity ? (paper.similarity * 100).toFixed(0) : null;
       return /* @__PURE__ */ React.createElement("div", { key: i, style: {
         background: darkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
         border: `1px solid ${theme.border}`,
         borderRadius: "10px",
         padding: "14px",
         marginBottom: "10px"
-      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "JetBrains Mono", fontSize: "12px", color: "#6366f1", overflowWrap: "anywhere" } }, srcLabel2, paper.date ? " " + String(paper.date).slice(0, 4) : "", " ", refId2), /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", background: "rgba(34, 197, 94, 0.2)", color: "#22c55e", padding: "2px 8px", borderRadius: "4px" } }, similarity, "% match")), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, marginBottom: "4px", lineHeight: 1.4 } }, paper.article_title || paper.title || "Title unavailable"), /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: paper.authors_detail, authorsFallback: paper.authors, theme, darkMode }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: {
+      } }, /* @__PURE__ */ React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: "8px" } }, /* @__PURE__ */ React.createElement("span", { style: { fontFamily: "JetBrains Mono", fontSize: "12px", color: "#6366f1", overflowWrap: "anywhere" } }, srcLabel2, paper.date ? " " + String(paper.date).slice(0, 4) : "", " ", refId2), similarity ? /* @__PURE__ */ React.createElement("span", { style: { fontSize: "11px", background: "rgba(34, 197, 94, 0.2)", color: "#22c55e", padding: "2px 8px", borderRadius: "4px" } }, similarity, "% match") : null), /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, marginBottom: "4px", lineHeight: 1.4 } }, paper.article_title || paper.title || "Title unavailable"), /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: paper.authors_detail, authorsFallback: paper.authors, theme, darkMode }), /* @__PURE__ */ React.createElement("div", { style: { marginTop: "10px" } }, /* @__PURE__ */ React.createElement("a", { href, target: "_blank", rel: "noopener", style: {
         fontSize: "12px",
         padding: "6px 12px",
         background: darkMode ? "rgba(255,255,255,0.08)" : "rgba(99, 102, 241, 0.1)",
@@ -3116,7 +3977,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       borderRadius: "10px",
       padding: "12px",
       textAlign: "center"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", color: theme.textMuted, marginBottom: "6px" } }, item.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "24px", fontWeight: 700, color: item.color, fontFamily: "JetBrains Mono" } }, item.score === void 0 || item.score === null ? "n/a" : item.score), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", color: theme.textMuted, marginTop: "2px" } }, isFieldMap ? "/ 10" : "/ 100")))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13px", color: theme.textMuted, display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Network Connections"), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, selectedNode.degree))), selectedNode.type === "publication" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4C4} Publication Details"), selectedNode.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, opacity: 0.8, lineHeight: 1.6, marginBottom: "16px" } }, selectedNode.abstract.substring(0, 300), selectedNode.abstract.length > 300 ? "..." : ""), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "12px" } }, /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: selectedNode.authors_detail, authorsFallback: selectedNode.authors, theme, darkMode })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "12px", alignItems: "center" } }, (() => {
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", color: theme.textMuted, marginBottom: "6px" } }, item.label), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "24px", fontWeight: 700, color: item.color, fontFamily: "JetBrains Mono" } }, item.score === void 0 || item.score === null ? "n/a" : item.score), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "10px", color: theme.textMuted, marginTop: "2px" } }, isFieldMap ? "/ 10" : "/ 100")))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: "13px", color: theme.textMuted, display: "flex", justifyContent: "space-between" } }, /* @__PURE__ */ React.createElement("span", null, "Network Connections"), /* @__PURE__ */ React.createElement("span", { style: { color: theme.text, fontFamily: "JetBrains Mono" } }, selectedNode.degree))), selectedNode.type === "publication" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: "11px", textTransform: "uppercase", letterSpacing: "0.5px", color: theme.textMuted, marginBottom: "12px" } }, "\u{1F4C4} Publication"), selectedNode.abstract && /* @__PURE__ */ React.createElement("p", { style: { fontSize: "13px", color: theme.text, opacity: 0.8, lineHeight: 1.6, marginBottom: "16px" } }, selectedNode.abstract.substring(0, 300), selectedNode.abstract.length > 300 ? "..." : ""), /* @__PURE__ */ React.createElement("div", { style: { marginBottom: "12px" } }, /* @__PURE__ */ React.createElement(AuthorBylineInner, { authorsDetail: selectedNode.authors_detail, authorsFallback: selectedNode.authors, theme, darkMode })), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: "12px", alignItems: "center" } }, (() => {
       const pmid = String(selectedNode.id || "").replace("ID: ", "").replace(".0", "");
       return /* @__PURE__ */ React.createElement("a", { href: `https://pubmed.ncbi.nlm.nih.gov/${pmid}`, target: "_blank", style: {
         fontSize: "12px",
@@ -3139,7 +4000,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
       pointerEvents: "none",
       zIndex: 100,
       maxWidth: "280px"
-    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.unique_title || hoveredNode.title || hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type === "author" ? "Author" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click for details", " \u2192"))));
+    } }, /* @__PURE__ */ React.createElement("div", { style: { fontWeight: 600, marginBottom: "4px", color: theme.text } }, hoveredNode.unique_title || hoveredNode.title || hoveredNode.label || hoveredNode.id), /* @__PURE__ */ React.createElement("div", { style: { color: theme.textMuted, fontSize: "11px", marginBottom: "6px" } }, hoveredNode.type === "cluster" ? "Subtheme \xB7 " + getSubtypeLabel(hoveredNode.subtype) : hoveredNode.type === "theme" ? "Theme" : hoveredNode.type === "oa_field" ? "OpenAlex field" : hoveredNode.type === "oa_subfield" ? "OpenAlex subfield" : hoveredNode.type === "subtheme" ? "Shared term" : hoveredNode.type === "author" ? AUTHOR_ROLE_LABEL[hoveredNode.role] || "Author" : hoveredNode.type), /* @__PURE__ */ React.createElement("div", { style: { color: "#6366f1", fontSize: "11px" } }, hoveredNode.type === "theme" && gran === "themes" ? "Click to open or close" : "Click to see more", " \u2192"))));
   }
   const rootEl = document.getElementById("root");
   if (!SHELL) {
@@ -3164,7 +4025,7 @@ function(a,b,c){if(!Vd(b))throw Error(m(200));return Wd(null,a,b,!1,c)};Q.unmoun
         return;
       }
       const title = g.metadata && (g.metadata.title || g.metadata.paper_title || g.metadata.name) || "Author map";
-      applyGraph(g.nodes, g.edges, typeof title === "string" ? title : "Author map");
+      applyGraph(g.nodes, g.edges, typeof title === "string" ? title : "Author map", g.metadata);
       gen += 1;
       rootEl.setAttribute("data-mounted", String(gen));
       ReactDOM.unmountComponentAtNode(rootEl);
