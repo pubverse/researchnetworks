@@ -514,6 +514,12 @@
     cached('author:' + id, function () { return api.author(id); }).then(function (res) {
       if (my !== viewSeq) return;
       if (!res || res.ok === false || !res.author) { viewFailed(res); return; }
+      // a profile OpenAlex split off this person answers with the person: show their own id in the address bar
+      var main = res.author.id;
+      if (res.redirect_from && /^A\d{1,12}$/.test(main || '') && main !== id) {
+        try { history.replaceState(null, '', '#author/' + main); } catch (e) { /* file:// */ }
+        id = main;
+      }
       renderAuthor(id, res);
     });
   }
@@ -975,6 +981,16 @@
     });
   }
 
+  // Papers OpenAlex files under small split-off profiles of the same person (same name, a shared co-author, the same
+  // subjects; backend identity table) count here; say so, with how many profiles they came from.
+  function mergedNote(a) {
+    var also = (a.also_ids || []).filter(function (x) { return /^A\d{1,12}$/.test(x); });
+    var n = +a.merged_papers || 0;
+    if (!also.length || n < 1) return '';
+    return '<p class="mini muted">Includes ' + num(n) + ' ' + plural(n, 'paper') + ' OpenAlex lists under ' + num(also.length) +
+      ' other ' + plural(also.length, 'profile') + ' of the same person (same name, a shared co-author, the same subjects).</p>';
+  }
+
   function renderAuthor(id, res) {
     var a = res.author || {};
     var name = nameOf(a) || 'Unnamed author';
@@ -1008,6 +1024,7 @@
         (a.corresponding_works != null ? fact('Corresponding', num(a.corresponding_works), 'Papers as corresponding author') : '') +
         fact('ORCID', orcid ? 'Linked' : 'None') +
       '</dl>' +
+      mergedNote(a) +
       '<p class="mini muted">Counts come from the OpenAlex snapshot PubVerse indexes, so recent papers may be missing.</p></section>';
 
     // Their space: subfields first (broad), then topics (narrow), deduplicated by name.
