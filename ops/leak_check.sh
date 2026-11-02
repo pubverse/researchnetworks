@@ -10,7 +10,8 @@
 #
 # Allowed on purpose: js/config.js names the public API host, which every visitor's browser calls, and the off-box
 # uptime probe (ops/probe.sh, .github/workflows/uptime.yml) checks that same host; the probe also names the tailnet
-# address RANGE 100.64.0.0/10 in a comment.
+# address RANGE 100.64.0.0/10 in a comment. The Content-Security-Policy meta line (http-equiv="Content-Security-Policy")
+# in index.html, docs.html, compass.html and compass/index.html names the same API host so connect-src/frame-src allow it.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -27,7 +28,7 @@ patterns=(
 hits=0
 for p in "${patterns[@]}"; do
   out=$(git grep -nIE -e "$p" -- . ':!ops/leak_check.sh' 2>/dev/null || true)
-  if [ "$p" = 'ts\.net' ]; then out=$(printf '%s\n' "$out" | grep -vE '^(js/config\.js|ops/probe\.sh|\.github/workflows/uptime\.yml):' || true); fi
+  if [ "$p" = 'ts\.net' ]; then out=$(printf '%s\n' "$out" | grep -vE '^(js/config\.js|ops/probe\.sh|\.github/workflows/uptime\.yml):' | grep -vE '^(index|docs|compass)\.html:[0-9]+:.*http-equiv="Content-Security-Policy"|^compass/index\.html:[0-9]+:.*http-equiv="Content-Security-Policy"' || true); fi
   out=$(printf '%s\n' "$out" | grep -v '100\.64\.0\.0/10' | grep -v '^$' || true)
   if [ -n "$out" ]; then
     printf 'LEAK (%s):\n%s\n' "$p" "$out" | cut -c1-240

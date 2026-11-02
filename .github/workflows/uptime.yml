@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Probe once
         if: ${{ github.event.inputs.babysit_minutes == '' || github.event.inputs.babysit_minutes == '0' }}
@@ -61,8 +61,9 @@ jobs:
           case "$minutes" in
             ''|*[!0-9]*) echo "::error::babysit_minutes must be a non-negative integer"; exit 2 ;;
           esac
-          if [ "${#minutes}" -gt 4 ]; then echo "::error::babysit_minutes too large"; exit 2; fi
+          if [ "${#minutes}" -gt 3 ]; then echo "::error::babysit_minutes too large (max 360)"; exit 2; fi
           minutes=$((10#$minutes))
+          if [ "$minutes" -gt 360 ]; then echo "::error::babysit_minutes too large (max 360)"; exit 2; fi
           deadline=$(( $(date +%s) + minutes * 60 ))
           consecutive=0
           echo "Babysitting for ${minutes} minute(s), probing every 30s."

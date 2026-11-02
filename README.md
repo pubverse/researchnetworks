@@ -21,8 +21,9 @@ compass run is a call out to the PubVerse backend, a separate service that lives
 runs on its own infrastructure. The one place that says where that backend is right now is js/config.js,
 which sets window.PV.API_BASE (and a small handful of other shared constants like the word limit and
 timeframe options). Load config.js before api.js or ui.js on any page that needs them. To point the site at
-a different backend, either edit the API_BASE line in js/config.js, or set window.PV_API_BASE in an inline
-script before config.js loads. No page should hardcode a backend URL of its own, and the static site never
+a different backend, edit the API_BASE line in js/config.js and the matching `connect-src` and `frame-src`
+entries in the Content-Security-Policy meta tag of each page. The only place the production backend host
+appears outside js/config.js is that meta tag (a meta tag cannot read config.js). The static site never
 stores a password, session token, or hash; the backend owns the login session by way of a cookie it sets.
 
 ## Running it locally
@@ -33,8 +34,10 @@ From inside this folder, start a plain file server and open the printed address 
 python3 -m http.server 8000
 ```
 
-Then visit http://localhost:8000/index.html. If a local backend is also running, point js/config.js at it
-first (see above) so the login veil and the Score, Compass, and Docs pages have something to call. A plain
+Then visit http://localhost:8000/index.html. If a local backend is also running (for example http://localhost:8078), point js/config.js at it
+first (see above) and add that origin to `connect-src` and `frame-src` in the CSP meta tag of each page, otherwise
+the browser blocks the calls silently. An inline `window.PV_API_BASE` script no longer works on docs.html
+(`script-src 'self'`). Make these edits locally and never commit them. A plain
 file server is enough; nothing here needs a build step.
 
 ## Publishing
@@ -59,4 +62,6 @@ that decision belongs in the backend project, not here.
 
 - Every HTML page that loads `js/api.js` (and the `compass.html` redirects) carries a Content-Security-Policy meta tag. `connect-src` and `frame-src` name the API base from `js/config.js`; if that host changes, change the tag too. Inline scripts are still allowed (`index.html` has them); moving them out is the follow-up that would let `script-src` drop `'unsafe-inline'`.
 - Fonts are self-hosted under `assets/fonts/` (no request to Google).
-- Run-map iframe token (PV-15): `compassRunMapUrl` puts `?pv_token=<export token>` in the iframe URL. This is not the session token. The backend mints it per run (`auth.make_export_token(username, run_id)`), it only authorizes that one run's map and exports, and it expires after `PV_EXPORT_TOKEN_TTL` (default 30 minutes). The residual (the token can show up in browser history or logs for 30 minutes and works for one run only) is accepted. Tightening further would need a backend change (a POST that sets a cookie, or a one-time token); not required.
+- Run-map iframe: `compassRunMapUrl` puts `?pv_token=<export token>` in the iframe URL. This is not the session token: the backend mints it per run, it authorizes only that run's map and exports, and it expires after 30 minutes by default. The token can show up in browser history or logs during that window.
+- The run-map iframe is not sandboxed and has no `referrerpolicy` yet. The map is generated content served from the API origin, so a script injected into a generated map would run there with that origin's cookies. A sandbox is not a drop-in fix: the author bridge in `js/compass.js` checks `event.origin` against the frame's own origin, and a sandboxed frame reports `null`. This stays open until the backend side lands (escaping of generated map content, and Referrer-Policy and CSP headers on the map response); the site-side sandbox and `referrerpolicy` should be revisited then.
+- Font licenses (SIL OFL 1.1) ship beside the fonts: `assets/fonts/OFL-Jost.txt`, `assets/fonts/OFL-Newsreader.txt`.
