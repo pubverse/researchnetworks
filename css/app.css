@@ -409,6 +409,7 @@ a.chip-btn{text-decoration:none;color:inherit}
 .dz-file{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:center;margin-top:12px;font-size:.92rem}
 .dz-file[hidden]{display:none}
 .dz-file .nm{font-weight:500;overflow-wrap:anywhere;max-width:100%}
+.up-email .mini{display:block;margin-top:4px}
 .up-status{margin-top:14px;text-align:center}
 .up-status[hidden]{display:none}
 .up-bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px auto 0;max-width:420px}

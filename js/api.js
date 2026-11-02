@@ -248,8 +248,8 @@
       return request('/api/score', { method: 'POST', retry: false, body: body, timeout: 180000 });
     },
     // upload review: a .docx or PDF reviewed in place. The upload returns a job; the page polls it.
-    reviewUpload: function (file, title, onProgress) {
-      return uploadFile('/api/review/upload', file, { title: title }, onProgress);
+    reviewUpload: function (file, title, email, onProgress) {
+      return uploadFile('/api/review/upload', file, { title: title, email: email }, onProgress);
     },
     reviewJob: function (jobId) {
       return request('/api/review/jobs/' + encodeURIComponent(jobId), { meta: true });

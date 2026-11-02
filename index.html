@@ -542,6 +542,11 @@
                 </div>
                 <p class="dz-sub" id="dzSub">You get your own document back with PubVerse's comments in the margin; your text is not changed. A PDF is read first and returned as a Word document. Up to 60 pages.</p>
               </div>
+              <div class="field up-email">
+                <label for="upEmail">Email me the reviewed document <span class="opt">(optional)</span></label>
+                <input id="upEmail" type="email" autocomplete="email" inputmode="email" maxlength="254" placeholder="you@example.org">
+                <span class="mini">We send the review and the document once, and do not keep the address.</span>
+              </div>
               <div class="up-status" id="upStatus" role="status" aria-live="polite" hidden>
                 <div class="compass-load" id="upSpin"></div>
                 <div class="mini" id="upDetail"></div>
@@ -567,6 +572,7 @@
               <div class="up-done" id="upDone" hidden>
                 <a class="btn" id="upDownload" href="#" rel="noopener">Download the reviewed document (.docx)</a>
                 <span class="mini">The review is in the margin of the document as Word comments, each with the prior work it rests on.</span>
+                <span class="mini" id="upEmailNote" hidden></span>
               </div>
               <div id="scoreGrounding" hidden style="margin-top:12px"></div>
 
@@ -964,6 +970,15 @@
     var upStatus = $('#upStatus'), upSpin = '#upSpin', upDetail = $('#upDetail');
     var upBar = $('#upBar'), upBarFill = $('#upBarFill'), upDone = $('#upDone'), upDownload = $('#upDownload');
     var upFile = null, upBusy = false, upRun = 0;
+    var upEmail = $('#upEmail'), upEmailNote = $('#upEmailNote');
+    var UP_EMAIL_KEY = 'pv_review_email';
+    var UP_EMAIL_BAD = 'That email does not look valid. Please correct it or leave it empty.';
+    // The last address is remembered on this browser only (localStorage can be blocked: always in try/catch).
+    try { var savedEmail = localStorage.getItem(UP_EMAIL_KEY); if (savedEmail && upEmail && !upEmail.value) upEmail.value = savedEmail; } catch (e) {}
+    function upEmailOk(v) { return !v || (v.length <= 254 && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)); }
+    function upRememberEmail(v) {
+      try { if (v) localStorage.setItem(UP_EMAIL_KEY, v); else localStorage.removeItem(UP_EMAIL_KEY); } catch (e) {}
+    }
 
     function upStore(v) {
       try {
@@ -1065,6 +1080,8 @@
       if (!upFile || upBusy) return;
       var why = upCheck(upFile);
       if (why) { ui.showError(scoreErr, why); return; }
+      var addr = ((upEmail && upEmail.value) || '').trim();
+      if (!upEmailOk(addr)) { ui.showError(scoreErr, UP_EMAIL_BAD); if (upEmail) upEmail.focus(); return; }
       var f = upFile, run = ++upRun;
       ui.clearError(scoreErr);
       scoreResult.hidden = true;
@@ -1072,7 +1089,7 @@
       resetPromote();
       upLock(true);
       upShow('Uploading', f.name, 0);
-      api.reviewUpload(f, (titleEl.value || '').trim(), function (frac) {
+      api.reviewUpload(f, (titleEl.value || '').trim(), addr, function (frac) {
         if (run === upRun) upShow('Uploading', f.name + ' (' + Math.round(frac * 100) + '%)', frac);
       }).then(function (res) {
         if (run !== upRun) return;
@@ -1081,9 +1098,10 @@
           ui.showError(scoreErr, (res && res.message) || 'We could not upload that file.');
           return;
         }
-        upStore({ id: String(res.job_id), name: f.name });
+        upRememberEmail(addr);
+        upStore({ id: String(res.job_id), name: f.name, email: addr });
         upClear();
-        upPoll(String(res.job_id), f.name, run, 0, res);
+        upPoll(String(res.job_id), f.name, run, 0, res, addr);
       });
     }
 
@@ -1101,9 +1119,9 @@
 
     // Polls until the job ends: every 3 seconds at first, backing off to 10. A dropped connection is
     // retried a few times before it is reported, since the job itself keeps running on the server.
-    function upPoll(id, name, run, n, first) {
+    function upPoll(id, name, run, n, first, addr) {
       if (run !== upRun) return;
-      var kind = upKind(name), fails = 0;
+      var kind = upKind(name), fails = 0, mailWaits = 0;
       upLock(true);
       function show(j) {
         if (j.status === 'queued') {
@@ -1127,7 +1145,16 @@
               return;
             }
             fails = 0;
-            if (j.status === 'done' && j.result) { upFinish(id, j); return; }
+            // the mail goes out just after the job is done: give it a short while to settle before saying
+            if (j.status === 'done' && j.result) {
+              if (addr && j.email_pending && ++mailWaits < 20) {
+                upShow('Sending your email', name);
+                tick(k + 1);
+                return;
+              }
+              upFinish(id, j, addr);
+              return;
+            }
             if (j.status === 'failed' || j.status === 'refused' || j.status === 'done') {
               upStore(null); upHide(); upLock(false);
               ui.showError(scoreErr, j.message || 'We could not review that file.');
@@ -1139,7 +1166,7 @@
         }, upDelay(k));
       })(n);
     }
-    function upFinish(id, j) {
+    function upFinish(id, j, addr) {
       upStore(null);
       upHide();
       upLock(false);
@@ -1149,6 +1176,16 @@
         upDownload.href = api.reviewDocxUrl(id, j.download_token);
         upDone.hidden = false;
       }
+      // textContent only: the address is the person's own text
+      if (addr && j.email_sent === true) {
+        upEmailNote.textContent = 'We also emailed it to ' + addr + '.';
+      } else if (addr && j.email_sent === false) {
+        upEmailNote.textContent = 'We could not email it; please download it here.';
+      } else {
+        upEmailNote.textContent = '';
+      }
+      upEmailNote.hidden = !upEmailNote.textContent;
+      if (upEmailNote.textContent) upDone.hidden = false;
     }
     // A review in progress survives a reload: the job id waits in sessionStorage.
     function upResume() {
@@ -1156,7 +1193,7 @@
       if (!v || upBusy) return;
       var tb = $('.tabs button[data-tab="score"]');
       if (tb) tb.click();
-      upPoll(v.id, String(v.name || ''), ++upRun, 0, { status: 'running' });
+      upPoll(v.id, String(v.name || ''), ++upRun, 0, { status: 'running' }, typeof v.email === 'string' ? v.email : '');
     }
 
     /* ---------- promote ---------- */
