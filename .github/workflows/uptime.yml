@@ -26,6 +26,10 @@ on:
         required: false
         default: "0"
 
+# Least privilege: the probe only reads the repository to check out ops/probe.sh.
+permissions:
+  contents: read
+
 # Never let two probes overlap; a stuck run should not queue up behind itself.
 concurrency:
   group: uptime
@@ -47,9 +51,18 @@ jobs:
       # alert mail arrives while there is still time to react.
       - name: Babysit
         if: ${{ github.event.inputs.babysit_minutes != '' && github.event.inputs.babysit_minutes != '0' }}
+        env:
+          BABYSIT_MINUTES: ${{ github.event.inputs.babysit_minutes }}
         run: |
           set -uo pipefail
-          minutes="${{ github.event.inputs.babysit_minutes }}"
+          # The dispatch input arrives through env, never interpolated into this script, and must
+          # be a plain non-negative integer before it reaches shell arithmetic.
+          minutes="$BABYSIT_MINUTES"
+          case "$minutes" in
+            ''|*[!0-9]*) echo "::error::babysit_minutes must be a non-negative integer"; exit 2 ;;
+          esac
+          if [ "${#minutes}" -gt 4 ]; then echo "::error::babysit_minutes too large"; exit 2; fi
+          minutes=$((10#$minutes))
           deadline=$(( $(date +%s) + minutes * 60 ))
           consecutive=0
           echo "Babysitting for ${minutes} minute(s), probing every 30s."

@@ -54,3 +54,9 @@ This README covers how the site is put together and how to run and publish it. I
 PubVerse arrives at a score, and it should not gain any content that does. If a future change to this site
 needs to describe scoring in any more detail than "novelty, methodological strength, and likely impact,"
 that decision belongs in the backend project, not here.
+
+## Security notes
+
+- Every HTML page that loads `js/api.js` (and the `compass.html` redirects) carries a Content-Security-Policy meta tag. `connect-src` and `frame-src` name the API base from `js/config.js`; if that host changes, change the tag too. Inline scripts are still allowed (`index.html` has them); moving them out is the follow-up that would let `script-src` drop `'unsafe-inline'`.
+- Fonts are self-hosted under `assets/fonts/` (no request to Google).
+- Run-map iframe token (PV-15): `compassRunMapUrl` puts `?pv_token=<export token>` in the iframe URL. This is not the session token. The backend mints it per run (`auth.make_export_token(username, run_id)`), it only authorizes that one run's map and exports, and it expires after `PV_EXPORT_TOKEN_TTL` (default 30 minutes). The residual (the token can show up in browser history or logs for 30 minutes and works for one run only) is accepted. Tightening further would need a backend change (a POST that sets a cookie, or a one-time token); not required.
