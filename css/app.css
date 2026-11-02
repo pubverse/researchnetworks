@@ -397,3 +397,24 @@ a.chip-btn{text-decoration:none;color:inherit}
 .tree-list ul{list-style:none;margin:2px 0 4px;padding:0 0 0 18px;border-left:2px solid var(--line)}
 .tree-list ul li{padding:3px 0 3px 10px}
 .role-badge.claimed{white-space:normal;max-width:100%;background:#fdf1dc;color:#7a5410}
+
+/* Course Plot upload: a drop zone under the paste box, upload progress, and the finished-document line */
+.dz{border:2px dashed var(--line);border-radius:var(--r);background:var(--paper);padding:22px 18px;text-align:center;transition:border-color .15s,background .15s}
+.dz.over{border-color:var(--blue);background:var(--blue-l)}
+.dz.busy{opacity:.6}
+.dz .dz-lead{margin:0 0 10px;color:var(--ink)}
+.dz .dz-sub{margin:10px 0 0;font-size:.85rem;color:var(--muted)}
+.dz-or{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:.85rem;margin:2px 0}
+.dz-or::before,.dz-or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.dz-file{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;justify-content:center;margin-top:12px;font-size:.92rem}
+.dz-file[hidden]{display:none}
+.dz-file .nm{font-weight:500;overflow-wrap:anywhere;max-width:100%}
+.up-status{margin-top:14px;text-align:center}
+.up-status[hidden]{display:none}
+.up-bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin:10px auto 0;max-width:420px}
+.up-bar > span{display:block;height:100%;width:0;background:var(--blue);transition:width .2s}
+.up-bar[hidden]{display:none}
+.up-done{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:14px 0 4px}
+.up-done[hidden]{display:none}
+@media(max-width:640px){.dz{padding:16px 12px}}
+@media(prefers-reduced-motion:reduce){.up-bar > span{transition:none}}

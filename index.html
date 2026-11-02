@@ -6,7 +6,7 @@
   <title>PubVerse</title>
   <meta name="description" content="PubVerse evaluates research ideas on substance, not signal, so the ones that matter are recognized sooner.">
   <link rel="icon" href="assets/pubverse_mark.png">
-  <link rel="stylesheet" href="css/app.css?v=8">
+  <link rel="stylesheet" href="css/app.css?v=9">
   <style>
     /* Page-local layout helpers only. Presentational, nothing about how scoring works. */
     .row{display:flex;gap:14px;align-items:center}
@@ -529,6 +529,24 @@
                 <div class="counter" id="sCounter">0 / 1000 words</div>
                 <div class="err" id="scoreErr"></div>
               </div>
+              <div class="dz-or" aria-hidden="true">or</div>
+              <div class="dz" id="dz">
+                <p class="dz-lead" id="dzLead">Drop a Word (.docx) or PDF file here, up to 25 MB</p>
+                <input type="file" id="dzInput" class="sr-only" tabindex="-1" aria-hidden="true"
+                       accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+                <button class="btn ghost sm" id="dzPick" type="button" aria-describedby="dzLead dzSub">Choose a file</button>
+                <div class="dz-file" id="dzFile" hidden>
+                  <span class="nm" id="dzName"></span><span class="mini" id="dzSize"></span>
+                  <button class="btn sm" id="dzGo" type="button">Review this file</button>
+                  <button class="btn ghost sm" id="dzClear" type="button">Remove</button>
+                </div>
+                <p class="dz-sub" id="dzSub">You get your own document back with PubVerse's comments in the margin; your text is not changed. A PDF is read first and returned as a Word document. Up to 60 pages.</p>
+              </div>
+              <div class="up-status" id="upStatus" role="status" aria-live="polite" hidden>
+                <div class="compass-load" id="upSpin"></div>
+                <div class="mini" id="upDetail"></div>
+                <div class="up-bar" id="upBar" hidden><span id="upBarFill"></span></div>
+              </div>
             </div>
 
             <div class="row between" style="margin-top:10px">
@@ -546,6 +564,10 @@
               </div>
               <div class="verdict"><p id="verdict"></p></div>
               <div class="warn-note" id="scoreWarn" hidden></div>
+              <div class="up-done" id="upDone" hidden>
+                <a class="btn" id="upDownload" href="#" rel="noopener">Download the reviewed document (.docx)</a>
+                <span class="mini">The review is in the margin of the document as Word comments, each with the prior work it rests on.</span>
+              </div>
               <div id="scoreGrounding" hidden style="margin-top:12px"></div>
 
               <div class="row wrap" style="margin-top:14px">
@@ -662,7 +684,7 @@
   </div>
 
   <script src="js/config.js?v=6"></script>
-  <script src="js/api.js?v=12"></script>
+  <script src="js/api.js?v=13"></script>
   <script src="js/ui.js?v=5"></script>
   <script src="js/compass.js?v=15"></script>
   <script src="js/search.js?v=11"></script>
@@ -799,6 +821,7 @@
       if (counter.isOver()) return;
       ui.clearError(scoreErr);
       scoreResult.hidden = true;
+      upDone.hidden = true;
       resetPromote();
       scoreBtn.disabled = true;
       ui.showCompass(scoreSpin, 'Assessing your abstract');
@@ -930,6 +953,210 @@
       a.href = URL.createObjectURL(new Blob([bib], { type: 'application/x-bibtex' }));
       a.download = 'pubverse-references.bib';
       document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+    }
+
+    /* ---------- upload review (a .docx or PDF reviewed in place) ---------- */
+
+    var UP_MAX_BYTES = 25 * 1024 * 1024;
+    var UP_KEY = 'pv_review_job';
+    var dz = $('#dz'), dzInput = $('#dzInput'), dzPick = $('#dzPick'), dzFile = $('#dzFile');
+    var dzGo = $('#dzGo'), dzClear = $('#dzClear');
+    var upStatus = $('#upStatus'), upSpin = '#upSpin', upDetail = $('#upDetail');
+    var upBar = $('#upBar'), upBarFill = $('#upBarFill'), upDone = $('#upDone'), upDownload = $('#upDownload');
+    var upFile = null, upBusy = false, upRun = 0;
+
+    function upStore(v) {
+      try {
+        if (v) sessionStorage.setItem(UP_KEY, JSON.stringify(v)); else sessionStorage.removeItem(UP_KEY);
+      } catch (e) {}
+    }
+    function upLoad() {
+      try {
+        var v = JSON.parse(sessionStorage.getItem(UP_KEY) || 'null');
+        if (v && typeof v.id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(v.id)) return v;
+      } catch (e) {}
+      return null;
+    }
+    function fmtBytes(n) {
+      if (n >= 1048576) return (Math.round(n / 104857.6) / 10) + ' MB';
+      return Math.max(1, Math.round(n / 1024)) + ' KB';
+    }
+    function upKind(name) { return /\.pdf$/i.test(name || '') ? 'pdf' : 'docx'; }
+
+    // The reason a file is turned away before anything is sent, in words a person can act on.
+    function upCheck(f) {
+      var name = f.name || '';
+      if (/\.doc$/i.test(name)) return 'That is an older Word format. Please save it as a .docx and add it again.';
+      if (!/\.(docx|pdf)$/i.test(name)) return 'Only a Word (.docx) or PDF file can be reviewed.';
+      if (!f.size) return 'That file is empty.';
+      if (f.size > UP_MAX_BYTES) return 'That file is ' + fmtBytes(f.size) + '. The limit is 25 MB.';
+      return '';
+    }
+    function upSetFile(f) {
+      ui.clearError(scoreErr);
+      if (!f) return;
+      var why = upCheck(f);
+      if (why) { upFile = null; dzFile.hidden = true; ui.showError(scoreErr, why); return; }
+      upFile = f;
+      $('#dzName').textContent = f.name;
+      $('#dzSize').textContent = fmtBytes(f.size);
+      dzFile.hidden = false;
+      dzGo.focus();
+    }
+    function upClear() {
+      upFile = null;
+      dzInput.value = '';
+      dzFile.hidden = true;
+    }
+    function upLock(locked) {
+      upBusy = locked;
+      dz.classList.toggle('busy', locked);
+      dzPick.disabled = locked; dzGo.disabled = locked; dzClear.disabled = locked;
+      scoreBtn.disabled = locked || counter.isOver() || ui.wordCount(abstractEl.value) === 0;
+    }
+    function upShow(caption, detail, frac) {
+      upStatus.hidden = false;
+      ui.showCompass(upSpin, caption);
+      upDetail.textContent = detail || '';
+      if (frac == null) { upBar.hidden = true; }
+      else { upBar.hidden = false; upBarFill.style.width = Math.round(frac * 100) + '%'; }
+    }
+    function upHide() {
+      ui.hideCompass(upSpin);
+      upStatus.hidden = true;
+      upBar.hidden = true;
+    }
+    function hasFiles(e) {
+      var t = e.dataTransfer && e.dataTransfer.types;
+      if (!t) return false;
+      for (var i = 0; i < t.length; i++) if (t[i] === 'Files') return true;
+      return false;
+    }
+
+    on(dzPick, 'click', function () { dzInput.click(); });
+    on(dzInput, 'change', function () { upSetFile(dzInput.files && dzInput.files[0]); });
+    on(dzClear, 'click', function () { upClear(); ui.clearError(scoreErr); dzPick.focus(); });
+    on(dzGo, 'click', upStart);
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      on(dz, ev, function (e) {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        if (!upBusy) dz.classList.add('over');
+      });
+    });
+    on(dz, 'dragleave', function (e) {
+      if (!dz.contains(e.relatedTarget)) dz.classList.remove('over');
+    });
+    on(dz, 'drop', function (e) {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      dz.classList.remove('over');
+      if (upBusy) return;
+      var fl = e.dataTransfer.files;
+      if (fl && fl.length > 1) { ui.showError(scoreErr, 'Please add one file at a time.'); return; }
+      upSetFile(fl && fl[0]);
+    });
+    // A file dropped beside the zone would make the browser open it and leave the page.
+    ['dragover', 'drop'].forEach(function (ev) {
+      on(window, ev, function (e) { if (hasFiles(e)) e.preventDefault(); });
+    });
+
+    function upStart() {
+      if (!upFile || upBusy) return;
+      var why = upCheck(upFile);
+      if (why) { ui.showError(scoreErr, why); return; }
+      var f = upFile, run = ++upRun;
+      ui.clearError(scoreErr);
+      scoreResult.hidden = true;
+      upDone.hidden = true;
+      resetPromote();
+      upLock(true);
+      upShow('Uploading', f.name, 0);
+      api.reviewUpload(f, (titleEl.value || '').trim(), function (frac) {
+        if (run === upRun) upShow('Uploading', f.name + ' (' + Math.round(frac * 100) + '%)', frac);
+      }).then(function (res) {
+        if (run !== upRun) return;
+        if (!res || res.ok === false || !res.job_id) {
+          upHide(); upLock(false);
+          ui.showError(scoreErr, (res && res.message) || 'We could not upload that file.');
+          return;
+        }
+        upStore({ id: String(res.job_id), name: f.name });
+        upClear();
+        upPoll(String(res.job_id), f.name, run, 0, res);
+      });
+    }
+
+    var UP_STAGES = {
+      screen: 'Checking the submission',
+      score: 'Reviewing against prior work',
+      place: 'Placing the comments',
+      write: 'Writing your document'
+    };
+    function upStageLabel(kind, stage) {
+      if (stage === 'extract') return kind === 'pdf' ? 'Reading the PDF' : 'Reading the document';
+      return UP_STAGES[stage] || 'Working on your document';
+    }
+    function upDelay(n) { return Math.min(10000, 3000 + Math.max(0, n - 2) * 1000); }
+
+    // Polls until the job ends: every 3 seconds at first, backing off to 10. A dropped connection is
+    // retried a few times before it is reported, since the job itself keeps running on the server.
+    function upPoll(id, name, run, n, first) {
+      if (run !== upRun) return;
+      var kind = upKind(name), fails = 0;
+      upLock(true);
+      function show(j) {
+        if (j.status === 'queued') {
+          var pos = Number(j.position);
+          upShow('Waiting in line', pos > 0 ? 'Your file is number ' + pos + ' in line. You can leave this page open.' : 'Your file is next.');
+        } else {
+          upShow(upStageLabel(kind, j.stage), name + '. This takes a few minutes.');
+        }
+      }
+      if (first) show(first);
+      (function tick(k) {
+        setTimeout(function () {
+          if (run !== upRun) return;
+          api.reviewJob(id).then(function (j) {
+            if (run !== upRun) return;
+            if (!j || j.ok === false) {
+              var gone = j && (j.status === 401 || j.status === 403 || j.status === 404);
+              if (!gone && ++fails < 6) { tick(k + 1); return; }
+              upStore(null); upHide(); upLock(false);
+              ui.showError(scoreErr, (j && j.message) || 'We lost track of that review. Please try again.');
+              return;
+            }
+            fails = 0;
+            if (j.status === 'done' && j.result) { upFinish(id, j); return; }
+            if (j.status === 'failed' || j.status === 'refused' || j.status === 'done') {
+              upStore(null); upHide(); upLock(false);
+              ui.showError(scoreErr, j.message || 'We could not review that file.');
+              return;
+            }
+            show(j);
+            tick(k + 1);
+          });
+        }, upDelay(k));
+      })(n);
+    }
+    function upFinish(id, j) {
+      upStore(null);
+      upHide();
+      upLock(false);
+      renderScore(j.result);
+      historyLoaded = false;
+      if (j.download_token) {
+        upDownload.href = api.reviewDocxUrl(id, j.download_token);
+        upDone.hidden = false;
+      }
+    }
+    // A review in progress survives a reload: the job id waits in sessionStorage.
+    function upResume() {
+      var v = upLoad();
+      if (!v || upBusy) return;
+      var tb = $('.tabs button[data-tab="score"]');
+      if (tb) tb.click();
+      upPoll(v.id, String(v.name || ''), ++upRun, 0, { status: 'running' });
     }
 
     /* ---------- promote ---------- */
@@ -1109,6 +1336,13 @@
 
       panel.appendChild(head);
       panel.appendChild(scores);
+      if (it.filename) {
+        var fl = document.createElement('div');
+        fl.className = 'mini';
+        fl.style.marginTop = '6px';
+        fl.textContent = 'Uploaded file: ' + it.filename;
+        panel.appendChild(fl);
+      }
       // When the item carries a DOI (or arxiv id), show it as its own clickable
       // link too, resolved through doi.org / the arxiv page by paperUrl.
       var link = paperUrl(it);
@@ -1146,6 +1380,7 @@
       if (it.title) return it.title;
       var a = String(it.abstract || it.text || '').trim();
       if (a) return a.length > 90 ? a.slice(0, 90) + '...' : a;
+      if (it.filename) return String(it.filename);
       return 'Untitled abstract';
     }
     function fmtDate(v) {
@@ -1641,6 +1876,7 @@
        reaches onAuthed synchronously would dispatch into a document with no listener yet, and the
        greeting and map would simply never start. */
     on(document, 'pv:authed', function (e) {
+      try { upResume(); } catch (err) {}
       var user = e && e.detail;
       try { typeGreeting(railIdentity(user)); } catch (err) { console.error('[pubverse] greeting', err); }
       // Started on sign-in even though Search is now the default tab: the needle list and the field

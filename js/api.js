@@ -166,6 +166,53 @@
       encodeURIComponent(runId) + '.tsv' + (qs ? '?' + qs : '');
   }
 
+  // Upload a file for review. fetch cannot report upload progress, so this is XHR. It follows the same
+  // conventions as request(): the Bearer token, a uniform { ok:false, message } on any failure, and no
+  // retry (a second attempt would file the same document twice). onProgress(fraction 0..1) is optional.
+  function uploadFile(path, file, fields, onProgress) {
+    return new Promise(function (resolve) {
+      var xhr = new XMLHttpRequest();
+      var done = false;
+      function finish(out) { if (!done) { done = true; resolve(out); } }
+      xhr.open('POST', window.PV.API_BASE + path);
+      xhr.withCredentials = true;
+      var tok = getToken();
+      if (tok) xhr.setRequestHeader('Authorization', 'Bearer ' + tok);
+      xhr.timeout = 600000;
+      if (xhr.upload && onProgress) {
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable && e.total > 0) onProgress(Math.min(1, e.loaded / e.total));
+        };
+      }
+      xhr.onerror = function () { finish({ ok: false, transport: 'network', message: NET_ERROR }); };
+      xhr.onabort = xhr.onerror;
+      xhr.ontimeout = function () { finish({ ok: false, transport: 'timeout', message: SLOW_ERROR }); };
+      xhr.onload = function () {
+        var data = null;
+        try { data = JSON.parse(xhr.responseText); } catch (e) { data = null; }
+        var ok = xhr.status >= 200 && xhr.status < 300;
+        if (data !== null && typeof data === 'object') {
+          if (typeof data.ok !== 'undefined') { finish(data); return; }
+          if (ok) { finish(data); return; }
+          finish({ ok: false, status: xhr.status, message: pickMessage(data, xhr.status) });
+          return;
+        }
+        finish(ok ? { ok: true } : { ok: false, status: xhr.status, message: statusMessage(xhr.status) });
+      };
+      var fd = new FormData();
+      fd.append('file', file, file.name);
+      Object.keys(fields || {}).forEach(function (k) { if (fields[k]) fd.append(k, fields[k]); });
+      try { xhr.send(fd); } catch (e) { finish({ ok: false, message: NET_ERROR }); }
+    });
+  }
+
+  // Download link for a reviewed document. A plain <a href> cannot send an Authorization header, so the
+  // job's own short-lived token (returned with the finished job, never the session token) rides in the query.
+  function reviewDocxUrl(jobId, downloadToken) {
+    var qs = downloadToken ? ('?pv_token=' + encodeURIComponent(downloadToken)) : '';
+    return window.PV.API_BASE + '/api/review/jobs/' + encodeURIComponent(jobId) + '/docx' + qs;
+  }
+
   window.PV.api = {
     // account
     login: function (username, password) {
@@ -200,6 +247,14 @@
       // slow request and could file the same abstract into the history twice.
       return request('/api/score', { method: 'POST', retry: false, body: body, timeout: 180000 });
     },
+    // upload review: a .docx or PDF reviewed in place. The upload returns a job; the page polls it.
+    reviewUpload: function (file, title, onProgress) {
+      return uploadFile('/api/review/upload', file, { title: title }, onProgress);
+    },
+    reviewJob: function (jobId) {
+      return request('/api/review/jobs/' + encodeURIComponent(jobId), { meta: true });
+    },
+    reviewDocxUrl: reviewDocxUrl,
     history: function () {
       return request('/api/history');
     },
