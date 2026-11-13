@@ -917,6 +917,9 @@
             (u ? '<a href="' + escG(u) + '" target="_blank" rel="noopener">' + t + '</a>' : t) +
             (w.year ? ' (' + escG(w.year) + ')' : '') +
             (w.sim != null ? ' <span class="mini">cosine ' + (Math.round(w.sim * 100) / 100) + '</span>' : '');
+          // The complete reference the engine resolved (authors, journal, year;volume(issue):pages), when known.
+          var full = [w.authors, w.source].filter(function (x) { return x; }).join('. ');
+          if (full) html += '<div class="mini">' + escG(full) + '</div>';
           if (w.did) html += '<div class="mini" style="color:var(--muted)">' + escG(String(w.did).slice(0, 240)) + '</div>';
           html += '</li>';
         });
@@ -945,13 +948,35 @@
       var b = $('#scoreBibBtn');
       if (b) on(b, 'click', function () { downloadScoreBib(works); });
     }
+    // "Welander PV, Coleman ML, et al" -> "Welander, PV and Coleman, ML and others" (BibTeX's author syntax).
+    function bibAuthors(s) {
+      return String(s || '').split(', ').filter(function (x) { return x; }).map(function (a) {
+        if (a === 'et al') return 'others';
+        var m = a.match(/^(.*\S)\s+([A-Z]{1,4})$/);
+        return (m ? m[1] + ', ' + m[2] : a).replace(/[{}]/g, '');
+      }).join(' and ');
+    }
+    function bibFields(w) {
+      var L = [], clean = function (x) { return String(x).replace(/[{}]/g, ''); };
+      if (w.authors) L.push('  author = {' + bibAuthors(w.authors) + '},');
+      if (w.journal) L.push('  journal = {' + clean(w.journal) + '},');
+      if (w.volume) L.push('  volume = {' + clean(w.volume) + '},');
+      if (w.issue) L.push('  number = {' + clean(w.issue) + '},');
+      if (w.pages) L.push('  pages = {' + clean(w.pages).replace('-', '--') + '},');
+      if (w.doi) L.push('  doi = {' + clean(w.doi) + '},');
+      if (w.pmid) L.push('  pmid = {' + clean(w.pmid) + '},');
+      return L;
+    }
     function downloadScoreBib(works) {
-      var bib = (works || []).map(function (w, i) {
+      // The submission's authors' own papers (own_work, uploads only) stay in the list above as the prior work
+      // Novelty was judged against, but are left out of this "references to cite" download.
+      var bib = (works || []).filter(function (w) { return !w.own_work; }).map(function (w, i) {
         var sid = String(w.source_id || ''), key = 'pubverse' + (sid ? sid.replace(/[^a-zA-Z0-9]/g, '') : (i + 1));
         var L = ['@article{' + key + ','];
         if (w.title) L.push('  title = {' + String(w.title).replace(/[{}]/g, '') + '},');
         if (w.year) L.push('  year = {' + w.year + '},');
-        if (/^10\./.test(sid)) L.push('  doi = {' + sid + '},');
+        L = L.concat(bibFields(w));
+        if (!w.doi && /^10\./.test(sid)) L.push('  doi = {' + sid + '},');
         var u = citeUrl(w);
         if (u) L.push('  url = {' + u + '},');
         L.push('}');

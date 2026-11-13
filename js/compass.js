@@ -743,6 +743,17 @@
         var lines = ['@article{' + key + ','];
         if (w.title) lines.push('  title = {' + String(w.title).replace(/[{}]/g, '') + '},');
         if (w.year) lines.push('  year = {' + w.year + '},');
+        var clean = function (x) { return String(x).replace(/[{}]/g, ''); };
+        // complete fields when the engine resolved them (authors "Welander PV, ..., et al" -> BibTeX "and" list)
+        if (w.authors) lines.push('  author = {' + String(w.authors).split(', ').map(function (a) {
+          if (a === 'et al') return 'others';
+          var m = a.match(/^(.*\S)\s+([A-Z]{1,4})$/);
+          return clean(m ? m[1] + ', ' + m[2] : a);
+        }).join(' and ') + '},');
+        if (w.journal) lines.push('  journal = {' + clean(w.journal) + '},');
+        if (w.volume) lines.push('  volume = {' + clean(w.volume) + '},');
+        if (w.issue) lines.push('  number = {' + clean(w.issue) + '},');
+        if (w.pages) lines.push('  pages = {' + clean(w.pages).replace('-', '--') + '},');
         if (w.doi) lines.push('  doi = {' + w.doi + '},');
         var u = w.url || (w.doi ? 'https://doi.org/' + w.doi : '');
         if (u) lines.push('  url = {' + u + '},');
